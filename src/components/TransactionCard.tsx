@@ -9,7 +9,7 @@ interface Transaction {
   type: 'income' | 'expense';
   amount: number;
   category: string;
-  note: string;
+  note?: string;
   date: string;
   image_url?: string;
 }

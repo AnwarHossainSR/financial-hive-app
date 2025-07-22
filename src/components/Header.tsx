@@ -20,12 +20,14 @@ import {
 
 interface HeaderProps {
   currentBook: string;
+  user: any;
   onAddTransaction: () => void;
+  onSignOut: () => void;
   onImportPDF?: () => void;
   onExportData?: () => void;
 }
 
-export function Header({ currentBook, onAddTransaction, onImportPDF, onExportData }: HeaderProps) {
+export function Header({ currentBook, user, onAddTransaction, onSignOut, onImportPDF, onExportData }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-4">
@@ -89,7 +91,14 @@ export function Header({ currentBook, onAddTransaction, onImportPDF, onExportDat
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="text-sm">
+                  {user?.user_metadata?.display_name || user?.email}
+                </div>
+                <div className="text-xs text-muted-foreground font-normal">
+                  {user?.email}
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <User className="w-4 h-4 mr-2" />
@@ -100,7 +109,7 @@ export function Header({ currentBook, onAddTransaction, onImportPDF, onExportDat
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={onSignOut}>
                 Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>

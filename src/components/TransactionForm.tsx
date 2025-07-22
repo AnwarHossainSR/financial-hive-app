@@ -10,19 +10,9 @@ import { Plus, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TransactionFormProps {
-  onSubmit: (transaction: Omit<Transaction, 'id'>) => void;
+  bookId: string;
+  onSubmit: (transaction: any) => void;
   onCancel?: () => void;
-  initialData?: Partial<Transaction>;
-}
-
-interface Transaction {
-  id: string;
-  type: 'income' | 'expense';
-  amount: number;
-  category: string;
-  note: string;
-  date: string;
-  image_url?: string;
 }
 
 const INCOME_CATEGORIES = [
@@ -34,12 +24,12 @@ const EXPENSE_CATEGORIES = [
   'Bills & Utilities', 'Healthcare', 'Education', 'Travel', 'Other'
 ];
 
-export function TransactionForm({ onSubmit, onCancel, initialData }: TransactionFormProps) {
-  const [type, setType] = useState<'income' | 'expense'>(initialData?.type || 'expense');
-  const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
-  const [category, setCategory] = useState(initialData?.category || '');
-  const [note, setNote] = useState(initialData?.note || '');
-  const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+export function TransactionForm({ bookId, onSubmit, onCancel }: TransactionFormProps) {
+  const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState('');
+  const [note, setNote] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
@@ -48,10 +38,11 @@ export function TransactionForm({ onSubmit, onCancel, initialData }: Transaction
     if (!amount || !category) return;
 
     onSubmit({
+      book_id: bookId,
       type,
       amount: parseFloat(amount),
       category,
-      note,
+      note: note || undefined,
       date
     });
 
