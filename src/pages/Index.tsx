@@ -1,5 +1,6 @@
 import { BalanceCard } from "@/components/BalanceCard";
 import { BookSelector } from "@/components/BookSelector";
+import { CSVImport } from "@/components/CSVImport";
 import { Header } from "@/components/Header";
 import { QuickStats } from "@/components/QuickStats";
 import { TransactionCard } from "@/components/TransactionCard";
@@ -17,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Book } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
-import { BookOpen, Filter, Plus, Search } from "lucide-react";
+import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const Index = () => {
@@ -26,11 +27,13 @@ const Index = () => {
 
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const {
     transactions,
     loading: transactionsLoading,
+    initialized: transactionsInitialized,
     createTransaction,
     deleteTransaction,
   } = useTransactions(
@@ -68,6 +71,65 @@ const Index = () => {
     await deleteTransaction(id);
   };
 
+  const handleImportCSV = () => {
+    if (!selectedBook) {
+      toast({
+        title: "Select a book first",
+        description: "Please select a book before importing transactions.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowImportDialog(true);
+  };
+
+  const handleExportCSV = () => {
+    if (!selectedBook) {
+      toast({
+        title: "Select a book first",
+        description: "Please select a book before exporting data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (transactions.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no transactions to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create CSV content
+    const headers = ["Date", "Type", "Amount", "Category", "Note"];
+    const csvContent = [
+      headers.join(","),
+      ...transactions.map((t) =>
+        [t.date, t.type, t.amount, `"${t.category}"`, `"${t.note || ""}"`].join(
+          ","
+        )
+      ),
+    ].join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${selectedBook.name}-transactions.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export successful",
+      description: `Exported ${transactions.length} transactions to CSV.`,
+    });
+  };
+
   const canAddTransaction = selectedBook !== null;
 
   return (
@@ -87,18 +149,8 @@ const Index = () => {
           setShowAddForm(true);
         }}
         onSignOut={signOut}
-        onImportPDF={() =>
-          toast({
-            title: "Coming Soon",
-            description: "PDF import feature coming soon",
-          })
-        }
-        onExportData={() =>
-          toast({
-            title: "Coming Soon",
-            description: "CSV export feature coming soon",
-          })
-        }
+        onImportPDF={handleImportCSV}
+        onExportData={handleExportCSV}
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
@@ -182,6 +234,16 @@ const Index = () => {
                     </Button>
 
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleImportCSV}
+                      disabled={!canAddTransaction}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Import
+                    </Button>
+
+                    <Button
                       size="sm"
                       onClick={() => setShowAddForm(true)}
                       disabled={!canAddTransaction}
@@ -194,7 +256,7 @@ const Index = () => {
               </CardHeader>
 
               <CardContent className="space-y-3">
-                {transactionsLoading ? (
+                {transactionsLoading && !transactionsInitialized ? (
                   <div className="space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div key={i} className="animate-pulse">
@@ -245,6 +307,13 @@ const Index = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Dialog */}
+      <CSVImport
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        selectedBook={selectedBook}
+      />
     </div>
   );
 };

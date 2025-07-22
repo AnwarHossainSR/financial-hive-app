@@ -37,8 +37,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
       }
+      setLoading(false);
     };
 
     // Set up auth state listener
