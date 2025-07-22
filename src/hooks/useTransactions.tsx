@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
@@ -30,9 +30,13 @@ const useTransactions = (filters?: TransactionFilters) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false); // Start with false to prevent initial blink
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+
+  // Use ref to store current filters for realtime filtering
+  const currentFiltersRef = useRef<TransactionFilters | undefined>(filters);
+  currentFiltersRef.current = filters;
 
   // Memoize filter dependencies to prevent unnecessary refetches
   const filterDeps = useMemo(
@@ -46,6 +50,29 @@ const useTransactions = (filters?: TransactionFilters) => {
     }),
     [filters]
   );
+
+  // Helper function to check if a transaction matches current filters
+  const matchesCurrentFilters = useCallback((transaction: Transaction) => {
+    const currentFilters = currentFiltersRef.current;
+    if (!currentFilters) return true;
+
+    const searchLower = currentFilters.search?.toLowerCase().trim();
+
+    return (
+      (!currentFilters.bookId ||
+        transaction.book_id === currentFilters.bookId) &&
+      (!currentFilters.type || transaction.type === currentFilters.type) &&
+      (!currentFilters.category ||
+        transaction.category === currentFilters.category) &&
+      (!currentFilters.startDate ||
+        transaction.date >= currentFilters.startDate) &&
+      (!currentFilters.endDate || transaction.date <= currentFilters.endDate) &&
+      (!searchLower ||
+        transaction.note?.toLowerCase().includes(searchLower) ||
+        transaction.category.toLowerCase().includes(searchLower) ||
+        transaction.amount.toString().includes(searchLower))
+    );
+  }, []);
 
   const fetchTransactions = useCallback(async () => {
     if (!user) {
@@ -64,11 +91,11 @@ const useTransactions = (filters?: TransactionFilters) => {
       let query = supabase
         .from("transactions")
         .select("*")
-        .eq("user_id", user.id) // Add explicit user filter
+        .eq("user_id", user.id)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
 
-      // Apply filters
+      // Apply filters (except search which is done client-side)
       if (filterDeps.bookId) {
         query = query.eq("book_id", filterDeps.bookId);
       }
@@ -130,7 +157,7 @@ const useTransactions = (filters?: TransactionFilters) => {
       const transactionData = {
         ...transaction,
         user_id: user.id,
-        amount: Number(transaction.amount), // Ensure amount is a number
+        amount: Number(transaction.amount),
         date: transaction.date || new Date().toISOString().split("T")[0],
       };
 
@@ -143,14 +170,7 @@ const useTransactions = (filters?: TransactionFilters) => {
       if (error) throw error;
 
       // Optimistically update the state if it matches current filters
-      const matchesFilters =
-        (!filterDeps.bookId || data.book_id === filterDeps.bookId) &&
-        (!filterDeps.type || data.type === filterDeps.type) &&
-        (!filterDeps.category || data.category === filterDeps.category) &&
-        (!filterDeps.startDate || data.date >= filterDeps.startDate) &&
-        (!filterDeps.endDate || data.date <= filterDeps.endDate);
-
-      if (matchesFilters) {
+      if (matchesCurrentFilters(data)) {
         setTransactions((prev) => [data, ...prev]);
       }
 
@@ -193,14 +213,19 @@ const useTransactions = (filters?: TransactionFilters) => {
         .from("transactions")
         .update(updateData)
         .eq("id", id)
-        .eq("user_id", user?.id) // Ensure user owns the transaction
+        .eq("user_id", user?.id)
         .select()
         .single();
 
       if (error) throw error;
 
-      // Optimistically update the state
-      setTransactions((prev) => prev.map((t) => (t.id === id ? data : t)));
+      // Update the state and filter based on current filters
+      setTransactions((prev) => {
+        const updated = prev.map((t) => (t.id === id ? data : t));
+        // Re-filter if transaction no longer matches current filters
+        return updated.filter(matchesCurrentFilters);
+      });
+
       toast({
         title: "Transaction updated",
         description: "Your changes have been saved.",
@@ -224,11 +249,10 @@ const useTransactions = (filters?: TransactionFilters) => {
         .from("transactions")
         .delete()
         .eq("id", id)
-        .eq("user_id", user?.id); // Ensure user owns the transaction
+        .eq("user_id", user?.id);
 
       if (error) throw error;
 
-      // Optimistically update the state
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       toast({
         title: "Transaction deleted",
@@ -279,7 +303,6 @@ const useTransactions = (filters?: TransactionFilters) => {
     }
   };
 
-  // Bulk import transactions
   const importTransactions = async (
     transactions: Omit<
       Transaction,
@@ -335,9 +358,11 @@ const useTransactions = (filters?: TransactionFilters) => {
     }
   }, [user, filterDeps]);
 
-  // Set up realtime subscription
+  // Set up realtime subscription - ONLY depends on user and initialized
   useEffect(() => {
     if (!user || !initialized) return;
+
+    console.log("Setting up realtime subscription for user:", user.id);
 
     const channel = supabase
       .channel(`transactions-changes-${user.id}`)
@@ -352,32 +377,26 @@ const useTransactions = (filters?: TransactionFilters) => {
         (payload) => {
           console.log("Transaction change received:", payload);
 
-          // Handle realtime changes more efficiently
           if (payload.eventType === "INSERT" && payload.new) {
             const newTransaction = payload.new as Transaction;
-            const matchesFilters =
-              (!filterDeps.bookId ||
-                newTransaction.book_id === filterDeps.bookId) &&
-              (!filterDeps.type || newTransaction.type === filterDeps.type) &&
-              (!filterDeps.category ||
-                newTransaction.category === filterDeps.category) &&
-              (!filterDeps.startDate ||
-                newTransaction.date >= filterDeps.startDate) &&
-              (!filterDeps.endDate ||
-                newTransaction.date <= filterDeps.endDate);
 
-            if (matchesFilters) {
+            // Only add if it matches current filters
+            if (matchesCurrentFilters(newTransaction)) {
               setTransactions((prev) => {
                 const exists = prev.some((t) => t.id === newTransaction.id);
                 return exists ? prev : [newTransaction, ...prev];
               });
             }
           } else if (payload.eventType === "UPDATE" && payload.new) {
-            setTransactions((prev) =>
-              prev.map((t) =>
-                t.id === payload.new.id ? (payload.new as Transaction) : t
-              )
-            );
+            const updatedTransaction = payload.new as Transaction;
+
+            setTransactions((prev) => {
+              const updated = prev.map((t) =>
+                t.id === updatedTransaction.id ? updatedTransaction : t
+              );
+              // Re-filter in case the update makes it not match current filters
+              return updated.filter(matchesCurrentFilters);
+            });
           } else if (payload.eventType === "DELETE" && payload.old) {
             setTransactions((prev) =>
               prev.filter((t) => t.id !== payload.old.id)
@@ -390,9 +409,10 @@ const useTransactions = (filters?: TransactionFilters) => {
       });
 
     return () => {
+      console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
-  }, [user, initialized, filterDeps]);
+  }, [user, initialized, matchesCurrentFilters]); // Removed filterDeps dependency
 
   return {
     transactions,
