@@ -1,52 +1,64 @@
-import { useState, useMemo } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { Book, useBooks } from '@/hooks/useBooks';
-import { useTransactions } from '@/hooks/useTransactions';
-import { BookSelector } from '@/components/BookSelector';
-import { Header } from '@/components/Header';
-import { BalanceCard } from '@/components/BalanceCard';
-import { QuickStats } from '@/components/QuickStats';
-import { TransactionCard } from '@/components/TransactionCard';
-import { TransactionForm } from '@/components/TransactionForm';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Filter, Search, BookOpen } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
+import { BalanceCard } from "@/components/BalanceCard";
+import { BookSelector } from "@/components/BookSelector";
+import { Header } from "@/components/Header";
+import { QuickStats } from "@/components/QuickStats";
+import { TransactionCard } from "@/components/TransactionCard";
+import { TransactionForm } from "@/components/TransactionForm";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Book } from "@/hooks/useBooks";
+import { useTransactions } from "@/hooks/useTransactions";
+import { BookOpen, Filter, Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
 const Index = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  
+
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const { transactions, loading: transactionsLoading, createTransaction, deleteTransaction } = useTransactions(
-    selectedBook ? { bookId: selectedBook.id, search: searchQuery } : { search: searchQuery }
+  const {
+    transactions,
+    loading: transactionsLoading,
+    createTransaction,
+    deleteTransaction,
+  } = useTransactions(
+    selectedBook
+      ? { bookId: selectedBook.id, search: searchQuery }
+      : { search: searchQuery }
   );
 
   // Calculate totals from filtered transactions
   const { totalIncome, totalExpense, balance } = useMemo(() => {
     const income = transactions
-      .filter(t => t.type === 'income')
+      .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + Number(t.amount), 0);
-    
+
     const expense = transactions
-      .filter(t => t.type === 'expense')
+      .filter((t) => t.type === "expense")
       .reduce((sum, t) => sum + Number(t.amount), 0);
-    
+
     return {
       totalIncome: income,
       totalExpense: expense,
-      balance: income - expense
+      balance: income - expense,
     };
   }, [transactions]);
 
   const handleAddTransaction = async (newTransaction: any) => {
     const { error } = await createTransaction(newTransaction);
-    
+
     if (!error) {
       setShowAddForm(false);
     }
@@ -60,28 +72,38 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
-        currentBook={selectedBook?.name || 'No book selected'}
+      <Header
+        currentBook={selectedBook?.name || "No book selected"}
         user={user}
         onAddTransaction={() => {
           if (!canAddTransaction) {
             toast({
               title: "Select a book first",
               description: "Please select a book before adding transactions.",
-              variant: "destructive"
+              variant: "destructive",
             });
             return;
           }
           setShowAddForm(true);
         }}
         onSignOut={signOut}
-        onImportPDF={() => toast({ title: "Coming Soon", description: "PDF import feature coming soon" })}
-        onExportData={() => toast({ title: "Coming Soon", description: "CSV export feature coming soon" })}
+        onImportPDF={() =>
+          toast({
+            title: "Coming Soon",
+            description: "PDF import feature coming soon",
+          })
+        }
+        onExportData={() =>
+          toast({
+            title: "Coming Soon",
+            description: "CSV export feature coming soon",
+          })
+        }
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Book Selector */}
-        <BookSelector 
+        <BookSelector
           selectedBook={selectedBook}
           onSelectBook={setSelectedBook}
         />
@@ -91,12 +113,15 @@ const Index = () => {
             <CardContent className="py-12">
               <div className="text-center">
                 <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-                <h3 className="text-lg font-semibold mb-2">Welcome to CashBook</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  Welcome to CashBook
+                </h3>
                 <p className="text-muted-foreground mb-6">
                   Select a book above to start tracking your income and expenses
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Books help you organize different types of expenses like personal, business, or project-specific costs.
+                  Books help you organize different types of expenses like
+                  personal, business, or project-specific costs.
                 </p>
               </div>
             </CardContent>
@@ -150,14 +175,14 @@ const Index = () => {
                         className="pl-10 w-64"
                       />
                     </div>
-                    
+
                     <Button variant="outline" size="sm">
                       <Filter className="w-4 h-4 mr-2" />
                       Filter
                     </Button>
-                    
-                    <Button 
-                      size="sm" 
+
+                    <Button
+                      size="sm"
                       onClick={() => setShowAddForm(true)}
                       disabled={!canAddTransaction}
                     >
@@ -167,7 +192,7 @@ const Index = () => {
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-3">
                 {transactionsLoading ? (
                   <div className="space-y-3">
@@ -187,7 +212,9 @@ const Index = () => {
                   ))
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    {searchQuery ? 'No transactions match your search.' : 'No transactions yet. Add your first transaction to get started!'}
+                    {searchQuery
+                      ? "No transactions match your search."
+                      : "No transactions yet. Add your first transaction to get started!"}
                   </div>
                 )}
               </CardContent>

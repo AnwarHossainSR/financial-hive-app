@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 
 interface BalanceCardProps {
   title: string;
   amount: number;
-  type: 'balance' | 'income' | 'expense';
+  type: "balance" | "income" | "expense";
   subtitle?: string;
   trend?: {
     value: number;
@@ -13,29 +13,35 @@ interface BalanceCardProps {
   };
 }
 
-export function BalanceCard({ title, amount, type, subtitle, trend }: BalanceCardProps) {
+export function BalanceCard({
+  title,
+  amount,
+  type,
+  subtitle,
+  trend,
+}: BalanceCardProps) {
   const getCardStyles = () => {
     switch (type) {
-      case 'income':
+      case "income":
         return {
-          gradient: 'bg-gradient-income',
-          shadow: 'shadow-income',
+          gradient: "bg-gradient-income",
+          shadow: "shadow-income",
           icon: TrendingUp,
-          textColor: 'text-income-foreground'
+          textColor: "text-income-foreground",
         };
-      case 'expense':
+      case "expense":
         return {
-          gradient: 'bg-gradient-expense', 
-          shadow: 'shadow-expense',
+          gradient: "bg-gradient-expense",
+          shadow: "shadow-expense",
           icon: TrendingDown,
-          textColor: 'text-expense-foreground'
+          textColor: "text-expense-foreground",
         };
       default:
         return {
-          gradient: 'bg-gradient-balance',
-          shadow: 'shadow-card',
+          gradient: "bg-gradient-balance",
+          shadow: "shadow-card",
           icon: DollarSign,
-          textColor: 'text-primary-foreground'
+          textColor: "text-primary-foreground",
         };
     }
   };
@@ -43,10 +49,15 @@ export function BalanceCard({ title, amount, type, subtitle, trend }: BalanceCar
   const { gradient, shadow, icon: Icon, textColor } = getCardStyles();
 
   return (
-    <Card className={cn("relative overflow-hidden transition-all duration-300 hover:scale-105 animate-scale-in", shadow)}>
+    <Card
+      className={cn(
+        "relative overflow-hidden transition-all duration-300 hover:scale-105 animate-scale-in",
+        shadow
+      )}
+    >
       {/* Gradient Background */}
       <div className={cn("absolute inset-0", gradient)} />
-      
+
       {/* Content */}
       <div className="relative">
         <CardHeader className="pb-2">
@@ -57,18 +68,24 @@ export function BalanceCard({ title, amount, type, subtitle, trend }: BalanceCar
             <Icon className={cn("w-4 h-4", textColor)} />
           </div>
         </CardHeader>
-        
+
         <CardContent className="pt-0">
-          <div className={cn("text-2xl font-bold mb-1 animate-amount-pulse", textColor)}>
-            ${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          <div
+            className={cn(
+              "text-2xl font-bold mb-1 animate-amount-pulse",
+              textColor
+            )}
+          >
+            $
+            {Math.abs(amount).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+            })}
           </div>
-          
+
           {subtitle && (
-            <p className={cn("text-xs opacity-90", textColor)}>
-              {subtitle}
-            </p>
+            <p className={cn("text-xs opacity-90", textColor)}>{subtitle}</p>
           )}
-          
+
           {trend && (
             <div className="flex items-center mt-2 space-x-1">
               {trend.isPositive ? (

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Calendar, Target } from "lucide-react";
+import { Calendar, Target, TrendingDown, TrendingUp } from "lucide-react";
 
 interface QuickStatsProps {
   monthlyIncome: number;
@@ -8,7 +8,12 @@ interface QuickStatsProps {
   savingsGoal?: number;
 }
 
-export function QuickStats({ monthlyIncome, monthlyExpense, transactionCount, savingsGoal = 5000 }: QuickStatsProps) {
+export function QuickStats({
+  monthlyIncome,
+  monthlyExpense,
+  transactionCount,
+  savingsGoal = 5000,
+}: QuickStatsProps) {
   const monthlySavings = monthlyIncome - monthlyExpense;
   const savingsProgress = (monthlySavings / savingsGoal) * 100;
 
@@ -81,7 +86,7 @@ export function QuickStats({ monthlyIncome, monthlyExpense, transactionCount, sa
             {Math.round(savingsProgress)}%
           </div>
           <div className="w-full bg-muted rounded-full h-2 mt-2">
-            <div 
+            <div
               className="bg-gradient-primary h-2 rounded-full transition-all duration-500"
               style={{ width: `${Math.min(savingsProgress, 100)}%` }}
             />

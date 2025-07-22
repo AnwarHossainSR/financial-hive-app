@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-import { useToast } from './use-toast';
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { useToast } from "./use-toast";
+import { useAuth } from "./useAuth";
 
 export interface Transaction {
   id: string;
   book_id: string;
   user_id: string;
-  type: 'income' | 'expense';
+  type: "income" | "expense";
   amount: number;
   category: string;
   note?: string;
@@ -19,7 +19,7 @@ export interface Transaction {
 
 export interface TransactionFilters {
   bookId?: string;
-  type?: 'income' | 'expense';
+  type?: "income" | "expense";
   category?: string;
   startDate?: string;
   endDate?: string;
@@ -43,26 +43,26 @@ export const useTransactions = (filters?: TransactionFilters) => {
     try {
       setLoading(true);
       let query = supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .from("transactions")
+        .select("*")
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
 
       // Apply filters
       if (filters?.bookId) {
-        query = query.eq('book_id', filters.bookId);
+        query = query.eq("book_id", filters.bookId);
       }
       if (filters?.type) {
-        query = query.eq('type', filters.type);
+        query = query.eq("type", filters.type);
       }
       if (filters?.category) {
-        query = query.eq('category', filters.category);
+        query = query.eq("category", filters.category);
       }
       if (filters?.startDate) {
-        query = query.gte('date', filters.startDate);
+        query = query.gte("date", filters.startDate);
       }
       if (filters?.endDate) {
-        query = query.lte('date', filters.endDate);
+        query = query.lte("date", filters.endDate);
       }
 
       const { data, error } = await query;
@@ -74,9 +74,10 @@ export const useTransactions = (filters?: TransactionFilters) => {
       // Apply search filter on client side
       if (filters?.search) {
         const searchLower = filters.search.toLowerCase();
-        filteredData = filteredData.filter(t => 
-          t.note?.toLowerCase().includes(searchLower) ||
-          t.category.toLowerCase().includes(searchLower)
+        filteredData = filteredData.filter(
+          (t) =>
+            t.note?.toLowerCase().includes(searchLower) ||
+            t.category.toLowerCase().includes(searchLower)
         );
       }
 
@@ -87,68 +88,82 @@ export const useTransactions = (filters?: TransactionFilters) => {
       toast({
         title: "Error loading transactions",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const createTransaction = async (transaction: Omit<Transaction, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
-    if (!user) return { error: 'User not authenticated' };
+  const createTransaction = async (
+    transaction: Omit<
+      Transaction,
+      "id" | "user_id" | "created_at" | "updated_at"
+    >
+  ) => {
+    if (!user) return { error: "User not authenticated" };
 
     try {
       const { data, error } = await supabase
-        .from('transactions')
-        .insert([{
-          ...transaction,
-          user_id: user.id
-        }])
+        .from("transactions")
+        .insert([
+          {
+            ...transaction,
+            user_id: user.id,
+          },
+        ])
         .select()
         .single();
 
       if (error) throw error;
 
-      setTransactions(prev => [data, ...prev]);
+      setTransactions((prev) => [data, ...prev]);
       toast({
         title: "Transaction added",
-        description: `${transaction.type === 'income' ? 'Income' : 'Expense'} of $${transaction.amount} recorded.`
+        description: `${
+          transaction.type === "income" ? "Income" : "Expense"
+        } of $${transaction.amount} recorded.`,
       });
-      
+
       return { data, error: null };
     } catch (error: any) {
       toast({
         title: "Error creating transaction",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
       return { error: error.message };
     }
   };
 
-  const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, 'id' | 'user_id' | 'created_at' | 'updated_at'>>) => {
+  const updateTransaction = async (
+    id: string,
+    updates: Partial<
+      Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">
+    >
+  ) => {
     try {
       const { data, error } = await supabase
-        .from('transactions')
+        .from("transactions")
         .update(updates)
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
       if (error) throw error;
 
-      setTransactions(prev => prev.map(t => t.id === id ? data : t));
+      setTransactions((prev) => prev.map((t) => (t.id === id ? data : t)));
       toast({
         title: "Transaction updated",
-        description: "Your changes have been saved."
+        description: "Your changes have been saved.",
       });
-      
+
       return { data, error: null };
     } catch (error: any) {
       toast({
         title: "Error updating transaction",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
       return { error: error.message };
     }
@@ -157,52 +172,52 @@ export const useTransactions = (filters?: TransactionFilters) => {
   const deleteTransaction = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('transactions')
+        .from("transactions")
         .delete()
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
-      setTransactions(prev => prev.filter(t => t.id !== id));
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
       toast({
         title: "Transaction deleted",
-        description: "The transaction has been removed."
+        description: "The transaction has been removed.",
       });
-      
+
       return { error: null };
     } catch (error: any) {
       toast({
         title: "Error deleting transaction",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
       return { error: error.message };
     }
   };
 
   const uploadReceipt = async (file: File, transactionId?: string) => {
-    if (!user) return { error: 'User not authenticated' };
+    if (!user) return { error: "User not authenticated" };
 
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
+
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('receipts')
+        .from("receipts")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('receipts')
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("receipts").getPublicUrl(fileName);
 
       return { data: { path: fileName, url: publicUrl }, error: null };
     } catch (error: any) {
       toast({
         title: "Error uploading receipt",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
       return { error: error.message };
     }
@@ -217,16 +232,16 @@ export const useTransactions = (filters?: TransactionFilters) => {
     if (!user) return;
 
     const channel = supabase
-      .channel('transactions-changes')
+      .channel("transactions-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'transactions'
+          event: "*",
+          schema: "public",
+          table: "transactions",
         },
         (payload) => {
-          console.log('Transaction change received:', payload);
+          console.log("Transaction change received:", payload);
           fetchTransactions(); // Refetch to ensure we have the latest data
         }
       )
@@ -245,6 +260,6 @@ export const useTransactions = (filters?: TransactionFilters) => {
     updateTransaction,
     deleteTransaction,
     uploadReceipt,
-    refetch: fetchTransactions
+    refetch: fetchTransactions,
   };
 };
