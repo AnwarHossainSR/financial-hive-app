@@ -1,13 +1,18 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Plus, Upload, X } from "lucide-react";
+import { useState } from "react";
 
 interface TransactionFormProps {
   bookId: string;
@@ -16,22 +21,38 @@ interface TransactionFormProps {
 }
 
 const INCOME_CATEGORIES = [
-  'Salary', 'Freelance', 'Investment', 'Business', 'Gift', 'Other Income'
+  "Salary",
+  "Freelance",
+  "Investment",
+  "Business",
+  "Gift",
+  "Other Income",
 ];
 
 const EXPENSE_CATEGORIES = [
-  'Food & Dining', 'Transportation', 'Shopping', 'Entertainment', 
-  'Bills & Utilities', 'Healthcare', 'Education', 'Travel', 'Other'
+  "Food & Dining",
+  "Transportation",
+  "Shopping",
+  "Entertainment",
+  "Bills & Utilities",
+  "Healthcare",
+  "Education",
+  "Travel",
+  "Other",
 ];
 
-export function TransactionForm({ bookId, onSubmit, onCancel }: TransactionFormProps) {
-  const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+export function TransactionForm({
+  bookId,
+  onSubmit,
+  onCancel,
+}: TransactionFormProps) {
+  const [type, setType] = useState<"income" | "expense">("expense");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,14 +64,14 @@ export function TransactionForm({ bookId, onSubmit, onCancel }: TransactionFormP
       amount: parseFloat(amount),
       category,
       note: note || undefined,
-      date
+      date,
     });
 
     // Reset form
-    setAmount('');
-    setCategory('');
-    setNote('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setAmount("");
+    setCategory("");
+    setNote("");
+    setDate(new Date().toISOString().split("T")[0]);
   };
 
   return (
@@ -65,7 +86,7 @@ export function TransactionForm({ bookId, onSubmit, onCancel }: TransactionFormP
           )}
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Transaction Type */}
@@ -74,22 +95,24 @@ export function TransactionForm({ bookId, onSubmit, onCancel }: TransactionFormP
             <div className="flex space-x-2 mt-1">
               <Button
                 type="button"
-                variant={type === 'income' ? 'default' : 'outline'}
-                onClick={() => setType('income')}
+                variant={type === "income" ? "default" : "outline"}
+                onClick={() => setType("income")}
                 className={cn(
                   "flex-1 transition-all duration-200",
-                  type === 'income' && "bg-income hover:bg-income text-income-foreground"
+                  type === "income" &&
+                    "bg-income hover:bg-income text-income-foreground"
                 )}
               >
                 Income
               </Button>
               <Button
                 type="button"
-                variant={type === 'expense' ? 'default' : 'outline'}
-                onClick={() => setType('expense')}
+                variant={type === "expense" ? "default" : "outline"}
+                onClick={() => setType("expense")}
                 className={cn(
                   "flex-1 transition-all duration-200",
-                  type === 'expense' && "bg-expense hover:bg-expense text-expense-foreground"
+                  type === "expense" &&
+                    "bg-expense hover:bg-expense text-expense-foreground"
                 )}
               >
                 Expense
@@ -165,16 +188,18 @@ export function TransactionForm({ bookId, onSubmit, onCancel }: TransactionFormP
           </div>
 
           {/* Submit Button */}
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className={cn(
               "w-full",
-              type === 'income' ? "bg-income hover:bg-income" : "bg-expense hover:bg-expense"
+              type === "income"
+                ? "bg-income hover:bg-income"
+                : "bg-expense hover:bg-expense"
             )}
             disabled={!amount || !category}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add {type === 'income' ? 'Income' : 'Expense'}
+            Add {type === "income" ? "Income" : "Expense"}
           </Button>
         </form>
       </CardContent>

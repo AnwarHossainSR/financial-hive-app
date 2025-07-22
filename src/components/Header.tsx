@@ -1,14 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  BookOpen, 
-  Plus, 
-  Bell, 
-  User, 
-  Settings, 
-  Download,
-  Upload
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +8,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Bell,
+  BookOpen,
+  Download,
+  Plus,
+  Settings,
+  Upload,
+  User,
+} from "lucide-react";
 
 interface HeaderProps {
   currentBook: string;
@@ -27,7 +27,14 @@ interface HeaderProps {
   onExportData?: () => void;
 }
 
-export function Header({ currentBook, user, onAddTransaction, onSignOut, onImportPDF, onExportData }: HeaderProps) {
+export function Header({
+  currentBook,
+  user,
+  onAddTransaction,
+  onSignOut,
+  onImportPDF,
+  onExportData,
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-4">
@@ -39,7 +46,7 @@ export function Header({ currentBook, user, onAddTransaction, onSignOut, onImpor
             </div>
             <h1 className="text-lg font-bold">CashBook</h1>
           </div>
-          
+
           <Badge variant="outline" className="text-xs">
             {currentBook}
           </Badge>
@@ -48,7 +55,7 @@ export function Header({ currentBook, user, onAddTransaction, onSignOut, onImpor
         {/* Actions */}
         <div className="flex items-center space-x-2">
           {/* Add Transaction */}
-          <Button 
+          <Button
             onClick={onAddTransaction}
             size="sm"
             className="bg-gradient-primary hover:opacity-90"
@@ -109,7 +116,10 @@ export function Header({ currentBook, user, onAddTransaction, onSignOut, onImpor
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={onSignOut}>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={onSignOut}
+              >
                 Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>

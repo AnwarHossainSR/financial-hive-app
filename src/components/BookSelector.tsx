@@ -1,40 +1,65 @@
-import { useState } from 'react';
-import { Book, useBooks } from '@/hooks/useBooks';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, BookOpen, Building2, User, Settings, Trash2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Book, useBooks } from "@/hooks/useBooks";
+import {
+  BookOpen,
+  Building2,
+  Plus,
+  Settings,
+  Trash2,
+  User,
+} from "lucide-react";
+import { useState } from "react";
 
 interface BookSelectorProps {
   selectedBook: Book | null;
   onSelectBook: (book: Book | null) => void;
 }
 
-export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) => {
+export const BookSelector = ({
+  selectedBook,
+  onSelectBook,
+}: BookSelectorProps) => {
   const { books, loading, createBook, updateBook, deleteBook } = useBooks();
   const { toast } = useToast();
-  
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'personal' as 'personal' | 'business',
-    description: ''
+    name: "",
+    type: "personal" as "personal" | "business",
+    description: "",
   });
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const { error } = await createBook(formData.name, formData.type, formData.description);
-    
+
+    const { error } = await createBook(
+      formData.name,
+      formData.type,
+      formData.description
+    );
+
     if (!error) {
       setShowCreateDialog(false);
-      setFormData({ name: '', type: 'personal', description: '' });
+      setFormData({ name: "", type: "personal", description: "" });
     }
   };
 
@@ -45,7 +70,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
     const { error } = await updateBook(selectedBook.id, {
       name: formData.name,
       type: formData.type,
-      description: formData.description
+      description: formData.description,
     });
 
     if (!error) {
@@ -57,7 +82,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
     if (!selectedBook) return;
 
     const { error } = await deleteBook(selectedBook.id);
-    
+
     if (!error) {
       onSelectBook(null);
       setShowEditDialog(false);
@@ -69,7 +94,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
       setFormData({
         name: selectedBook.name,
         type: selectedBook.type,
-        description: selectedBook.description || ''
+        description: selectedBook.description || "",
       });
       setShowEditDialog(true);
     }
@@ -97,9 +122,9 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
               <BookOpen className="w-5 h-5" />
               <span>Select Book</span>
             </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowCreateDialog(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -107,13 +132,15 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
             </Button>
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
           {books.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
               <p className="text-lg font-medium mb-2">No books yet</p>
-              <p className="text-sm">Create your first book to start tracking expenses</p>
+              <p className="text-sm">
+                Create your first book to start tracking expenses
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -122,14 +149,14 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                   key={book.id}
                   className={`relative p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                     selectedBook?.id === book.id
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-border hover:border-primary/50'
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/50"
                   }`}
                   onClick={() => onSelectBook(book)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3">
-                      {book.type === 'business' ? (
+                      {book.type === "business" ? (
                         <Building2 className="w-5 h-5 text-chart-2" />
                       ) : (
                         <User className="w-5 h-5 text-chart-1" />
@@ -146,7 +173,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                         )}
                       </div>
                     </div>
-                    
+
                     {selectedBook?.id === book.id && (
                       <Button
                         variant="ghost"
@@ -174,7 +201,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
           <DialogHeader>
             <DialogTitle>Create New Book</DialogTitle>
           </DialogHeader>
-          
+
           <form onSubmit={handleCreateBook} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="book-name">Book Name</Label>
@@ -182,17 +209,19 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                 id="book-name"
                 placeholder="My Expense Book"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="book-type">Type</Label>
               <Select
                 value={formData.type}
-                onValueChange={(value: 'personal' | 'business') => 
-                  setFormData(prev => ({ ...prev, type: value }))
+                onValueChange={(value: "personal" | "business") =>
+                  setFormData((prev) => ({ ...prev, type: value }))
                 }
               >
                 <SelectTrigger>
@@ -214,18 +243,23 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="book-description">Description (Optional)</Label>
               <Textarea
                 id="book-description"
                 placeholder="Brief description of this book..."
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 rows={3}
               />
             </div>
-            
+
             <div className="flex justify-end space-x-2">
               <Button
                 type="button"
@@ -246,7 +280,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
           <DialogHeader>
             <DialogTitle>Edit Book</DialogTitle>
           </DialogHeader>
-          
+
           <form onSubmit={handleEditBook} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="edit-book-name">Book Name</Label>
@@ -254,17 +288,19 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                 id="edit-book-name"
                 placeholder="My Expense Book"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="edit-book-type">Type</Label>
               <Select
                 value={formData.type}
-                onValueChange={(value: 'personal' | 'business') => 
-                  setFormData(prev => ({ ...prev, type: value }))
+                onValueChange={(value: "personal" | "business") =>
+                  setFormData((prev) => ({ ...prev, type: value }))
                 }
               >
                 <SelectTrigger>
@@ -286,18 +322,25 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="edit-book-description">Description (Optional)</Label>
+              <Label htmlFor="edit-book-description">
+                Description (Optional)
+              </Label>
               <Textarea
                 id="edit-book-description"
                 placeholder="Brief description of this book..."
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 rows={3}
               />
             </div>
-            
+
             <div className="flex justify-between">
               <Button
                 type="button"
@@ -308,7 +351,7 @@ export const BookSelector = ({ selectedBook, onSelectBook }: BookSelectorProps) 
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Book</span>
               </Button>
-              
+
               <div className="flex space-x-2">
                 <Button
                   type="button"
