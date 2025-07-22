@@ -12,6 +12,8 @@ interface AuthContextType {
     displayName?: string
   ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<{ error: any }>;
+  signInWithGithub: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -23,24 +25,70 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener first
+    // Get initial session
+    let mounted = true;
+
+    const getInitialSession = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+
+      if (mounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    };
+
+    // Set up auth state listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        // Create or update profile when user signs up/in
+        if (
+          session?.user &&
+          (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
+        ) {
+          await createOrUpdateProfile(session.user);
+        }
+
+        setLoading(false);
+      }
     });
 
-    // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    getInitialSession();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const createOrUpdateProfile = async (user: User) => {
+    try {
+      const { error } = await supabase.from("profiles").upsert({
+        user_id: user.id,
+        email: user.email,
+        display_name:
+          user.user_metadata?.display_name ||
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0],
+        avatar_url: user.user_metadata?.avatar_url,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        console.error("Error updating profile:", error);
+      }
+    } catch (error) {
+      console.error("Error in createOrUpdateProfile:", error);
+    }
+  };
 
   const signUp = async (
     email: string,
@@ -70,6 +118,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error };
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+    return { error };
+  };
+
+  const signInWithGithub = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -82,6 +154,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loading,
         signUp,
         signIn,
+        signInWithGoogle,
+        signInWithGithub,
         signOut,
       }}
     >
