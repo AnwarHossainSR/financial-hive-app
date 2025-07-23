@@ -42,7 +42,6 @@ const Index = () => {
       : { search: searchQuery }
   );
 
-  // Calculate totals from filtered transactions
   const { totalIncome, totalExpense, balance } = useMemo(() => {
     const income = transactions
       .filter((t) => t.type === "income")
@@ -61,14 +60,21 @@ const Index = () => {
 
   const handleAddTransaction = async (newTransaction: any) => {
     const { error } = await createTransaction(newTransaction);
-
     if (!error) {
       setShowAddForm(false);
+      toast({
+        title: "Transaction Added",
+        description: "Your transaction was successfully added.",
+      });
     }
   };
 
   const handleDeleteTransaction = async (id: string) => {
     await deleteTransaction(id);
+    toast({
+      title: "Transaction Deleted",
+      description: "The transaction was successfully removed.",
+    });
   };
 
   const handleImportCSV = () => {
@@ -107,24 +113,17 @@ const Index = () => {
       const autoTable = (await import("jspdf-autotable")).default;
 
       const doc = new jsPDF();
-
-      // Add title
       doc.setFontSize(20);
       doc.text(`${selectedBook.name} - Transaction Report`, 20, 20);
-
-      // Add date range info
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
       doc.text(`Total Transactions: ${transactions.length}`, 20, 45);
-
-      // Calculate totals
       const totalIncome = transactions
         .filter((t) => t.type === "income")
         .reduce((sum, t) => sum + Number(t.amount), 0);
       const totalExpense = transactions
         .filter((t) => t.type === "expense")
         .reduce((sum, t) => sum + Number(t.amount), 0);
-
       doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 55);
       doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 65);
       doc.text(
@@ -133,7 +132,6 @@ const Index = () => {
         75
       );
 
-      // Create table data
       const tableData = transactions.map((t) => [
         t.date,
         t.type.charAt(0).toUpperCase() + t.type.slice(1),
@@ -142,7 +140,6 @@ const Index = () => {
         t.note || "",
       ]);
 
-      // Add table
       autoTable(doc, {
         head: [["Date", "Type", "Amount", "Category", "Note"]],
         body: tableData,
@@ -152,25 +149,23 @@ const Index = () => {
           cellPadding: 3,
         },
         headStyles: {
-          fillColor: [66, 139, 202],
+          fillColor: [59, 130, 246], // Tailwind blue-500
           textColor: 255,
         },
         alternateRowStyles: {
-          fillColor: [245, 245, 245],
+          fillColor: [241, 245, 249], // Tailwind slate-100
         },
       });
 
-      // Save the PDF
       doc.save(`${selectedBook.name}-transactions.pdf`);
-
       toast({
-        title: "Export successful",
+        title: "Export Successful",
         description: `Exported ${transactions.length} transactions to PDF.`,
       });
     } catch (error) {
       console.error("PDF export error:", error);
       toast({
-        title: "Export failed",
+        title: "Export Failed",
         description: "There was an error generating the PDF.",
         variant: "destructive",
       });
@@ -196,7 +191,6 @@ const Index = () => {
       return;
     }
 
-    // Create CSV content
     const headers = ["Date", "Type", "Amount", "Category", "Note"];
     const csvContent = [
       headers.join(","),
@@ -207,7 +201,6 @@ const Index = () => {
       ),
     ].join("\n");
 
-    // Create and download file
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -219,7 +212,7 @@ const Index = () => {
     document.body.removeChild(link);
 
     toast({
-      title: "Export successful",
+      title: "Export Successful",
       description: `Exported ${transactions.length} transactions to CSV.`,
     });
   };
@@ -227,7 +220,7 @@ const Index = () => {
   const canAddTransaction = selectedBook !== null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header
         currentBook={selectedBook?.name || "No book selected"}
         user={user}
@@ -248,35 +241,36 @@ const Index = () => {
         onExportPDF={handleExportPDF}
       />
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Book Selector */}
-        <BookSelector
-          selectedBook={selectedBook}
-          onSelectBook={setSelectedBook}
-        />
+        <div className="relative">
+          <BookSelector
+            selectedBook={selectedBook}
+            onSelectBook={setSelectedBook}
+          />
+        </div>
 
         {!selectedBook ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center">
-                <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-                <h3 className="text-lg font-semibold mb-2">
-                  Welcome to CashBook
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Select a book above to start tracking your income and expenses
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Books help you organize different types of expenses like
-                  personal, business, or project-specific costs.
-                </p>
-              </div>
+          <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
+            <CardContent className="py-16 text-center">
+              <BookOpen className="w-20 h-20 mx-auto mb-6 text-blue-500 dark:text-blue-400 animate-bounce" />
+              <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
+                Welcome to CashBook
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
+                Select a book above to start tracking your income and expenses
+                with ease.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Organize your finances by creating books for personal, business,
+                or project-specific expenses.
+              </p>
             </CardContent>
           </Card>
         ) : (
           <>
             {/* Balance Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <BalanceCard
                 title="Total Balance"
                 amount={balance}
@@ -307,23 +301,28 @@ const Index = () => {
             />
 
             {/* Recent Transactions */}
-            <Card>
-              <CardHeader>
+            <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
+              <CardHeader className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
-                  <CardTitle>Recent Transactions</CardTitle>
-                  <div className="flex items-center space-x-2">
-                    {/* Search */}
+                  <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+                    Recent Transactions
+                  </CardTitle>
+                  <div className="flex items-center space-x-3">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <Input
                         placeholder="Search transactions..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 w-64"
+                        className="pl-10 w-72 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all"
                       />
                     </div>
 
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 transition-all"
+                    >
                       <Filter className="w-4 h-4 mr-2" />
                       Filter
                     </Button>
@@ -333,6 +332,7 @@ const Index = () => {
                       size="sm"
                       onClick={handleImportCSV}
                       disabled={!canAddTransaction}
+                      className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 transition-all"
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Import
@@ -342,21 +342,23 @@ const Index = () => {
                       size="sm"
                       onClick={() => setShowAddForm(true)}
                       disabled={!canAddTransaction}
+                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all"
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Add
+                      Add Transaction
                     </Button>
                   </div>
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-3">
+              <CardContent className="p-6 space-y-4">
                 {transactionsLoading && !transactionsInitialized ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {[...Array(3)].map((_, i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="h-16 bg-muted rounded-lg"></div>
-                      </div>
+                      <div
+                        key={i}
+                        className="h-20 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse"
+                      ></div>
                     ))}
                   </div>
                 ) : transactions.length > 0 ? (
@@ -368,7 +370,7 @@ const Index = () => {
                     />
                   ))
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     {searchQuery
                       ? "No transactions match your search."
                       : "No transactions yet. Add your first transaction to get started!"}
@@ -382,12 +384,12 @@ const Index = () => {
 
       {/* Add Transaction Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
               Add New Transaction
               {selectedBook && (
-                <span className="text-sm font-normal text-muted-foreground block">
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 block">
                   to {selectedBook.name}
                 </span>
               )}

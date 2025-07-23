@@ -35,7 +35,7 @@ All colors MUST be HSL for consistency
     --income: 142 76% 36%;
     --income-foreground: 0 0% 100%;
     --income-light: 142 76% 95%;
-    
+
     --expense: 0 84% 60%;
     --expense-foreground: 0 0% 100%;
     --expense-light: 0 84% 95%;
@@ -48,10 +48,26 @@ All colors MUST be HSL for consistency
     --ring: 214 100% 45%;
 
     /* Financial Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-income: linear-gradient(135deg, hsl(var(--income)), hsl(142 76% 50%));
-    --gradient-expense: linear-gradient(135deg, hsl(var(--expense)), hsl(0 84% 70%));
-    --gradient-balance: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(var(--primary)),
+      hsl(var(--primary-glow))
+    );
+    --gradient-income: linear-gradient(
+      135deg,
+      hsl(var(--income)),
+      hsl(142 76% 50%)
+    );
+    --gradient-expense: linear-gradient(
+      135deg,
+      hsl(var(--expense)),
+      hsl(0 84% 70%)
+    );
+    --gradient-balance: linear-gradient(
+      135deg,
+      hsl(var(--primary)),
+      hsl(var(--primary-glow))
+    );
 
     /* Shadows with brand colors */
     --shadow-card: 0 4px 20px -4px hsl(var(--primary) / 0.1);
