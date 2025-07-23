@@ -11,6 +11,7 @@ export interface Book {
   description?: string;
   created_at: string;
   updated_at: string;
+  isDefault: boolean;
 }
 
 const useBooks = () => {
@@ -62,7 +63,8 @@ const useBooks = () => {
   const createBook = async (
     name: string,
     type: "personal" | "business",
-    description?: string
+    description?: string,
+    isDefault?: boolean
   ) => {
     if (!user) return { error: "User not authenticated" };
 
@@ -74,6 +76,7 @@ const useBooks = () => {
             name,
             type,
             description,
+            isDefault,
             owner_id: user.id,
           },
         ])
