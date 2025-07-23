@@ -31,7 +31,7 @@ export function QuickStats({
         </CardHeader>
         <CardContent className="pt-0">
           <div className="text-2xl font-bold text-income">
-            +${monthlyIncome.toLocaleString()}
+            +৳{monthlyIncome.toLocaleString()}
           </div>
         </CardContent>
       </Card>
@@ -48,7 +48,7 @@ export function QuickStats({
         </CardHeader>
         <CardContent className="pt-0">
           <div className="text-2xl font-bold text-expense">
-            -${monthlyExpense.toLocaleString()}
+            -৳{monthlyExpense.toLocaleString()}
           </div>
         </CardContent>
       </Card>
@@ -92,7 +92,7 @@ export function QuickStats({
             />
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            ${monthlySavings.toLocaleString()} / ${savingsGoal.toLocaleString()}
+            ৳{monthlySavings.toLocaleString()} / ৳{savingsGoal.toLocaleString()}
           </p>
         </CardContent>
       </Card>

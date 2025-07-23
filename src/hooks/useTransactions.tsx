@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
@@ -37,19 +37,6 @@ const useTransactions = (filters?: TransactionFilters) => {
   // Use ref to store current filters for realtime filtering
   const currentFiltersRef = useRef<TransactionFilters | undefined>(filters);
   currentFiltersRef.current = filters;
-
-  // Memoize filter dependencies to prevent unnecessary refetches
-  const filterDeps = useMemo(
-    () => ({
-      bookId: filters?.bookId,
-      type: filters?.type,
-      category: filters?.category,
-      startDate: filters?.startDate,
-      endDate: filters?.endDate,
-      search: filters?.search,
-    }),
-    [filters]
-  );
 
   // Helper function to check if a transaction matches current filters
   const matchesCurrentFilters = useCallback((transaction: Transaction) => {
@@ -96,20 +83,21 @@ const useTransactions = (filters?: TransactionFilters) => {
         .order("created_at", { ascending: false });
 
       // Apply filters (except search which is done client-side)
-      if (filterDeps.bookId) {
-        query = query.eq("book_id", filterDeps.bookId);
+      const currentFilters = currentFiltersRef.current;
+      if (currentFilters?.bookId) {
+        query = query.eq("book_id", currentFilters.bookId);
       }
-      if (filterDeps.type) {
-        query = query.eq("type", filterDeps.type);
+      if (currentFilters?.type) {
+        query = query.eq("type", currentFilters.type);
       }
-      if (filterDeps.category) {
-        query = query.eq("category", filterDeps.category);
+      if (currentFilters?.category) {
+        query = query.eq("category", currentFilters.category);
       }
-      if (filterDeps.startDate) {
-        query = query.gte("date", filterDeps.startDate);
+      if (currentFilters?.startDate) {
+        query = query.gte("date", currentFilters.startDate);
       }
-      if (filterDeps.endDate) {
-        query = query.lte("date", filterDeps.endDate);
+      if (currentFilters?.endDate) {
+        query = query.lte("date", currentFilters.endDate);
       }
 
       const { data, error } = await query;
@@ -119,8 +107,8 @@ const useTransactions = (filters?: TransactionFilters) => {
       let filteredData = data || [];
 
       // Apply search filter on client side for better performance
-      if (filterDeps.search && filterDeps.search.trim()) {
-        const searchLower = filterDeps.search.toLowerCase().trim();
+      if (currentFilters?.search && currentFilters.search.trim()) {
+        const searchLower = currentFilters.search.toLowerCase().trim();
         filteredData = filteredData.filter(
           (t) =>
             t.note?.toLowerCase().includes(searchLower) ||
@@ -143,7 +131,7 @@ const useTransactions = (filters?: TransactionFilters) => {
       setLoading(false);
       setInitialized(true);
     }
-  }, [user, toast, initialized, filterDeps]);
+  }, [user, toast, initialized]);
 
   const createTransaction = async (
     transaction: Omit<
@@ -347,16 +335,44 @@ const useTransactions = (filters?: TransactionFilters) => {
     }
   };
 
+  // Use a ref to track previous filter values to avoid unnecessary refetches
+  const prevFiltersRef = useRef<string>("");
+
   // Initial fetch when user or filters change
   useEffect(() => {
-    if (user) {
-      fetchTransactions();
-    } else {
+    if (!user) {
       setTransactions([]);
       setInitialized(true);
       setLoading(false);
+      return;
     }
-  }, [user, filterDeps]);
+
+    // Create a stable string representation of filters for comparison
+    const currentFiltersStr = JSON.stringify({
+      bookId: filters?.bookId,
+      type: filters?.type,
+      category: filters?.category,
+      startDate: filters?.startDate,
+      endDate: filters?.endDate,
+      search: filters?.search,
+    });
+
+    // Only fetch if filters have actually changed or we haven't initialized yet
+    if (currentFiltersStr !== prevFiltersRef.current || !initialized) {
+      prevFiltersRef.current = currentFiltersStr;
+      fetchTransactions();
+    }
+  }, [
+    user,
+    filters?.bookId,
+    filters?.type,
+    filters?.category,
+    filters?.startDate,
+    filters?.endDate,
+    filters?.search,
+    initialized,
+    fetchTransactions,
+  ]);
 
   // Set up realtime subscription - ONLY depends on user and initialized
   useEffect(() => {
@@ -412,7 +428,7 @@ const useTransactions = (filters?: TransactionFilters) => {
       console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
-  }, [user, initialized, matchesCurrentFilters]); // Removed filterDeps dependency
+  }, [user, initialized, matchesCurrentFilters]);
 
   return {
     transactions,

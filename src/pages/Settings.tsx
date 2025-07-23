@@ -1,22 +1,36 @@
-import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useBooks } from "@/hooks/useBooks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader } from "@/components/ui/loader";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader } from "@/components/ui/loader";
-import { Settings as SettingsIcon, User, Book, Bell, Download, Trash2, Save } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useBooks } from "@/hooks/useBooks";
+import {
+  Bell,
+  Book,
+  Download,
+  Save,
+  Settings as SettingsIcon,
+  Trash2,
+  User,
+} from "lucide-react";
+import { useState } from "react";
 
 export const Settings = () => {
   const { user, signOut } = useAuth();
   const { books } = useBooks();
   const { toast } = useToast();
-  
+
   const [loading, setLoading] = useState(false);
   const [defaultBook, setDefaultBook] = useState("");
   const [notifications, setNotifications] = useState({
@@ -30,31 +44,35 @@ export const Settings = () => {
 
   const handleSaveSettings = async () => {
     setLoading(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     toast({
       title: "Settings saved",
       description: "Your preferences have been updated successfully.",
     });
-    
+
     setLoading(false);
   };
 
   const handleDeleteAccount = async () => {
-    if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+    if (
+      confirm(
+        "Are you sure you want to delete your account? This action cannot be undone."
+      )
+    ) {
       setLoading(true);
-      
+
       // Simulate account deletion
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       toast({
         title: "Account deleted",
         description: "Your account has been permanently deleted.",
         variant: "destructive",
       });
-      
+
       signOut();
     }
   };
@@ -68,7 +86,9 @@ export const Settings = () => {
             <SettingsIcon className="w-8 h-8 text-primary" />
             <div>
               <h1 className="text-3xl font-bold">Settings</h1>
-              <p className="text-muted-foreground">Manage your account and application preferences</p>
+              <p className="text-muted-foreground">
+                Manage your account and application preferences
+              </p>
             </div>
           </div>
 
@@ -95,7 +115,7 @@ export const Settings = () => {
                     Email cannot be changed after registration
                   </p>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="display-name">Display Name</Label>
                   <Input
@@ -125,7 +145,7 @@ export const Settings = () => {
                       <SelectValue placeholder="Select default book" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No default</SelectItem>
+                      <SelectItem value="none">No default</SelectItem>
                       {books.map((book) => (
                         <SelectItem key={book.id} value={book.id}>
                           {book.name}
@@ -134,7 +154,8 @@ export const Settings = () => {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    This book will be selected by default when adding transactions
+                    This book will be selected by default when adding
+                    transactions
                   </p>
                 </div>
 
@@ -191,7 +212,10 @@ export const Settings = () => {
                   <Switch
                     checked={notifications.transactions}
                     onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, transactions: checked }))
+                      setNotifications((prev) => ({
+                        ...prev,
+                        transactions: checked,
+                      }))
                     }
                   />
                 </div>
@@ -202,13 +226,14 @@ export const Settings = () => {
                   <div>
                     <p className="font-medium">Book Updates</p>
                     <p className="text-sm text-muted-foreground">
-                      Get notified about book changes and collaborator activities
+                      Get notified about book changes and collaborator
+                      activities
                     </p>
                   </div>
                   <Switch
                     checked={notifications.books}
                     onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, books: checked }))
+                      setNotifications((prev) => ({ ...prev, books: checked }))
                     }
                   />
                 </div>
@@ -225,7 +250,10 @@ export const Settings = () => {
                   <Switch
                     checked={notifications.reports}
                     onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, reports: checked }))
+                      setNotifications((prev) => ({
+                        ...prev,
+                        reports: checked,
+                      }))
                     }
                   />
                 </div>
@@ -242,7 +270,7 @@ export const Settings = () => {
                   <Switch
                     checked={notifications.email}
                     onCheckedChange={(checked) =>
-                      setNotifications(prev => ({ ...prev, email: checked }))
+                      setNotifications((prev) => ({ ...prev, email: checked }))
                     }
                   />
                 </div>
@@ -264,15 +292,16 @@ export const Settings = () => {
                   <Download className="w-4 h-4" />
                   Export All Data
                 </Button>
-                
+
                 <Button variant="outline" className="flex items-center gap-2">
                   <Download className="w-4 h-4" />
                   Download Account Backup
                 </Button>
               </div>
-              
+
               <p className="text-sm text-muted-foreground">
-                Export your data in various formats or create a complete backup of your account.
+                Export your data in various formats or create a complete backup
+                of your account.
               </p>
             </CardContent>
           </Card>
@@ -287,18 +316,25 @@ export const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <h4 className="font-medium text-red-800 mb-2">Delete Account</h4>
+                <h4 className="font-medium text-red-800 mb-2">
+                  Delete Account
+                </h4>
                 <p className="text-sm text-red-700 mb-4">
-                  Once you delete your account, there is no going back. This will permanently delete 
-                  your account, all your books, transactions, and remove all associated data.
+                  Once you delete your account, there is no going back. This
+                  will permanently delete your account, all your books,
+                  transactions, and remove all associated data.
                 </p>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   onClick={handleDeleteAccount}
                   disabled={loading}
                   className="flex items-center gap-2"
                 >
-                  {loading ? <Loader size="sm" /> : <Trash2 className="w-4 h-4" />}
+                  {loading ? (
+                    <Loader size="sm" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                   Delete Account
                 </Button>
               </div>
@@ -307,8 +343,8 @@ export const Settings = () => {
 
           {/* Save Button */}
           <div className="flex justify-end">
-            <Button 
-              onClick={handleSaveSettings} 
+            <Button
+              onClick={handleSaveSettings}
               disabled={loading}
               className="flex items-center gap-2"
             >

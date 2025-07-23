@@ -70,11 +70,11 @@ export const CSVImport = ({
   const [csvData, setCsvData] = useState<ParsedRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState({
-    date: "",
-    amount: "",
-    description: "",
-    type: "",
-    category: "",
+    date: "none",
+    amount: "none",
+    description: "none",
+    type: "none",
+    category: "none",
   });
   const [defaultType, setDefaultType] = useState<"income" | "expense">(
     "expense"
@@ -91,11 +91,11 @@ export const CSVImport = ({
     setCsvData([]);
     setHeaders([]);
     setMapping({
-      date: "",
-      amount: "",
-      description: "",
-      type: "",
-      category: "",
+      date: "none",
+      amount: "none",
+      description: "none",
+      type: "none",
+      category: "none",
     });
     setStep("upload");
     setPreviewData([]);
@@ -146,27 +146,29 @@ export const CSVImport = ({
             date:
               csvHeaders.find((_, i) =>
                 /^(date|transaction_date|trans_date|dt)$/i.test(lowerHeaders[i])
-              ) || "",
+              ) || "none",
             amount:
               csvHeaders.find((_, i) =>
-                /^(cash in|cash out|amount|amt|value|sum|total)$/i.test(lowerHeaders[i])
-              ) || "",
+                /^(cash in|cash out|amount|amt|value|sum|total)$/i.test(
+                  lowerHeaders[i]
+                )
+              ) || "none",
             description:
               csvHeaders.find((_, i) =>
                 /^(remark|description|desc|note|memo|details|transaction|reference)$/i.test(
                   lowerHeaders[i]
                 )
-              ) || "",
+              ) || "none",
             type:
               csvHeaders.find((_, i) =>
                 /^(type|transaction_type|trans_type|debit_credit|cash in|cash out)$/i.test(
                   lowerHeaders[i]
                 )
-              ) || "",
+              ) || "none",
             category:
               csvHeaders.find((_, i) =>
                 /^(category|cat|classification)$/i.test(lowerHeaders[i])
-              ) || "",
+              ) || "none",
           };
 
           setMapping(autoMapping);
@@ -193,7 +195,7 @@ export const CSVImport = ({
       try {
         // Parse date
         let date = "";
-        if (mapping.date && row[mapping.date]) {
+        if (mapping.date !== "none" && row[mapping.date]) {
           const parsedDate = new Date(row[mapping.date].trim());
           if (isNaN(parsedDate.getTime())) {
             validationErrors.push(`Row ${index + 1}: Invalid date format`);
@@ -207,15 +209,19 @@ export const CSVImport = ({
         // Parse amount - handle your CSV format with Cash In/Cash Out columns
         let amount = 0;
         let type: "income" | "expense" = defaultType;
-        
+
         // Check if we have Cash In/Cash Out columns
-        const cashInCol = headers.find(h => h.toLowerCase().includes('cash in'));
-        const cashOutCol = headers.find(h => h.toLowerCase().includes('cash out'));
-        
+        const cashInCol = headers.find((h) =>
+          h.toLowerCase().includes("cash in")
+        );
+        const cashOutCol = headers.find((h) =>
+          h.toLowerCase().includes("cash out")
+        );
+
         if (cashInCol && cashOutCol) {
           const cashIn = row[cashInCol]?.trim().replace(/[^0-9.-]/g, "");
           const cashOut = row[cashOutCol]?.trim().replace(/[^0-9.-]/g, "");
-          
+
           if (cashIn && parseFloat(cashIn) > 0) {
             amount = parseFloat(cashIn);
             type = "income";
@@ -226,16 +232,16 @@ export const CSVImport = ({
             validationErrors.push(`Row ${index + 1}: No valid amount found`);
             return;
           }
-        } else if (mapping.amount && row[mapping.amount]) {
+        } else if (mapping.amount !== "none" && row[mapping.amount]) {
           const amountStr = row[mapping.amount].trim().replace(/[^0-9.-]/g, "");
           amount = parseFloat(amountStr);
           if (isNaN(amount) || amount <= 0) {
             validationErrors.push(`Row ${index + 1}: Invalid amount`);
             return;
           }
-          
+
           // Determine type from separate column if not using Cash In/Out
-          if (mapping.type && row[mapping.type]) {
+          if (mapping.type !== "none" && row[mapping.type]) {
             const typeStr = row[mapping.type].trim().toLowerCase();
             if (
               typeStr.includes("income") ||
@@ -260,7 +266,7 @@ export const CSVImport = ({
 
         // Get category
         let category = defaultCategory;
-        if (mapping.category && row[mapping.category]) {
+        if (mapping.category !== "none" && row[mapping.category]) {
           const csvCategory = row[mapping.category].trim();
           if (TRANSACTION_CATEGORIES.includes(csvCategory)) {
             category = csvCategory;
@@ -269,7 +275,7 @@ export const CSVImport = ({
 
         // Get description/note
         const note =
-          mapping.description && row[mapping.description]
+          mapping.description !== "none" && row[mapping.description]
             ? row[mapping.description].trim()
             : undefined;
 
@@ -410,7 +416,7 @@ export const CSVImport = ({
                           <SelectValue placeholder="Select date column" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">-- Skip --</SelectItem>
+                          <SelectItem value="none">-- Skip --</SelectItem>
                           {headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -432,6 +438,9 @@ export const CSVImport = ({
                           <SelectValue placeholder="Select amount column" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="none">
+                            -- Select Required --
+                          </SelectItem>
                           {headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -458,7 +467,7 @@ export const CSVImport = ({
                           <SelectValue placeholder="Select description column" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">-- Skip --</SelectItem>
+                          <SelectItem value="none">-- Skip --</SelectItem>
                           {headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -480,7 +489,9 @@ export const CSVImport = ({
                           <SelectValue placeholder="Select type column" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">-- Use default --</SelectItem>
+                          <SelectItem value="none">
+                            -- Use default --
+                          </SelectItem>
                           {headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -502,7 +513,9 @@ export const CSVImport = ({
                           <SelectValue placeholder="Select category column" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">-- Use default --</SelectItem>
+                          <SelectItem value="none">
+                            -- Use default --
+                          </SelectItem>
                           {headers.map((header) => (
                             <SelectItem key={header} value={header}>
                               {header}
@@ -604,7 +617,7 @@ export const CSVImport = ({
                     </Button>
                     <Button
                       onClick={generatePreview}
-                      disabled={!mapping.amount}
+                      disabled={mapping.amount === "none"}
                     >
                       Preview Import
                     </Button>
@@ -691,7 +704,7 @@ export const CSVImport = ({
                                     </span>
                                   </td>
                                   <td className="border border-muted px-2 py-1">
-                                    ${transaction.amount.toFixed(2)}
+                                    ৳{transaction.amount.toFixed(2)}
                                   </td>
                                   <td className="border border-muted px-2 py-1">
                                     {transaction.category}
