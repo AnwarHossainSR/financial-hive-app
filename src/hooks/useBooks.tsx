@@ -18,7 +18,7 @@ const useBooks = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(false); // Start with false to prevent initial blink
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -30,7 +30,6 @@ const useBooks = () => {
       return;
     }
 
-    // Only show loading on initial fetch or manual refetch
     if (!initialized) {
       setLoading(true);
     }
@@ -39,7 +38,8 @@ const useBooks = () => {
       const { data, error } = await supabase
         .from("books")
         .select("*")
-        .eq("owner_id", user.id) // Add explicit owner filter
+        .eq("owner_id", user.id)
+        .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -64,11 +64,19 @@ const useBooks = () => {
     name: string,
     type: "personal" | "business",
     description?: string,
-    is_default?: boolean
+    is_default = false
   ) => {
     if (!user) return { error: "User not authenticated" };
 
     try {
+      // Only reset other books' is_default if there are existing books and is_default is true
+      if (is_default && books.length > 0) {
+        await supabase
+          .from("books")
+          .update({ is_default: false })
+          .eq("owner_id", user.id);
+      }
+
       const { data, error } = await supabase
         .from("books")
         .insert([
@@ -85,8 +93,9 @@ const useBooks = () => {
 
       if (error) throw error;
 
-      // Optimistically update the state
-      setBooks((prev) => [data, ...prev]);
+      // Refetch to ensure correct order with is_default first
+      await fetchBooks();
+
       toast({
         title: "Book created",
         description: `${name} has been created successfully.`,
@@ -108,19 +117,31 @@ const useBooks = () => {
     id: string,
     updates: Partial<Pick<Book, "name" | "type" | "description" | "is_default">>
   ) => {
+    if (!user) return { error: "User not authenticated" };
+    console.log("Updating book with ID:", id, "Updates:", updates);
     try {
+      // Only reset other books' is_default if setting is_default to true and there are other books
+      if (updates.is_default && books.length > 1) {
+        await supabase
+          .from("books")
+          .update({ is_default: false })
+          .eq("owner_id", user.id)
+          .neq("id", id);
+      }
+
       const { data, error } = await supabase
         .from("books")
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .eq("owner_id", user?.id) // Ensure user owns the book
+        .eq("owner_id", user.id)
         .select()
         .single();
 
       if (error) throw error;
 
-      // Optimistically update the state
-      setBooks((prev) => prev.map((book) => (book.id === id ? data : book)));
+      // Refetch to ensure correct order with is_default first
+      await fetchBooks();
+
       toast({
         title: "Book updated",
         description: "Your changes have been saved.",
@@ -144,7 +165,7 @@ const useBooks = () => {
         .from("books")
         .delete()
         .eq("id", id)
-        .eq("owner_id", user?.id); // Ensure user owns the book
+        .eq("owner_id", user?.id);
 
       if (error) throw error;
 
@@ -192,26 +213,9 @@ const useBooks = () => {
           table: "books",
           filter: `owner_id=eq.${user.id}`,
         },
-        (payload) => {
-          console.log("Books change received:", payload);
-
-          // Handle realtime changes more efficiently
-          if (payload.eventType === "INSERT" && payload.new) {
-            setBooks((prev) => {
-              const exists = prev.some((book) => book.id === payload.new.id);
-              return exists ? prev : [payload.new as Book, ...prev];
-            });
-          } else if (payload.eventType === "UPDATE" && payload.new) {
-            setBooks((prev) =>
-              prev.map((book) =>
-                book.id === payload.new.id ? (payload.new as Book) : book
-              )
-            );
-          } else if (payload.eventType === "DELETE" && payload.old) {
-            setBooks((prev) =>
-              prev.filter((book) => book.id !== payload.old.id)
-            );
-          }
+        () => {
+          // Refetch on any change to ensure is_default order is maintained
+          fetchBooks();
         }
       )
       .subscribe((status) => {
@@ -221,7 +225,7 @@ const useBooks = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, initialized]);
+  }, [user, initialized, fetchBooks]);
 
   return {
     books,

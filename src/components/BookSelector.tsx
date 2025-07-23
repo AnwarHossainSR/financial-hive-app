@@ -58,7 +58,8 @@ export const BookSelector = ({
     const { error } = await createBook(
       formData.name,
       formData.type,
-      formData.description
+      formData.description,
+      formData.is_default
     );
 
     console.log("error", error);
@@ -465,6 +466,22 @@ export const BookSelector = ({
                   }))
                 }
                 rows={3}
+                className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+              />
+            </div>
+
+            <div className="space-y-2 flex flex-col gap-1">
+              <Label
+                htmlFor="book-description"
+                className="text-sm text-foreground"
+              >
+                Default Book (Optional)?
+              </Label>
+              <Switch
+                checked={(formData.is_default ?? false) as boolean}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, is_default: checked }))
+                }
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
               />
             </div>
