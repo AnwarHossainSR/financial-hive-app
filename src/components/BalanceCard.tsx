@@ -76,7 +76,7 @@ export function BalanceCard({
               textColor
             )}
           >
-            $
+            ৳
             {Math.abs(amount).toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}

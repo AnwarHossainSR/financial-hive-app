@@ -103,44 +103,48 @@ const Index = () => {
     }
 
     try {
-      const { jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
 
       const doc = new jsPDF();
-      
+
       // Add title
       doc.setFontSize(20);
       doc.text(`${selectedBook.name} - Transaction Report`, 20, 20);
-      
+
       // Add date range info
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
       doc.text(`Total Transactions: ${transactions.length}`, 20, 45);
-      
+
       // Calculate totals
       const totalIncome = transactions
-        .filter(t => t.type === "income")
+        .filter((t) => t.type === "income")
         .reduce((sum, t) => sum + Number(t.amount), 0);
       const totalExpense = transactions
-        .filter(t => t.type === "expense")
+        .filter((t) => t.type === "expense")
         .reduce((sum, t) => sum + Number(t.amount), 0);
-      
-      doc.text(`Total Income: $${totalIncome.toLocaleString()}`, 20, 55);
-      doc.text(`Total Expenses: $${totalExpense.toLocaleString()}`, 20, 65);
-      doc.text(`Net Balance: $${(totalIncome - totalExpense).toLocaleString()}`, 20, 75);
+
+      doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 55);
+      doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 65);
+      doc.text(
+        `Net Balance: ৳${(totalIncome - totalExpense).toLocaleString()}`,
+        20,
+        75
+      );
 
       // Create table data
-      const tableData = transactions.map(t => [
+      const tableData = transactions.map((t) => [
         t.date,
         t.type.charAt(0).toUpperCase() + t.type.slice(1),
-        `$${Number(t.amount).toLocaleString()}`,
+        `৳${Number(t.amount).toLocaleString()}`,
         t.category,
-        t.note || ''
+        t.note || "",
       ]);
 
       // Add table
       autoTable(doc, {
-        head: [['Date', 'Type', 'Amount', 'Category', 'Note']],
+        head: [["Date", "Type", "Amount", "Category", "Note"]],
         body: tableData,
         startY: 85,
         styles: {
@@ -164,7 +168,7 @@ const Index = () => {
         description: `Exported ${transactions.length} transactions to PDF.`,
       });
     } catch (error) {
-      console.error('PDF export error:', error);
+      console.error("PDF export error:", error);
       toast({
         title: "Export failed",
         description: "There was an error generating the PDF.",

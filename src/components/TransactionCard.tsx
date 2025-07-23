@@ -54,7 +54,7 @@ export function TransactionCard({
                     isIncome ? "text-income" : "text-expense"
                   )}
                 >
-                  {isIncome ? "+" : "-"}$
+                  {isIncome ? "+" : "-"}৳
                   {Math.abs(transaction.amount).toFixed(2)}
                 </span>
                 {transaction.image_url && (
