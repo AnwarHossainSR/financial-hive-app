@@ -7,8 +7,10 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instanciate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)";
+    PostgrestVersion: "12.2.12 (cd3cf9e)";
   };
   public: {
     Tables: {
@@ -52,31 +54,31 @@ export type Database = {
           created_at: string;
           description: string | null;
           id: string;
+          is_default: boolean;
           name: string;
           owner_id: string;
           type: Database["public"]["Enums"]["book_type"];
           updated_at: string;
-          isDefault: boolean; // Added isDefault field
         };
         Insert: {
           created_at?: string;
           description?: string | null;
           id?: string;
+          is_default?: boolean;
           name: string;
           owner_id: string;
           type?: Database["public"]["Enums"]["book_type"];
           updated_at?: string;
-          isDefault?: boolean; // Added isDefault field
         };
         Update: {
           created_at?: string;
           description?: string | null;
           id?: string;
+          is_default?: boolean;
           name?: string;
           owner_id?: string;
           type?: Database["public"]["Enums"]["book_type"];
           updated_at?: string;
-          isDefault?: boolean; // Added isDefault field
         };
         Relationships: [];
       };

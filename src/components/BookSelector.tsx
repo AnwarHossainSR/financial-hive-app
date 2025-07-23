@@ -29,6 +29,7 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
+import { Switch } from "./ui/switch";
 
 interface BookSelectorProps {
   selectedBook: Book | null;
@@ -48,6 +49,7 @@ export const BookSelector = ({
     name: "",
     type: "personal" as "personal" | "business",
     description: "",
+    is_default: false,
   });
 
   const handleCreateBook = async (e: React.FormEvent) => {
@@ -59,9 +61,16 @@ export const BookSelector = ({
       formData.description
     );
 
+    console.log("error", error);
+
     if (!error) {
       setShowCreateDialog(false);
-      setFormData({ name: "", type: "personal", description: "" });
+      setFormData({
+        name: "",
+        type: "personal",
+        description: "",
+        is_default: false,
+      });
       toast({
         title: "Book Created",
         description: "Your new book was successfully created.",
@@ -83,6 +92,7 @@ export const BookSelector = ({
       name: formData.name,
       type: formData.type,
       description: formData.description,
+      is_default: formData.is_default,
     });
 
     if (!error) {
@@ -127,6 +137,7 @@ export const BookSelector = ({
         name: selectedBook.name,
         type: selectedBook.type,
         description: selectedBook.description || "",
+        is_default: selectedBook.is_default || false,
       });
       setShowEditDialog(true);
     }
@@ -334,6 +345,22 @@ export const BookSelector = ({
                   }))
                 }
                 rows={3}
+                className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+              />
+            </div>
+
+            <div className="space-y-2 flex flex-col gap-1">
+              <Label
+                htmlFor="book-description"
+                className="text-sm text-foreground"
+              >
+                Default Book (Optional)?
+              </Label>
+              <Switch
+                checked={(formData.is_default ?? false) as boolean}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, is_default: checked }))
+                }
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
               />
             </div>

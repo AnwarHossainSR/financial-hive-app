@@ -25,7 +25,7 @@ CREATE TABLE public.books (
   type book_type NOT NULL DEFAULT 'personal',
   owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   description TEXT,
-  isDefault BOOLEAN NOT NULL DEFAULT false,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );

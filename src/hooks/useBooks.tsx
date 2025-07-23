@@ -11,7 +11,7 @@ export interface Book {
   description?: string;
   created_at: string;
   updated_at: string;
-  isDefault: boolean;
+  is_default: boolean;
 }
 
 const useBooks = () => {
@@ -64,7 +64,7 @@ const useBooks = () => {
     name: string,
     type: "personal" | "business",
     description?: string,
-    isDefault?: boolean
+    is_default?: boolean
   ) => {
     if (!user) return { error: "User not authenticated" };
 
@@ -76,7 +76,7 @@ const useBooks = () => {
             name,
             type,
             description,
-            isDefault,
+            is_default,
             owner_id: user.id,
           },
         ])
@@ -106,7 +106,7 @@ const useBooks = () => {
 
   const updateBook = async (
     id: string,
-    updates: Partial<Pick<Book, "name" | "type" | "description">>
+    updates: Partial<Pick<Book, "name" | "type" | "description" | "is_default">>
   ) => {
     try {
       const { data, error } = await supabase
