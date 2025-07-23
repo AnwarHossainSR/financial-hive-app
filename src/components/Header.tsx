@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,16 +8,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  BookOpen,
-  Download,
-  Plus,
-  Settings,
-  Upload,
-  User,
-} from "lucide-react";
-import { NotificationDropdown } from "./NotificationDropdown";
+import { BookOpen, Download, Plus, Settings, Upload, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { NotificationDropdown } from "./NotificationDropdown";
 
 interface HeaderProps {
   currentBook: string;
@@ -30,7 +23,7 @@ interface HeaderProps {
 }
 
 export function Header({
-  currentBook,
+  // currentBook,
   user,
   onAddTransaction,
   onSignOut,
@@ -50,10 +43,10 @@ export function Header({
             </div>
             <h1 className="text-lg font-bold">CashBook</h1>
           </div>
-
+          {/* 
           <Badge variant="outline" className="text-xs">
             {currentBook}
-          </Badge>
+          </Badge> */}
         </div>
 
         {/* Actions */}
@@ -113,11 +106,11 @@ export function Header({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
                 <User className="w-4 h-4 mr-2" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
