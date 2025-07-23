@@ -140,7 +140,7 @@ export const CSVImport = ({
           setHeaders(csvHeaders);
           setStep("map");
 
-          // Auto-detect common column names
+          // Auto-detect common column names with your CSV format
           const lowerHeaders = csvHeaders.map((h) => h.toLowerCase());
           const autoMapping = {
             date:
@@ -149,17 +149,17 @@ export const CSVImport = ({
               ) || "",
             amount:
               csvHeaders.find((_, i) =>
-                /^(amount|amt|value|sum|total)$/i.test(lowerHeaders[i])
+                /^(cash in|cash out|amount|amt|value|sum|total)$/i.test(lowerHeaders[i])
               ) || "",
             description:
               csvHeaders.find((_, i) =>
-                /^(description|desc|note|memo|details|transaction|reference)$/i.test(
+                /^(remark|description|desc|note|memo|details|transaction|reference)$/i.test(
                   lowerHeaders[i]
                 )
               ) || "",
             type:
               csvHeaders.find((_, i) =>
-                /^(type|transaction_type|trans_type|debit_credit)$/i.test(
+                /^(type|transaction_type|trans_type|debit_credit|cash in|cash out)$/i.test(
                   lowerHeaders[i]
                 )
               ) || "",
@@ -204,37 +204,58 @@ export const CSVImport = ({
           date = new Date().toISOString().split("T")[0];
         }
 
-        // Parse amount
+        // Parse amount - handle your CSV format with Cash In/Cash Out columns
         let amount = 0;
-        if (mapping.amount && row[mapping.amount]) {
+        let type: "income" | "expense" = defaultType;
+        
+        // Check if we have Cash In/Cash Out columns
+        const cashInCol = headers.find(h => h.toLowerCase().includes('cash in'));
+        const cashOutCol = headers.find(h => h.toLowerCase().includes('cash out'));
+        
+        if (cashInCol && cashOutCol) {
+          const cashIn = row[cashInCol]?.trim().replace(/[^0-9.-]/g, "");
+          const cashOut = row[cashOutCol]?.trim().replace(/[^0-9.-]/g, "");
+          
+          if (cashIn && parseFloat(cashIn) > 0) {
+            amount = parseFloat(cashIn);
+            type = "income";
+          } else if (cashOut && parseFloat(cashOut) > 0) {
+            amount = parseFloat(cashOut);
+            type = "expense";
+          } else {
+            validationErrors.push(`Row ${index + 1}: No valid amount found`);
+            return;
+          }
+        } else if (mapping.amount && row[mapping.amount]) {
           const amountStr = row[mapping.amount].trim().replace(/[^0-9.-]/g, "");
           amount = parseFloat(amountStr);
           if (isNaN(amount) || amount <= 0) {
             validationErrors.push(`Row ${index + 1}: Invalid amount`);
             return;
           }
+          
+          // Determine type from separate column if not using Cash In/Out
+          if (mapping.type && row[mapping.type]) {
+            const typeStr = row[mapping.type].trim().toLowerCase();
+            if (
+              typeStr.includes("income") ||
+              typeStr.includes("credit") ||
+              typeStr.includes("deposit") ||
+              typeStr.includes("cash in")
+            ) {
+              type = "income";
+            } else if (
+              typeStr.includes("expense") ||
+              typeStr.includes("debit") ||
+              typeStr.includes("withdrawal") ||
+              typeStr.includes("cash out")
+            ) {
+              type = "expense";
+            }
+          }
         } else {
           validationErrors.push(`Row ${index + 1}: Amount is required`);
           return;
-        }
-
-        // Determine type
-        let type: "income" | "expense" = defaultType;
-        if (mapping.type && row[mapping.type]) {
-          const typeStr = row[mapping.type].trim().toLowerCase();
-          if (
-            typeStr.includes("income") ||
-            typeStr.includes("credit") ||
-            typeStr.includes("deposit")
-          ) {
-            type = "income";
-          } else if (
-            typeStr.includes("expense") ||
-            typeStr.includes("debit") ||
-            typeStr.includes("withdrawal")
-          ) {
-            type = "expense";
-          }
         }
 
         // Get category

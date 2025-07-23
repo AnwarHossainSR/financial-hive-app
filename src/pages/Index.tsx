@@ -83,6 +83,96 @@ const Index = () => {
     setShowImportDialog(true);
   };
 
+  const handleExportPDF = async () => {
+    if (!selectedBook) {
+      toast({
+        title: "Select a book first",
+        description: "Please select a book before exporting data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (transactions.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no transactions to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(20);
+      doc.text(`${selectedBook.name} - Transaction Report`, 20, 20);
+      
+      // Add date range info
+      doc.setFontSize(12);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
+      doc.text(`Total Transactions: ${transactions.length}`, 20, 45);
+      
+      // Calculate totals
+      const totalIncome = transactions
+        .filter(t => t.type === "income")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const totalExpense = transactions
+        .filter(t => t.type === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      doc.text(`Total Income: $${totalIncome.toLocaleString()}`, 20, 55);
+      doc.text(`Total Expenses: $${totalExpense.toLocaleString()}`, 20, 65);
+      doc.text(`Net Balance: $${(totalIncome - totalExpense).toLocaleString()}`, 20, 75);
+
+      // Create table data
+      const tableData = transactions.map(t => [
+        t.date,
+        t.type.charAt(0).toUpperCase() + t.type.slice(1),
+        `$${Number(t.amount).toLocaleString()}`,
+        t.category,
+        t.note || ''
+      ]);
+
+      // Add table
+      autoTable(doc, {
+        head: [['Date', 'Type', 'Amount', 'Category', 'Note']],
+        body: tableData,
+        startY: 85,
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [66, 139, 202],
+          textColor: 255,
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+      });
+
+      // Save the PDF
+      doc.save(`${selectedBook.name}-transactions.pdf`);
+
+      toast({
+        title: "Export successful",
+        description: `Exported ${transactions.length} transactions to PDF.`,
+      });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({
+        title: "Export failed",
+        description: "There was an error generating the PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleExportCSV = () => {
     if (!selectedBook) {
       toast({
@@ -150,7 +240,8 @@ const Index = () => {
         }}
         onSignOut={signOut}
         onImportPDF={handleImportCSV}
-        onExportData={handleExportCSV}
+        onExportCSV={handleExportCSV}
+        onExportPDF={handleExportPDF}
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">

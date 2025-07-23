@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Bell,
   BookOpen,
   Download,
   Plus,
@@ -17,6 +16,8 @@ import {
   Upload,
   User,
 } from "lucide-react";
+import { NotificationDropdown } from "./NotificationDropdown";
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   currentBook: string;
@@ -24,7 +25,8 @@ interface HeaderProps {
   onAddTransaction: () => void;
   onSignOut: () => void;
   onImportPDF?: () => void;
-  onExportData?: () => void;
+  onExportCSV?: () => void;
+  onExportPDF?: () => void;
 }
 
 export function Header({
@@ -33,8 +35,10 @@ export function Header({
   onAddTransaction,
   onSignOut,
   onImportPDF,
-  onExportData,
+  onExportCSV,
+  onExportPDF,
 }: HeaderProps) {
+  const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-4">
@@ -76,19 +80,21 @@ export function Header({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onImportPDF}>
                 <Upload className="w-4 h-4 mr-2" />
-                Import PDF
+                Import CSV
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportData}>
+              <DropdownMenuItem onClick={onExportCSV}>
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onExportPDF}>
+                <Download className="w-4 h-4 mr-2" />
+                Export PDF
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* Notifications */}
-          <Button variant="ghost" size="sm">
-            <Bell className="w-4 h-4" />
-          </Button>
+          <NotificationDropdown />
 
           {/* User Menu */}
           <DropdownMenu>
@@ -107,11 +113,11 @@ export function Header({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
                 <User className="w-4 h-4 mr-2" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
