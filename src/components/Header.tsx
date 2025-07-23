@@ -1,4 +1,3 @@
-// import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,14 +7,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, Download, Plus, Settings, Upload, User } from "lucide-react";
+import { BookOpen, Download, Settings, Upload, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NotificationDropdown } from "./NotificationDropdown";
 
 interface HeaderProps {
-  currentBook: string;
   user: any;
-  onAddTransaction: () => void;
   onSignOut: () => void;
   onImportPDF?: () => void;
   onExportCSV?: () => void;
@@ -23,9 +20,7 @@ interface HeaderProps {
 }
 
 export function Header({
-  // currentBook,
   user,
-  onAddTransaction,
   onSignOut,
   onImportPDF,
   onExportCSV,
@@ -43,28 +38,14 @@ export function Header({
             </div>
             <h1 className="text-lg font-bold">CashBook</h1>
           </div>
-          {/* 
-          <Badge variant="outline" className="text-xs">
-            {currentBook}
-          </Badge> */}
         </div>
 
         {/* Actions */}
         <div className="flex items-center space-x-2">
-          {/* Add Transaction */}
-          <Button
-            onClick={onAddTransaction}
-            size="sm"
-            className="bg-gradient-primary hover:opacity-90"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Transaction
-          </Button>
-
           {/* Import/Export Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="rounded-lg">
                 <Upload className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -92,7 +73,7 @@ export function Header({
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="rounded-lg">
                 <User className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>

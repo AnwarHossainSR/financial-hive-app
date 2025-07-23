@@ -222,19 +222,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header
-        currentBook={selectedBook?.name || "No book selected"}
         user={user}
-        onAddTransaction={() => {
-          if (!canAddTransaction) {
-            toast({
-              title: "Select a book first",
-              description: "Please select a book before adding transactions.",
-              variant: "destructive",
-            });
-            return;
-          }
-          setShowAddForm(true);
-        }}
         onSignOut={signOut}
         onImportPDF={handleImportCSV}
         onExportCSV={handleExportCSV}
@@ -301,30 +289,30 @@ const Index = () => {
             />
 
             {/* Recent Transactions */}
-            <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
-              <CardHeader className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md animate-scale-in">
+              <CardHeader className="px-4 sm:px-5 py-3 border-b border-border">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                  <CardTitle className="text-base sm:text-lg font-semibold text-foreground">
                     Recent Transactions
                   </CardTitle>
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-64">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                       <Input
                         placeholder="Search transactions..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 w-72 bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all"
+                        className="pl-9 text-sm bg-background border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all w-full"
                       />
                     </div>
 
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 transition-all"
+                      className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all rounded-lg"
                     >
-                      <Filter className="w-4 h-4 mr-2" />
-                      Filter
+                      <Filter className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Filter</span>
                     </Button>
 
                     <Button
@@ -332,32 +320,32 @@ const Index = () => {
                       size="sm"
                       onClick={handleImportCSV}
                       disabled={!canAddTransaction}
-                      className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 transition-all"
+                      className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all rounded-lg"
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      Import
+                      <Download className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Import</span>
                     </Button>
 
                     <Button
                       size="sm"
                       onClick={() => setShowAddForm(true)}
                       disabled={!canAddTransaction}
-                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all"
+                      className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg transition-all"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Transaction
+                      <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Add Transaction</span>
                     </Button>
                   </div>
                 </div>
               </CardHeader>
 
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="p-4 sm:p-5 space-y-3">
                 {transactionsLoading && !transactionsInitialized ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {[...Array(3)].map((_, i) => (
                       <div
                         key={i}
-                        className="h-20 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse"
+                        className="h-16 bg-muted rounded-lg animate-pulse"
                       ></div>
                     ))}
                   </div>
@@ -370,7 +358,7 @@ const Index = () => {
                     />
                   ))
                 ) : (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-muted-foreground text-sm">
                     {searchQuery
                       ? "No transactions match your search."
                       : "No transactions yet. Add your first transaction to get started!"}

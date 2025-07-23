@@ -161,7 +161,7 @@ export const BookSelector = ({
               className="border-border text-foreground hover:bg-primary/5 hover:border-primary/50 transition-all duration-300 rounded-lg"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Books
+              Back
             </Button>
             <div className="flex items-center space-x-3">
               {selectedBook.type === "business" ? (
@@ -202,8 +202,8 @@ export const BookSelector = ({
                 onClick={() => setShowCreateDialog(true)}
                 className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 rounded-lg"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                New Book
+                <Plus className="w-4 h-4 mr-2 sm:mr-2" />
+                <span className="hidden sm:inline">New Book</span>
               </Button>
             </div>
           </CardHeader>
