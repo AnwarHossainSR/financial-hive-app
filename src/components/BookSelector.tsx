@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   BookOpen,
   Building2,
+  Loader2,
   Plus,
   Settings,
   Trash2,
@@ -42,9 +43,9 @@ export const BookSelector = ({
 }: BookSelectorProps) => {
   const { books, loading, createBook, updateBook, deleteBook } = useBooks();
   const { toast } = useToast();
-
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [formLoading, setFormLoading] = useState(false); // New loading state for form actions
   const [formData, setFormData] = useState({
     name: "",
     type: "personal" as "personal" | "business",
@@ -54,6 +55,7 @@ export const BookSelector = ({
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormLoading(true); // Set loading to true
 
     const { error } = await createBook(
       formData.name,
@@ -62,7 +64,7 @@ export const BookSelector = ({
       formData.is_default
     );
 
-    console.log("error", error);
+    setFormLoading(false); // Reset loading
 
     if (!error) {
       setShowCreateDialog(false);
@@ -89,12 +91,16 @@ export const BookSelector = ({
     e.preventDefault();
     if (!selectedBook) return;
 
+    setFormLoading(true); // Set loading to true
+
     const { error } = await updateBook(selectedBook.id, {
       name: formData.name,
       type: formData.type,
       description: formData.description,
       is_default: formData.is_default,
     });
+
+    setFormLoading(false); // Reset loading
 
     if (!error) {
       setShowEditDialog(false);
@@ -294,7 +300,8 @@ export const BookSelector = ({
                   setFormData((prev) => ({ ...prev, name: e.target.value }))
                 }
                 required
-                className="border-border bg-background text-foreground focus:ring-primary focus:border-primary rounded-lg"
+                className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+                disabled={formLoading}
               />
             </div>
 
@@ -307,6 +314,7 @@ export const BookSelector = ({
                 onValueChange={(value: "personal" | "business") =>
                   setFormData((prev) => ({ ...prev, type: value }))
                 }
+                disabled={formLoading}
               >
                 <SelectTrigger className="border-border bg-background text-foreground focus:ring-primary rounded-lg">
                   <SelectValue />
@@ -347,6 +355,7 @@ export const BookSelector = ({
                 }
                 rows={3}
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+                disabled={formLoading}
               />
             </div>
 
@@ -363,6 +372,7 @@ export const BookSelector = ({
                   setFormData((prev) => ({ ...prev, is_default: checked }))
                 }
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+                disabled={formLoading}
               />
             </div>
 
@@ -372,14 +382,23 @@ export const BookSelector = ({
                 variant="outline"
                 onClick={() => setShowCreateDialog(false)}
                 className="border-border text-foreground hover:bg-primary/10 rounded-lg"
+                disabled={formLoading}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
+                disabled={formLoading}
               >
-                Create Book
+                {formLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Book"
+                )}
               </Button>
             </div>
           </form>
@@ -412,6 +431,7 @@ export const BookSelector = ({
                 }
                 required
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+                disabled={formLoading}
               />
             </div>
 
@@ -427,6 +447,7 @@ export const BookSelector = ({
                 onValueChange={(value: "personal" | "business") =>
                   setFormData((prev) => ({ ...prev, type: value }))
                 }
+                disabled={formLoading}
               >
                 <SelectTrigger className="border-border bg-background text-foreground focus:ring-primary rounded-lg">
                   <SelectValue />
@@ -467,6 +488,7 @@ export const BookSelector = ({
                 }
                 rows={3}
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+                disabled={formLoading}
               />
             </div>
 
@@ -483,6 +505,7 @@ export const BookSelector = ({
                   setFormData((prev) => ({ ...prev, is_default: checked }))
                 }
                 className="border-border bg-background text-foreground focus:ring-primary rounded-lg"
+                disabled={formLoading}
               />
             </div>
 
@@ -492,6 +515,7 @@ export const BookSelector = ({
                 variant="destructive"
                 onClick={handleDeleteBook}
                 className="flex items-center space-x-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg"
+                disabled={formLoading}
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Book</span>
@@ -503,14 +527,23 @@ export const BookSelector = ({
                   variant="outline"
                   onClick={() => setShowEditDialog(false)}
                   className="border-border text-foreground hover:bg-primary/10 rounded-lg"
+                  disabled={formLoading}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
+                  disabled={formLoading}
                 >
-                  Save Changes
+                  {formLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </Button>
               </div>
             </div>
