@@ -30,6 +30,7 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Switch } from "./ui/switch";
 
 interface BookSelectorProps {
@@ -45,28 +46,29 @@ export const BookSelector = ({
   const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [formLoading, setFormLoading] = useState(false); // New loading state for form actions
+  const [formLoading, setFormLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     type: "personal" as "personal" | "business",
     description: "",
     is_default: false,
   });
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormLoading(true); // Set loading to true
+    setFormLoading(true);
 
-    const { error } = await createBook(
+    const { error, data } = await createBook(
       formData.name,
       formData.type,
       formData.description,
       formData.is_default
     );
 
-    setFormLoading(false); // Reset loading
+    setFormLoading(false);
 
-    if (!error) {
+    if (!error && data) {
       setShowCreateDialog(false);
       setFormData({
         name: "",
@@ -78,6 +80,9 @@ export const BookSelector = ({
         title: "Book Created",
         description: "Your new book was successfully created.",
       });
+      // Select the newly created book and update query param
+      onSelectBook(data);
+      setSearchParams({ bookId: data.id });
     } else {
       toast({
         title: "Error",
@@ -91,16 +96,16 @@ export const BookSelector = ({
     e.preventDefault();
     if (!selectedBook) return;
 
-    setFormLoading(true); // Set loading to true
+    setFormLoading(true);
 
-    const { error } = await updateBook(selectedBook.id, {
+    const { error, data } = await updateBook(selectedBook.id, {
       name: formData.name,
       type: formData.type,
       description: formData.description,
       is_default: formData.is_default,
     });
 
-    setFormLoading(false); // Reset loading
+    setFormLoading(false);
 
     if (!error) {
       setShowEditDialog(false);
@@ -108,6 +113,9 @@ export const BookSelector = ({
         title: "Book Updated",
         description: "Your book was successfully updated.",
       });
+      // Update selected book to reflect changes
+      onSelectBook(data);
+      setSearchParams({ bookId: data.id });
     } else {
       toast({
         title: "Error",
@@ -125,6 +133,7 @@ export const BookSelector = ({
     if (!error) {
       onSelectBook(null);
       setShowEditDialog(false);
+      setSearchParams({}); // Clear query param
       toast({
         title: "Book Deleted",
         description: "The book was successfully deleted.",
@@ -175,7 +184,10 @@ export const BookSelector = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onSelectBook(null)}
+              onClick={() => {
+                onSelectBook(null);
+                setSearchParams({}); // Clear query param
+              }}
               className="border-border text-foreground hover:bg-primary/5 hover:border-primary/50 transition-all duration-300 rounded-lg"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -246,7 +258,10 @@ export const BookSelector = ({
                       "group relative p-4 rounded-lg border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-income hover:border-primary/50",
                       "animate-scale-in"
                     )}
-                    onClick={() => onSelectBook(book)}
+                    onClick={() => {
+                      onSelectBook(book);
+                      setSearchParams({ bookId: book.id });
+                    }}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">

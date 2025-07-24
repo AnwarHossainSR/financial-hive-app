@@ -3,13 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +10,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import {
   Bell,
-  Book,
   Download,
   Save,
   Settings as SettingsIcon,
@@ -124,70 +116,6 @@ export const Settings = () => {
                     defaultValue={user?.user_metadata?.display_name || ""}
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* App Preferences */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Book className="w-5 h-5" />
-                App Preferences
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="default-book">Default Book</Label>
-                  <Select value={defaultBook} onValueChange={setDefaultBook}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select default book" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No default</SelectItem>
-                      {books.map((book) => (
-                        <SelectItem key={book.id} value={book.id}>
-                          {book.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    This book will be selected by default when adding
-                    transactions
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="currency">Currency</Label>
-                  <Select value={currency} onValueChange={setCurrency}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="EUR">EUR (€)</SelectItem>
-                      <SelectItem value="GBP">GBP (£)</SelectItem>
-                      <SelectItem value="JPY">JPY (¥)</SelectItem>
-                      <SelectItem value="BDT">BDT (৳)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="export-format">Default Export Format</Label>
-                <Select value={exportFormat} onValueChange={setExportFormat}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="csv">CSV</SelectItem>
-                    <SelectItem value="pdf">PDF</SelectItem>
-                    <SelectItem value="excel">Excel</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>

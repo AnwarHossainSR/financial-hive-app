@@ -1,4 +1,3 @@
-import { BalanceCard } from "@/components/BalanceCard";
 import { BookSelector } from "@/components/BookSelector";
 import { CSVImport } from "@/components/CSVImport";
 import { Header } from "@/components/Header";
@@ -16,19 +15,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Book } from "@/hooks/useBooks";
+import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
 import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 const Index = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-
+  const { books, initialized: booksInitialized } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const {
     transactions,
@@ -41,6 +42,26 @@ const Index = () => {
       ? { bookId: selectedBook.id, search: searchQuery }
       : { search: searchQuery }
   );
+
+  // Initialize selectedBook from query param only
+  useEffect(() => {
+    if (booksInitialized && books.length > 0) {
+      const bookId = searchParams.get("bookId");
+      if (bookId) {
+        const book = books.find((b) => b.id === bookId);
+        if (book) {
+          setSelectedBook(book);
+        } else {
+          // Invalid bookId, clear query param and show homepage
+          setSearchParams({});
+          setSelectedBook(null);
+        }
+      } else {
+        // No bookId in query params, ensure homepage is shown
+        setSelectedBook(null);
+      }
+    }
+  }, [books, booksInitialized, searchParams, setSearchParams]);
 
   const { totalIncome, totalExpense, balance } = useMemo(() => {
     const income = transactions
@@ -257,29 +278,6 @@ const Index = () => {
           </Card>
         ) : (
           <>
-            {/* Balance Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <BalanceCard
-                title="Total Balance"
-                amount={balance}
-                type="balance"
-                subtitle={`${selectedBook.name} • Current balance`}
-                trend={{ value: 12.5, isPositive: balance > 0 }}
-              />
-              <BalanceCard
-                title="Total Income"
-                amount={totalIncome}
-                type="income"
-                subtitle={`${selectedBook.name} • All time`}
-              />
-              <BalanceCard
-                title="Total Expenses"
-                amount={totalExpense}
-                type="expense"
-                subtitle={`${selectedBook.name} • All time`}
-              />
-            </div>
-
             {/* Quick Stats */}
             <QuickStats
               monthlyIncome={totalIncome}
