@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
 import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
@@ -22,7 +21,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const Index = () => {
-  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const { books, initialized: booksInitialized } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -243,11 +241,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header
-        user={user}
-        onSignOut={signOut}
-        onImportPDF={handleImportCSV}
+        showImportExport={true}
+        onImportCSV={handleImportCSV}
         onExportCSV={handleExportCSV}
         onExportPDF={handleExportPDF}
+        title="CashBook"
+        subtitle={selectedBook ? selectedBook.name : undefined}
       />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
