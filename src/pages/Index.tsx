@@ -61,7 +61,7 @@ const Index = () => {
     }
   }, [books, booksInitialized, searchParams, setSearchParams]);
 
-  const { totalIncome, totalExpense, balance } = useMemo(() => {
+  const { totalIncome, totalExpense } = useMemo(() => {
     const income = transactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -78,7 +78,10 @@ const Index = () => {
   }, [transactions]);
 
   const handleAddTransaction = async (newTransaction: any) => {
-    const { error } = await createTransaction(newTransaction);
+    const filteredQuery = selectedBook
+      ? { bookId: selectedBook.id, search: searchQuery }
+      : { search: searchQuery };
+    const { error } = await createTransaction(newTransaction, filteredQuery);
     if (!error) {
       setShowAddForm(false);
       toast({
@@ -351,7 +354,7 @@ const Index = () => {
                     <TransactionCard
                       key={transaction.id}
                       transaction={transaction}
-                      onDelete={handleDeleteTransaction}
+                      onDelete={() => handleDeleteTransaction(transaction.id)}
                     />
                   ))
                 ) : (

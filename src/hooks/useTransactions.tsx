@@ -137,7 +137,8 @@ const useTransactions = (filters?: TransactionFilters) => {
     transaction: Omit<
       Transaction,
       "id" | "user_id" | "created_at" | "updated_at"
-    >
+    >,
+    filteredQuery: any = {}
   ) => {
     if (!user) return { error: "User not authenticated" };
 
@@ -157,10 +158,8 @@ const useTransactions = (filters?: TransactionFilters) => {
 
       if (error) throw error;
 
-      // Optimistically update the state if it matches current filters
-      if (matchesCurrentFilters(data)) {
-        setTransactions((prev) => [data, ...prev]);
-      }
+      // update transactions with filtered query call useTransactions
+      await fetchTransactions();
 
       toast({
         title: "Transaction added",
