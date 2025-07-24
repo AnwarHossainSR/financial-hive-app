@@ -1,8 +1,11 @@
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowDownRight,
   ArrowUpRight,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Target,
   TrendingDown,
   TrendingUp,
@@ -133,6 +136,8 @@ export function QuickStats({
   transactionCount,
   savingsGoal = 5000,
 }: QuickStatsProps) {
+  const [isMobileStatsOpen, setIsMobileStatsOpen] = useState(false);
+
   const monthlySavings = monthlyIncome - monthlyExpense;
   const savingsProgress = (monthlySavings / savingsGoal) * 100;
 
@@ -140,44 +145,77 @@ export function QuickStats({
   const incomeTrend = { value: 12.5, isPositive: true };
   const expenseTrend = { value: 8.3, isPositive: false };
 
+  const statCards = [
+    {
+      title: "Monthly Income",
+      value: `+৳${monthlyIncome.toLocaleString()}`,
+      icon: <TrendingUp className="w-5 h-5 text-emerald-600" />,
+      color: "from-emerald-500 to-green-500",
+      trend: incomeTrend,
+      delay: 0,
+    },
+    {
+      title: "Monthly Expense",
+      value: `-৳${monthlyExpense.toLocaleString()}`,
+      icon: <TrendingDown className="w-5 h-5 text-red-500" />,
+      color: "from-red-500 to-pink-500",
+      trend: expenseTrend,
+      delay: 100,
+    },
+    {
+      title: "Total Transactions",
+      value: transactionCount.toString(),
+      icon: <Calendar className="w-5 h-5 text-blue-600" />,
+      color: "from-blue-500 to-cyan-500",
+      subtitle: "This month",
+      delay: 200,
+    },
+    {
+      title: "Savings Goal",
+      value: `${Math.round(savingsProgress)}%`,
+      icon: <Target className="w-5 h-5 text-purple-600" />,
+      color: "from-purple-500 to-indigo-500",
+      progress: savingsProgress,
+      subtitle: `৳${monthlySavings.toLocaleString()} / ৳${savingsGoal.toLocaleString()}`,
+      delay: 300,
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      <StatCard
-        title="Monthly Income"
-        value={`+৳${monthlyIncome.toLocaleString()}`}
-        icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
-        color="from-emerald-500 to-green-500"
-        trend={incomeTrend}
-        delay={0}
-      />
+    <div className="space-y-4">
+      {/* Mobile View: Dropdown Toggle */}
+      <div className="lg:hidden">
+        <Button
+          variant="outline"
+          className="w-full flex justify-between items-center bg-white/90 dark:bg-gray-800/90 border-border rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={() => setIsMobileStatsOpen(!isMobileStatsOpen)}
+        >
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+            Quick Stats
+          </span>
+          {isMobileStatsOpen ? (
+            <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          )}
+        </Button>
 
-      <StatCard
-        title="Monthly Expense"
-        value={`-৳${monthlyExpense.toLocaleString()}`}
-        icon={<TrendingDown className="w-5 h-5 text-red-500" />}
-        color="from-red-500 to-pink-500"
-        trend={expenseTrend}
-        delay={100}
-      />
+        {/* Mobile Dropdown Content */}
+        {isMobileStatsOpen && (
+          <div className="mt-2 space-y-4 animate-in slide-in-from-top-4 duration-300">
+            {statCards.map((card) => (
+              <StatCard key={card.title} {...card} />
+            ))}
+          </div>
+        )}
+      </div>
 
-      <StatCard
-        title="Total Transactions"
-        value={transactionCount.toString()}
-        icon={<Calendar className="w-5 h-5 text-blue-600" />}
-        color="from-blue-500 to-cyan-500"
-        subtitle="This month"
-        delay={200}
-      />
-
-      <StatCard
-        title="Savings Goal"
-        value={`${Math.round(savingsProgress)}%`}
-        icon={<Target className="w-5 h-5 text-purple-600" />}
-        color="from-purple-500 to-indigo-500"
-        progress={savingsProgress}
-        subtitle={`৳${monthlySavings.toLocaleString()} / ৳${savingsGoal.toLocaleString()}`}
-        delay={300}
-      />
+      {/* Desktop View: Grid Layout */}
+      <div className="hidden lg:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statCards.map((card) => (
+          <StatCard key={card.title} {...card} />
+        ))}
+      </div>
     </div>
   );
 }

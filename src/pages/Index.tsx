@@ -1,5 +1,6 @@
 import { BookSelector } from "@/components/BookSelector";
 import { CSVImport } from "@/components/CSVImport";
+import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
 import { Header } from "@/components/Header";
 import { QuickStats } from "@/components/QuickStats";
 import { TransactionCard } from "@/components/TransactionCard";
@@ -20,6 +21,16 @@ import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+interface Transaction {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  category: string;
+  note?: string;
+  date: string;
+  image_url?: string;
+}
+
 const Index = () => {
   const { toast } = useToast();
   const { books, initialized: booksInitialized } = useBooks();
@@ -27,6 +38,10 @@ const Index = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] =
+    useState<Transaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const {
@@ -91,12 +106,30 @@ const Index = () => {
     }
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-    await deleteTransaction(id);
-    toast({
-      title: "Transaction Deleted",
-      description: "The transaction was successfully removed.",
-    });
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      await deleteTransaction(id);
+      toast({
+        title: "Transaction Deleted",
+        description: "The transaction was successfully removed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Deletion Failed",
+        description: "There was an error deleting the transaction.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      setTransactionToDelete(null);
+    }
   };
 
   const handleImportCSV = () => {
@@ -354,7 +387,7 @@ const Index = () => {
                     <TransactionCard
                       key={transaction.id}
                       transaction={transaction}
-                      onDelete={() => handleDeleteTransaction(transaction.id)}
+                      onDelete={() => handleDeleteTransaction(transaction)}
                     />
                   ))
                 ) : (
@@ -398,6 +431,15 @@ const Index = () => {
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
         selectedBook={selectedBook}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        transaction={transactionToDelete}
+        onConfirmDelete={handleConfirmDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );
