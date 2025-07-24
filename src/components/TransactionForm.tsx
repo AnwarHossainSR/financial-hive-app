@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { Plus, Upload, X } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
 
 interface TransactionFormProps {
@@ -76,17 +76,6 @@ export function TransactionForm({
 
   return (
     <Card className="w-full max-w-lg mx-auto animate-scale-in">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Add Transaction</span>
-          {onCancel && (
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-        </CardTitle>
-      </CardHeader>
-
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Transaction Type */}
