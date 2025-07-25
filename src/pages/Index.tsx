@@ -1,5 +1,6 @@
 import { BookSelector } from "@/components/BookSelector";
 import { CSVImport } from "@/components/CSVImport";
+import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
 import { Header } from "@/components/Header";
 import { QuickStats } from "@/components/QuickStats";
 import { TransactionCard } from "@/components/TransactionCard";
@@ -14,21 +15,33 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
 import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+interface Transaction {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  category: string;
+  note?: string;
+  date: string;
+  image_url?: string;
+}
+
 const Index = () => {
-  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const { books, initialized: booksInitialized } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] =
+    useState<Transaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const {
@@ -63,7 +76,7 @@ const Index = () => {
     }
   }, [books, booksInitialized, searchParams, setSearchParams]);
 
-  const { totalIncome, totalExpense, balance } = useMemo(() => {
+  const { totalIncome, totalExpense } = useMemo(() => {
     const income = transactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -80,7 +93,10 @@ const Index = () => {
   }, [transactions]);
 
   const handleAddTransaction = async (newTransaction: any) => {
-    const { error } = await createTransaction(newTransaction);
+    const filteredQuery = selectedBook
+      ? { bookId: selectedBook.id, search: searchQuery }
+      : { search: searchQuery };
+    const { error } = await createTransaction(newTransaction, filteredQuery);
     if (!error) {
       setShowAddForm(false);
       toast({
@@ -90,12 +106,30 @@ const Index = () => {
     }
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-    await deleteTransaction(id);
-    toast({
-      title: "Transaction Deleted",
-      description: "The transaction was successfully removed.",
-    });
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      await deleteTransaction(id);
+      toast({
+        title: "Transaction Deleted",
+        description: "The transaction was successfully removed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Deletion Failed",
+        description: "There was an error deleting the transaction.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      setTransactionToDelete(null);
+    }
   };
 
   const handleImportCSV = () => {
@@ -243,11 +277,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header
-        user={user}
-        onSignOut={signOut}
-        onImportPDF={handleImportCSV}
+        showImportExport={true}
+        onImportCSV={handleImportCSV}
         onExportCSV={handleExportCSV}
         onExportPDF={handleExportPDF}
+        title="CashBook"
+        subtitle={selectedBook ? selectedBook.name : undefined}
       />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
@@ -352,7 +387,7 @@ const Index = () => {
                     <TransactionCard
                       key={transaction.id}
                       transaction={transaction}
-                      onDelete={handleDeleteTransaction}
+                      onDelete={() => handleDeleteTransaction(transaction)}
                     />
                   ))
                 ) : (
@@ -396,6 +431,15 @@ const Index = () => {
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
         selectedBook={selectedBook}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        transaction={transactionToDelete}
+        onConfirmDelete={handleConfirmDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );
