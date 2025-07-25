@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Calendar,
+  BadgeCent,
   ChevronDown,
   ChevronUp,
   Target,
@@ -149,7 +149,7 @@ export function QuickStats({
     {
       title: "Monthly Income",
       value: `+৳${monthlyIncome.toLocaleString()}`,
-      icon: <TrendingUp className="w-5 h-5 text-emerald-600" />,
+      icon: <TrendingUp className="w-5 h-5 text-emerald-950" />,
       color: "from-emerald-500 to-green-500",
       trend: incomeTrend,
       delay: 0,
@@ -157,7 +157,7 @@ export function QuickStats({
     {
       title: "Monthly Expense",
       value: `-৳${monthlyExpense.toLocaleString()}`,
-      icon: <TrendingDown className="w-5 h-5 text-red-500" />,
+      icon: <TrendingDown className="w-5 h-5 text-red-950" />,
       color: "from-red-500 to-pink-500",
       trend: expenseTrend,
       delay: 100,
@@ -165,7 +165,7 @@ export function QuickStats({
     {
       title: "Total Transactions",
       value: transactionCount.toString(),
-      icon: <Calendar className="w-5 h-5 text-blue-600" />,
+      icon: <BadgeCent className="w-5 h-5 text-blue-950" />,
       color: "from-blue-500 to-cyan-500",
       subtitle: "This month",
       delay: 200,
@@ -173,7 +173,7 @@ export function QuickStats({
     {
       title: "Savings Goal",
       value: `${Math.round(savingsProgress)}%`,
-      icon: <Target className="w-5 h-5 text-purple-600" />,
+      icon: <Target className="w-5 h-5 text-purple-950" />,
       color: "from-purple-500 to-indigo-500",
       progress: savingsProgress,
       subtitle: `৳${monthlySavings.toLocaleString()} / ৳${savingsGoal.toLocaleString()}`,
