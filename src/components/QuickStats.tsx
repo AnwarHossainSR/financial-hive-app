@@ -142,7 +142,7 @@ export function QuickStats({
 
   const monthlySavings = monthlyIncome - monthlyExpense;
   const savingsProgress = budgetProgress;
-
+  console.log("savingsProgress", savingsProgress);
   // Mock trend data - in real app, this would come from comparing with previous month
   const incomeTrend = { value: 12.5, isPositive: true };
   const expenseTrend = { value: 8.3, isPositive: false };

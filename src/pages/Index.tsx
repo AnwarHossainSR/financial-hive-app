@@ -50,10 +50,16 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().slice(0, 7)
-  ); // YYYY-MM
-
+  // Update the selectedMonth state initialization at the top of the Index component
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // getMonth is 0-based, +1 for 1-based
+    const initialMonth = `${year}-${month}`; // e.g., "2025-07"
+    console.log("Initial selectedMonth:", initialMonth); // Debug
+    return initialMonth;
+  });
+  console.log("selectedMonth", selectedMonth);
   const {
     transactions,
     loading: transactionsLoading,
@@ -65,6 +71,18 @@ const Index = () => {
       ? { bookId: selectedBook.id, search: searchQuery }
       : { search: searchQuery }
   );
+
+  // Reset selectedMonth when book changes
+  useEffect(() => {
+    if (selectedBook) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const currentMonth = `${year}-${month}`; // e.g., "2025-07"
+      console.log("Reset selectedMonth on book change:", currentMonth); // Debug
+      setSelectedMonth(currentMonth);
+    }
+  }, [selectedBook]);
 
   // Initialize selectedBook from query param only
   useEffect(() => {
@@ -298,14 +316,17 @@ const Index = () => {
     const now = new Date();
     for (let i = 0; i < 12; i++) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0"); // +1 for 1-based month
       months.push({
-        value: date.toISOString().slice(0, 7),
+        value: `${year}-${month}`, // e.g., "2025-07"
         label: date.toLocaleString("default", {
           month: "long",
           year: "numeric",
-        }),
+        }), // e.g., "July 2025"
       });
     }
+    console.log("Month options:", months); // Debug
     return months;
   };
 
@@ -328,9 +349,23 @@ const Index = () => {
             onSelectBook={setSelectedBook}
           />
           {selectedBook && (
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <Select
+              key={selectedBook.id} // Force re-render when book changes
+              value={selectedMonth}
+              onValueChange={(value) => {
+                console.log("Selected month changed to:", value); // Debug
+                setSelectedMonth(value);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Select Month" />
+                <SelectValue
+                  placeholder="Select Month"
+                  children={
+                    getMonthOptions().find(
+                      (month) => month.value === selectedMonth
+                    )?.label || "Select Month"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {getMonthOptions().map((month) => (
