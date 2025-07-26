@@ -12,6 +12,7 @@ export interface Book {
   created_at: string;
   updated_at: string;
   is_default: boolean;
+  monthly_budget?: number;
 }
 
 const useBooks = () => {

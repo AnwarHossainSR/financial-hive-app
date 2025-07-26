@@ -3,26 +3,77 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen,
   Calendar,
   CreditCard,
   DollarSign,
   PlusCircle,
+  Save,
   Target,
   TrendingUp,
   User,
 } from "lucide-react";
+import { useState } from "react";
 
 export const Profile = () => {
   const { user } = useAuth();
-  const { books } = useBooks();
-  const { transactions } = useTransactions();
+  const { books, updateBook } = useBooks();
+  const { toast } = useToast();
+  const [selectedBookId, setSelectedBookId] = useState<string | "all">("all");
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>("all");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [displayName, setDisplayName] = useState(
+    user?.user_metadata?.display_name || ""
+  );
+  const [avatarUrl, setAvatarUrl] = useState(
+    user?.user_metadata?.avatar_url || ""
+  );
+
+  // Dynamic transaction filters based on book and time period
+  const getDateRange = () => {
+    const now = new Date();
+    if (selectedTimePeriod === "month") {
+      return {
+        startDate: new Date(now.getFullYear(), now.getMonth(), 1)
+          .toISOString()
+          .split("T")[0],
+        endDate: new Date(now.getFullYear(), now.getMonth() + 1, 0)
+          .toISOString()
+          .split("T")[0],
+      };
+    } else if (selectedTimePeriod === "year") {
+      return {
+        startDate: new Date(now.getFullYear(), 0, 1)
+          .toISOString()
+          .split("T")[0],
+        endDate: new Date(now.getFullYear(), 11, 31)
+          .toISOString()
+          .split("T")[0],
+      };
+    }
+    return {};
+  };
+
+  const { transactions, loading: transactionsLoading } = useTransactions({
+    bookId: selectedBookId !== "all" ? selectedBookId : undefined,
+    ...getDateRange(),
+  });
 
   // Calculate statistics
   const totalTransactions = transactions.length;
@@ -34,9 +85,13 @@ export const Profile = () => {
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const netWorth = totalIncome - totalExpenses;
 
-  // Monthly goals (mock data)
-  const monthlyBudget = 5000;
-  const currentMonthExpenses = 3200;
+  // Monthly budget (configurable per book or globally)
+  const monthlyBudget =
+    selectedBookId === "all"
+      ? 5000
+      : books.find((b) => b.id === selectedBookId)?.monthly_budget || 5000;
+  const currentMonthExpenses =
+    selectedTimePeriod === "month" ? totalExpenses : 3200; // Fallback for non-month view
   const budgetProgress = (currentMonthExpenses / monthlyBudget) * 100;
 
   // Activity stats
@@ -53,6 +108,47 @@ export const Profile = () => {
   const getInitials = (email: string) => {
     return email.charAt(0).toUpperCase();
   };
+
+  const handleProfileUpdate = async () => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          display_name: displayName,
+          avatar_url: avatarUrl,
+        },
+      });
+
+      if (error) throw error;
+
+      // Update profile table
+      await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", user?.id);
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile changes have been saved.",
+      });
+      setIsEditingProfile(false);
+    } catch (error: any) {
+      toast({
+        title: "Error updating profile",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const timePeriods = [
+    { value: "all", label: "All Time" },
+    { value: "month", label: "This Month" },
+    { value: "year", label: "This Year" },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -76,34 +172,102 @@ export const Profile = () => {
                 </Avatar>
 
                 <div className="flex-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                      <h1 className="text-3xl font-bold text-foreground">
-                        {user?.user_metadata?.display_name ||
-                          user?.email?.split("@")[0] ||
-                          "User"}
-                      </h1>
-                      <p className="text-muted-foreground">{user?.email}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className="rounded-full">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          Joined {joinDate.toLocaleDateString()}
-                        </Badge>
-                        <Badge variant="outline" className="rounded-full">
-                          {daysActive} days active
-                        </Badge>
+                  {isEditingProfile ? (
+                    <div className="space-y-4">
+                      <Input
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Display Name"
+                        className="max-w-md"
+                      />
+                      <Input
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                        placeholder="Avatar URL"
+                        className="max-w-md"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleProfileUpdate}
+                          className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Profile
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsEditingProfile(false)}
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div>
+                        <h1 className="text-3xl font-bold text-foreground">
+                          {user?.user_metadata?.display_name ||
+                            user?.email?.split("@")[0] ||
+                            "User"}
+                        </h1>
+                        <p className="text-muted-foreground">{user?.email}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className="rounded-full">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            Joined {joinDate.toLocaleDateString()}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full">
+                            {daysActive} days active
+                          </Badge>
+                        </div>
+                      </div>
 
-                    <Button className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg">
-                      <User className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                  </div>
+                      <Button
+                        onClick={() => setIsEditingProfile(true)}
+                        className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg"
+                      >
+                        <User className="w-4 h-4 mr-2" />
+                        Edit Profile
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Select value={selectedBookId} onValueChange={setSelectedBookId}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Select Book" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Books</SelectItem>
+                {books.map((book) => (
+                  <SelectItem key={book.id} value={book.id}>
+                    {book.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedTimePeriod}
+              onValueChange={setSelectedTimePeriod}
+            >
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Select Time Period" />
+              </SelectTrigger>
+              <SelectContent>
+                {timePeriods.map((period) => (
+                  <SelectItem key={period.value} value={period.value}>
+                    {period.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -289,9 +453,15 @@ export const Profile = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {recentTransactions.length > 0 ? (
+                {transactionsLoading ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground font-medium">
+                      Loading transactions...
+                    </p>
+                  </div>
+                ) : recentTransactions.length > 0 ? (
                   <div className="space-y-3">
-                    {recentTransactions.map((transaction, index) => (
+                    {recentTransactions.map((transaction) => (
                       <div
                         key={transaction.id}
                         className="flex items-center justify-between p-4 rounded-lg border border-border bg-card/50 hover:bg-card/80 transition-colors"
