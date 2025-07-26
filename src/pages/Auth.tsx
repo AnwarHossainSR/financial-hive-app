@@ -3,37 +3,82 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Navigate, useNavigate } from "react-router-dom";
+import { z } from "zod";
+
+// Validation schemas
+const signInSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const signUpSchema = z
+  .object({
+    displayName: z.string().min(1, "Display name is required"),
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+type SignInData = z.infer<typeof signInSchema>;
+type SignUpData = z.infer<typeof signUpSchema>;
+type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 
 const Auth = () => {
   const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } =
     useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
   const [view, setView] = useState<"auth" | "forgot-password" | "reset-sent">(
     "auth"
   );
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [signInData, setSignInData] = useState({
-    email: "",
-    password: "",
+  // Form instances
+  const signInForm = useForm<SignInData>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
 
-  const [signUpData, setSignUpData] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-    displayName: "",
+  const signUpForm = useForm<SignUpData>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      displayName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const forgotPasswordForm = useForm<ForgotPasswordData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
 
   if (loading) {
     return (
@@ -44,68 +89,43 @@ const Auth = () => {
   }
 
   if (user) {
-    // In a real app, this would navigate to dashboard
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Welcome back!
-          </h2>
-          <p className="text-gray-600">You are already signed in.</p>
-        </div>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async (data: SignInData) => {
     setIsLoading(true);
-    setError("");
 
     try {
-      const { error } = await signIn(signInData.email, signInData.password);
+      const { error } = await signIn(data.email, data.password);
 
       if (error) {
-        setError(error.message);
+        signInForm.setError("root", { message: error.message });
       } else {
         toast({
           title: "Welcome back!",
           description: "You have been signed in successfully.",
         });
+        navigate("/");
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      signInForm.setError("root", { message: "An unexpected error occurred" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignUp = async (data: SignUpData) => {
     setIsLoading(true);
-    setError("");
-
-    if (signUpData.password !== signUpData.confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
-
-    if (signUpData.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const { error } = await signUp(
-        signUpData.email,
-        signUpData.password,
-        signUpData.displayName
+        data.email,
+        data.password,
+        data.displayName
       );
 
       if (error) {
-        setError(error.message);
+        signUpForm.setError("root", { message: error.message });
       } else {
         toast({
           title: "Account created!",
@@ -113,28 +133,20 @@ const Auth = () => {
         });
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      signUpForm.setError("root", { message: "An unexpected error occurred" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleForgotPassword = async (data: ForgotPasswordData) => {
     setIsLoading(true);
-    setError("");
-
-    if (!forgotPasswordEmail) {
-      setError("Please enter your email address");
-      setIsLoading(false);
-      return;
-    }
 
     try {
-      const { error } = await resetPassword(forgotPasswordEmail);
+      const { error } = await resetPassword(data.email);
 
       if (error) {
-        setError(error.message);
+        forgotPasswordForm.setError("root", { message: error.message });
       } else {
         setView("reset-sent");
         toast({
@@ -143,7 +155,9 @@ const Auth = () => {
         });
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      forgotPasswordForm.setError("root", {
+        message: "An unexpected error occurred",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -151,13 +165,11 @@ const Auth = () => {
 
   const handleSocialLogin = async (provider: "google") => {
     setIsLoading(true);
-    setError("");
 
     try {
       const { error } = await signInWithGoogle();
 
       if (error) {
-        setError(error.message);
         toast({
           title: "Login failed",
           description: error.message,
@@ -165,7 +177,11 @@ const Auth = () => {
         });
       }
     } catch (err) {
-      setError("An unexpected error occurred during social login");
+      toast({
+        title: "Login failed",
+        description: "An unexpected error occurred during social login",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +215,7 @@ const Auth = () => {
               </p>
             </CardHeader>
             <CardContent className="px-6 pb-6">
-              <div onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label
                     htmlFor="reset-email"
@@ -211,23 +227,32 @@ const Auth = () => {
                     id="reset-email"
                     type="email"
                     placeholder="Enter your email"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                    required
+                    {...forgotPasswordForm.register("email")}
+                    className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                      forgotPasswordForm.formState.errors.email
+                        ? "border-red-300 focus:ring-red-500"
+                        : ""
+                    }`}
                   />
+                  {forgotPasswordForm.formState.errors.email && (
+                    <p className="text-sm text-red-600">
+                      {forgotPasswordForm.formState.errors.email.message}
+                    </p>
+                  )}
                 </div>
 
-                {error && (
+                {forgotPasswordForm.formState.errors.root && (
                   <Alert variant="destructive" className="py-2">
                     <AlertDescription className="text-sm">
-                      {error}
+                      {forgotPasswordForm.formState.errors.root.message}
                     </AlertDescription>
                   </Alert>
                 )}
 
                 <Button
-                  onClick={handleForgotPassword}
+                  onClick={forgotPasswordForm.handleSubmit(
+                    handleForgotPassword
+                  )}
                   className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                   disabled={isLoading}
                 >
@@ -260,7 +285,7 @@ const Auth = () => {
               </CardTitle>
               <p className="text-sm text-gray-600 mt-2">
                 We've sent a password reset link to{" "}
-                <strong>{forgotPasswordEmail}</strong>
+                <strong>{forgotPasswordForm.watch("email")}</strong>
               </p>
             </CardHeader>
             <CardContent className="px-6 pb-6">
@@ -370,7 +395,7 @@ const Auth = () => {
               </TabsList>
 
               <TabsContent value="signin">
-                <div onSubmit={handleSignIn} className="space-y-5">
+                <div className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signin-email"
@@ -382,16 +407,18 @@ const Auth = () => {
                       id="signin-email"
                       type="email"
                       placeholder="Enter your email"
-                      value={signInData.email}
-                      onChange={(e) =>
-                        setSignInData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signInForm.register("email")}
+                      className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                        signInForm.formState.errors.email
+                          ? "border-red-300 focus:ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {signInForm.formState.errors.email && (
+                      <p className="text-sm text-red-600">
+                        {signInForm.formState.errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -411,32 +438,31 @@ const Auth = () => {
                         Forgot password?
                       </Button>
                     </div>
-                    <Input
+                    <PasswordInput
                       id="signin-password"
-                      type="password"
                       placeholder="Enter your password"
-                      value={signInData.password}
-                      onChange={(e) =>
-                        setSignInData((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signInForm.register("password")}
+                      showPassword={showPassword}
+                      onTogglePassword={() => setShowPassword(!showPassword)}
+                      error={signInForm.formState.errors.password?.message}
                     />
+                    {signInForm.formState.errors.password && (
+                      <p className="text-sm text-red-600">
+                        {signInForm.formState.errors.password.message}
+                      </p>
+                    )}
                   </div>
 
-                  {error && (
+                  {signInForm.formState.errors.root && (
                     <Alert variant="destructive" className="py-2">
                       <AlertDescription className="text-sm">
-                        {error}
+                        {signInForm.formState.errors.root.message}
                       </AlertDescription>
                     </Alert>
                   )}
 
                   <Button
-                    onClick={handleSignIn}
+                    onClick={signInForm.handleSubmit(handleSignIn)}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                     disabled={isLoading}
                   >
@@ -449,7 +475,7 @@ const Auth = () => {
               </TabsContent>
 
               <TabsContent value="signup">
-                <div onSubmit={handleSignUp} className="space-y-5">
+                <div className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signup-name"
@@ -461,16 +487,18 @@ const Auth = () => {
                       id="signup-name"
                       type="text"
                       placeholder="Enter your name"
-                      value={signUpData.displayName}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          displayName: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signUpForm.register("displayName")}
+                      className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                        signUpForm.formState.errors.displayName
+                          ? "border-red-300 focus:ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {signUpForm.formState.errors.displayName && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.displayName.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -484,16 +512,18 @@ const Auth = () => {
                       id="signup-email"
                       type="email"
                       placeholder="Enter your email"
-                      value={signUpData.email}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signUpForm.register("email")}
+                      className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                        signUpForm.formState.errors.email
+                          ? "border-red-300 focus:ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {signUpForm.formState.errors.email && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -503,21 +533,19 @@ const Auth = () => {
                     >
                       Password
                     </Label>
-                    <Input
+                    <PasswordInput
                       id="signup-password"
-                      type="password"
                       placeholder="Choose a password (min. 6 characters)"
-                      value={signUpData.password}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
-                      minLength={6}
+                      {...signUpForm.register("password")}
+                      showPassword={showPassword}
+                      onTogglePassword={() => setShowPassword(!showPassword)}
+                      error={signUpForm.formState.errors.password?.message}
                     />
+                    {signUpForm.formState.errors.password && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.password.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -527,32 +555,35 @@ const Auth = () => {
                     >
                       Confirm Password
                     </Label>
-                    <Input
+                    <PasswordInput
                       id="signup-confirm"
-                      type="password"
                       placeholder="Confirm your password"
-                      value={signUpData.confirmPassword}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          confirmPassword: e.target.value,
-                        }))
+                      {...signUpForm.register("confirmPassword")}
+                      showPassword={showConfirmPassword}
+                      onTogglePassword={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
                       }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      error={
+                        signUpForm.formState.errors.confirmPassword?.message
+                      }
                     />
+                    {signUpForm.formState.errors.confirmPassword && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.confirmPassword.message}
+                      </p>
+                    )}
                   </div>
 
-                  {error && (
+                  {signUpForm.formState.errors.root && (
                     <Alert variant="destructive" className="py-2">
                       <AlertDescription className="text-sm">
-                        {error}
+                        {signUpForm.formState.errors.root.message}
                       </AlertDescription>
                     </Alert>
                   )}
 
                   <Button
-                    onClick={handleSignUp}
+                    onClick={signUpForm.handleSubmit(handleSignUp)}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                     disabled={isLoading}
                   >
