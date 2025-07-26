@@ -56,6 +56,17 @@ CREATE TABLE public.transactions (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+-- Create monthly_budgets table
+CREATE TABLE public.monthly_budgets (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  book_id UUID NOT NULL REFERENCES public.books(id) ON DELETE CASCADE,
+  month VARCHAR(7) NOT NULL, -- Format: YYYY-MM
+  amount DECIMAL(15,2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  UNIQUE(book_id, month)
+);
+
 -- Create storage bucket for receipts
 INSERT INTO storage.buckets (id, name, public) VALUES ('receipts', 'receipts', false);
 
@@ -64,6 +75,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.book_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_budgets ENABLE ROW LEVEL SECURITY;
 
 -- Create function to check book access
 CREATE OR REPLACE FUNCTION public.has_book_access(book_uuid UUID, access_role app_role DEFAULT 'viewer')
@@ -148,6 +160,26 @@ CREATE POLICY "Users can delete their own transactions in accessible books" ON p
     auth.uid() = user_id
   );
 
+  CREATE POLICY "Users can view budgets for books they have access to" ON public.monthly_budgets
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.books b
+      WHERE b.id = book_id AND b.owner_id = auth.uid()
+    ) OR EXISTS (
+      SELECT 1 FROM public.book_members bm
+      WHERE bm.book_id = book_id AND bm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Book owners can manage budgets" ON public.monthly_budgets
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.books b
+      WHERE b.id = book_id AND b.owner_id = auth.uid()
+    )
+  );
+
+
 -- Storage policies for receipts
 CREATE POLICY "Users can view receipts for transactions they have access to" ON storage.objects
   FOR SELECT USING (
@@ -224,7 +256,13 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+CREATE TRIGGER update_monthly_budgets_updated_at
+  BEFORE UPDATE ON public.monthly_budgets
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
 -- Enable realtime for tables
 ALTER PUBLICATION supabase_realtime ADD TABLE public.books;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.book_members;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.monthly_budgets;

@@ -82,6 +82,41 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_budgets: {
+        Row: {
+          amount: number
+          book_id: string
+          created_at: string
+          id: string
+          month: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          book_id: string
+          created_at?: string
+          id?: string
+          month: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          book_id?: string
+          created_at?: string
+          id?: string
+          month?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_budgets_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

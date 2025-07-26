@@ -33,7 +33,7 @@ import { useState } from "react";
 
 export const Profile = () => {
   const { user } = useAuth();
-  const { books, updateBook } = useBooks();
+  const { books, setMonthlyBudget } = useBooks();
   const { toast } = useToast();
   const [selectedBookId, setSelectedBookId] = useState<string | "all">("all");
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>("all");
@@ -44,6 +44,10 @@ export const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState(
     user?.user_metadata?.avatar_url || ""
   );
+  const [budgetMonth, setBudgetMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  ); // YYYY-MM
+  const [newBudget, setNewBudget] = useState("");
 
   // Dynamic transaction filters based on book and time period
   const getDateRange = () => {
@@ -85,13 +89,15 @@ export const Profile = () => {
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const netWorth = totalIncome - totalExpenses;
 
-  // Monthly budget (configurable per book or globally)
+  // Get monthly budget for selected book and month
+  const selectedBook = books.find((b) => b.id === selectedBookId);
   const monthlyBudget =
     selectedBookId === "all"
-      ? 5000
-      : books.find((b) => b.id === selectedBookId)?.monthly_budget || 5000;
+      ? 5000 // Default for all books
+      : selectedBook?.monthly_budgets?.find((b) => b.month === budgetMonth)
+          ?.amount || 5000;
   const currentMonthExpenses =
-    selectedTimePeriod === "month" ? totalExpenses : 3200; // Fallback for non-month view
+    selectedTimePeriod === "month" ? totalExpenses : 3200;
   const budgetProgress = (currentMonthExpenses / monthlyBudget) * 100;
 
   // Activity stats
@@ -120,7 +126,6 @@ export const Profile = () => {
 
       if (error) throw error;
 
-      // Update profile table
       await supabase
         .from("profiles")
         .update({
@@ -144,11 +149,46 @@ export const Profile = () => {
     }
   };
 
+  const handleSetBudget = async () => {
+    if (!selectedBookId || selectedBookId === "all" || !newBudget) return;
+    try {
+      await setMonthlyBudget(selectedBookId, budgetMonth, Number(newBudget));
+      toast({
+        title: "Budget set",
+        description: `Budget of ৳${newBudget} set for ${budgetMonth}.`,
+      });
+      setNewBudget("");
+    } catch (error: any) {
+      toast({
+        title: "Error setting budget",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const timePeriods = [
     { value: "all", label: "All Time" },
     { value: "month", label: "This Month" },
     { value: "year", label: "This Year" },
   ];
+
+  // Generate last 12 months for budget selection
+  const getMonthOptions = () => {
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        value: date.toISOString().slice(0, 7),
+        label: date.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
+      });
+    }
+    return months;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -236,37 +276,81 @@ export const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Select value={selectedBookId} onValueChange={setSelectedBookId}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Select Book" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Books</SelectItem>
-                {books.map((book) => (
-                  <SelectItem key={book.id} value={book.id}>
-                    {book.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Filters and Budget Setting */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Select value={selectedBookId} onValueChange={setSelectedBookId}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Select Book" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Books</SelectItem>
+                  {books.map((book) => (
+                    <SelectItem key={book.id} value={book.id}>
+                      {book.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select
-              value={selectedTimePeriod}
-              onValueChange={setSelectedTimePeriod}
-            >
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Select Time Period" />
-              </SelectTrigger>
-              <SelectContent>
-                {timePeriods.map((period) => (
-                  <SelectItem key={period.value} value={period.value}>
-                    {period.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select
+                value={selectedTimePeriod}
+                onValueChange={setSelectedTimePeriod}
+              >
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Select Time Period" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timePeriods.map((period) => (
+                    <SelectItem key={period.value} value={period.value}>
+                      {period.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">
+                  Set Monthly Budget
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row gap-4">
+                <Select
+                  value={budgetMonth}
+                  onValueChange={setBudgetMonth}
+                  disabled={selectedBookId === "all"}
+                >
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Select Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getMonthOptions().map((month) => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  value={newBudget}
+                  onChange={(e) => setNewBudget(e.target.value)}
+                  placeholder="Enter budget amount"
+                  disabled={selectedBookId === "all"}
+                  className="w-full sm:w-[200px]"
+                />
+                <Button
+                  onClick={handleSetBudget}
+                  disabled={selectedBookId === "all" || !newBudget}
+                  className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Set Budget
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Quick Stats */}
