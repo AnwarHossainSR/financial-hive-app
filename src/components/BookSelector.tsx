@@ -240,7 +240,7 @@ export const BookSelector = ({
 
           <CardContent className="p-5">
             {books.length === 0 ? (
-              <div className="text-center py-10 text-muted-foreground">
+              <div className="text-center py-10 text-muted-foreground mx-auto">
                 <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
                 <p className="text-base sm:text-lg font-medium mb-2">
                   No books yet

@@ -1,22 +1,25 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
 
 const Auth = () => {
-  const { user, loading, signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } =
+    useAuth();
   const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [view, setView] = useState<"auth" | "forgot-password" | "reset-sent">(
+    "auth"
+  );
 
   const [signInData, setSignInData] = useState({
     email: "",
@@ -30,6 +33,8 @@ const Auth = () => {
     displayName: "",
   });
 
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -39,7 +44,17 @@ const Auth = () => {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    // In a real app, this would navigate to dashboard
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Welcome back!
+          </h2>
+          <p className="text-gray-600">You are already signed in.</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -104,16 +119,51 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    if (!forgotPasswordEmail) {
+      setError("Please enter your email address");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await resetPassword(forgotPasswordEmail);
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setView("reset-sent");
+        toast({
+          title: "Reset link sent!",
+          description: "Check your email for password reset instructions.",
+        });
+      }
+    } catch (err) {
+      setError("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSocialLogin = async (provider: "google") => {
     setIsLoading(true);
     setError("");
 
     try {
-      // show toast as functionality is not implemented yet
-      toast({
-        title: "Social login not implemented",
-        description: `Login with ${provider} is not yet available.`,
-      });
+      const { error } = await signInWithGoogle();
+
+      if (error) {
+        setError(error.message);
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     } catch (err) {
       setError("An unexpected error occurred during social login");
     } finally {
@@ -121,13 +171,138 @@ const Auth = () => {
     }
   };
 
+  if (view === "forgot-password") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="w-full max-w-md">
+          <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setView("auth")}
+                className="absolute left-4 top-4 p-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="flex items-center justify-center mb-2">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                Reset Password
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                Enter your email address and we'll send you a link to reset your
+                password.
+              </p>
+            </CardHeader>
+            <CardContent className="px-6 pb-6">
+              <div onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="reset-email"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Email Address
+                  </Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+
+                {error && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertDescription className="text-sm">
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  onClick={handleForgotPassword}
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
+                  disabled={isLoading}
+                >
+                  {isLoading && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Send Reset Link
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "reset-sent") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="w-full max-w-md">
+          <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <div className="flex items-center justify-center mb-2">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                Check Your Email
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                We've sent a password reset link to{" "}
+                <strong>{forgotPasswordEmail}</strong>
+              </p>
+            </CardHeader>
+            <CardContent className="px-6 pb-6">
+              <div className="space-y-4">
+                <Alert className="border-blue-200 bg-blue-50">
+                  <AlertDescription className="text-sm text-blue-800">
+                    Didn't receive the email? Check your spam folder or try
+                    again with a different email address.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setView("forgot-password")}
+                    className="flex-1"
+                  >
+                    Try Again
+                  </Button>
+                  <Button onClick={() => setView("auth")} className="flex-1">
+                    Back to Sign In
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-md">
-              <img src="/cheque.png" className="w-6 h-6 text-white" />
+              <img
+                src="/cheque.png"
+                className="w-6 h-6 text-white"
+                alt="CashBook"
+              />
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900">CashBook</h1>
           </div>
@@ -165,7 +340,7 @@ const Auth = () => {
                     />
                   </svg>
                 )}
-                Google
+                Continue with Google
               </Button>
             </div>
 
@@ -195,7 +370,7 @@ const Auth = () => {
               </TabsList>
 
               <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-5">
+                <div onSubmit={handleSignIn} className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signin-email"
@@ -220,12 +395,22 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="signin-password"
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Password
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="signin-password"
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Password
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => setView("forgot-password")}
+                        className="text-xs text-primary hover:text-primary/80 p-0 h-auto"
+                      >
+                        Forgot password?
+                      </Button>
+                    </div>
                     <Input
                       id="signin-password"
                       type="password"
@@ -251,7 +436,7 @@ const Auth = () => {
                   )}
 
                   <Button
-                    type="submit"
+                    onClick={handleSignIn}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                     disabled={isLoading}
                   >
@@ -260,11 +445,11 @@ const Auth = () => {
                     )}
                     Sign In
                   </Button>
-                </form>
+                </div>
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-5">
+                <div onSubmit={handleSignUp} className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signup-name"
@@ -321,7 +506,7 @@ const Auth = () => {
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Choose a password"
+                      placeholder="Choose a password (min. 6 characters)"
                       value={signUpData.password}
                       onChange={(e) =>
                         setSignUpData((prev) => ({
@@ -331,6 +516,7 @@ const Auth = () => {
                       }
                       className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
                       required
+                      minLength={6}
                     />
                   </div>
 
@@ -366,7 +552,7 @@ const Auth = () => {
                   )}
 
                   <Button
-                    type="submit"
+                    onClick={handleSignUp}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                     disabled={isLoading}
                   >
@@ -375,7 +561,7 @@ const Auth = () => {
                     )}
                     Create Account
                   </Button>
-                </form>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>
