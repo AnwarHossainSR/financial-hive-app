@@ -13,7 +13,6 @@ interface AuthContextType {
   ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
-  signInWithGithub: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -182,22 +181,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signInWithGithub = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-
-      return { error };
-    } catch (error) {
-      console.error("GitHub sign in error:", error);
-      return { error };
-    }
-  };
-
   const signOut = async () => {
     try {
       setLoading(true); // Show loading during sign out
@@ -225,7 +208,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signUp,
         signIn,
         signInWithGoogle,
-        signInWithGithub,
         signOut,
       }}
     >
