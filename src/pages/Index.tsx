@@ -14,6 +14,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -43,7 +50,16 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-
+  // Update the selectedMonth state initialization at the top of the Index component
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // getMonth is 0-based, +1 for 1-based
+    const initialMonth = `${year}-${month}`; // e.g., "2025-07"
+    console.log("Initial selectedMonth:", initialMonth); // Debug
+    return initialMonth;
+  });
+  console.log("selectedMonth", selectedMonth);
   const {
     transactions,
     loading: transactionsLoading,
@@ -56,6 +72,18 @@ const Index = () => {
       : { search: searchQuery }
   );
 
+  // Reset selectedMonth when book changes
+  useEffect(() => {
+    if (selectedBook) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const currentMonth = `${year}-${month}`; // e.g., "2025-07"
+      console.log("Reset selectedMonth on book change:", currentMonth); // Debug
+      setSelectedMonth(currentMonth);
+    }
+  }, [selectedBook]);
+
   // Initialize selectedBook from query param only
   useEffect(() => {
     if (booksInitialized && books.length > 0) {
@@ -65,18 +93,17 @@ const Index = () => {
         if (book) {
           setSelectedBook(book);
         } else {
-          // Invalid bookId, clear query param and show homepage
           setSearchParams({});
           setSelectedBook(null);
         }
       } else {
-        // No bookId in query params, ensure homepage is shown
         setSelectedBook(null);
       }
     }
   }, [books, booksInitialized, searchParams, setSearchParams]);
 
-  const { totalIncome, totalExpense } = useMemo(() => {
+  // Calculate financial stats and budget progress
+  const { totalIncome, totalExpense, monthlyBudget } = useMemo(() => {
     const income = transactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -85,12 +112,22 @@ const Index = () => {
       .filter((t) => t.type === "expense")
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
+    // Filter transactions for the selected month
+    const monthExpenses = transactions
+      .filter((t) => t.date.startsWith(selectedMonth) && t.type === "expense")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Get monthly budget for the selected book and month
+    const monthlyBudget =
+      selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
+        ?.amount || 5000;
+
     return {
       totalIncome: income,
       totalExpense: expense,
-      balance: income - expense,
+      monthlyBudget,
     };
-  }, [transactions]);
+  }, [transactions, selectedBook, selectedMonth]);
 
   const handleAddTransaction = async (newTransaction: any) => {
     const filteredQuery = selectedBook
@@ -173,12 +210,6 @@ const Index = () => {
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
       doc.text(`Total Transactions: ${transactions.length}`, 20, 45);
-      const totalIncome = transactions
-        .filter((t) => t.type === "income")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      const totalExpense = transactions
-        .filter((t) => t.type === "expense")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
       doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 55);
       doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 65);
       doc.text(
@@ -274,6 +305,26 @@ const Index = () => {
 
   const canAddTransaction = selectedBook !== null;
 
+  // Generate last 12 months for budget selection
+  const getMonthOptions = () => {
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0"); // +1 for 1-based month
+      months.push({
+        value: `${year}-${month}`, // e.g., "2025-07"
+        label: date.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }), // e.g., "July 2025"
+      });
+    }
+    console.log("Month options:", months); // Debug
+    return months;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header
@@ -286,12 +337,40 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Book Selector */}
-        <div className="relative">
+        {/* Book and Month Selector */}
+        <div className="relative flex flex-col sm:flex-row gap-4">
           <BookSelector
             selectedBook={selectedBook}
             onSelectBook={setSelectedBook}
           />
+          {selectedBook && (
+            <Select
+              key={selectedBook.id} // Force re-render when book changes
+              value={selectedMonth}
+              onValueChange={(value) => {
+                console.log("Selected month changed to:", value); // Debug
+                setSelectedMonth(value);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue
+                  placeholder="Select Month"
+                  children={
+                    getMonthOptions().find(
+                      (month) => month.value === selectedMonth
+                    )?.label || "Select Month"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {getMonthOptions().map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {!selectedBook ? (
@@ -318,7 +397,7 @@ const Index = () => {
               monthlyIncome={totalIncome}
               monthlyExpense={totalExpense}
               transactionCount={transactions.length}
-              savingsGoal={5000}
+              monthlyBudget={monthlyBudget}
             />
 
             {/* Recent Transactions */}

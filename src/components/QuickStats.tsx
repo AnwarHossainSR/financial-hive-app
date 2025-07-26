@@ -16,7 +16,7 @@ interface QuickStatsProps {
   monthlyIncome: number;
   monthlyExpense: number;
   transactionCount: number;
-  savingsGoal?: number;
+  monthlyBudget: number;
 }
 
 interface StatCardProps {
@@ -134,12 +134,12 @@ export function QuickStats({
   monthlyIncome,
   monthlyExpense,
   transactionCount,
-  savingsGoal = 5000,
+  monthlyBudget = 5000,
 }: QuickStatsProps) {
   const [isMobileStatsOpen, setIsMobileStatsOpen] = useState(false);
 
   const monthlySavings = monthlyIncome - monthlyExpense;
-  const savingsProgress = (monthlySavings / savingsGoal) * 100;
+  const savingsProgress = (monthlySavings / monthlyBudget) * 100;
 
   // Mock trend data - in real app, this would come from comparing with previous month
   const incomeTrend = { value: 12.5, isPositive: true };
@@ -176,7 +176,7 @@ export function QuickStats({
       icon: <Target className="w-5 h-5 text-purple-950" />,
       color: "from-purple-500 to-indigo-500",
       progress: savingsProgress,
-      subtitle: `৳${monthlySavings.toLocaleString()} / ৳${savingsGoal.toLocaleString()}`,
+      subtitle: `৳${monthlySavings.toLocaleString()} / ৳${monthlyBudget.toLocaleString()}`,
       delay: 300,
     },
   ];

@@ -3,6 +3,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
+export interface MonthlyBudget {
+  id: string;
+  book_id: string;
+  month: string; // YYYY-MM
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Book {
   id: string;
   name: string;
@@ -12,6 +21,7 @@ export interface Book {
   created_at: string;
   updated_at: string;
   is_default: boolean;
+  monthly_budgets?: MonthlyBudget[];
 }
 
 const useBooks = () => {
@@ -35,16 +45,28 @@ const useBooks = () => {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data: bookData, error: bookError } = await supabase
         .from("books")
-        .select("*")
+        .select(
+          `
+          *,
+          monthly_budgets (
+            id,
+            book_id,
+            month,
+            amount,
+            created_at,
+            updated_at
+          )
+        `
+        )
         .eq("owner_id", user.id)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (bookError) throw bookError;
 
-      setBooks(data || []);
+      setBooks(bookData || []);
       setError(null);
     } catch (error: any) {
       console.error("Error loading books:", error);
@@ -69,7 +91,6 @@ const useBooks = () => {
     if (!user) return { error: "User not authenticated" };
 
     try {
-      // Only reset other books' is_default if there are existing books and is_default is true
       if (is_default && books.length > 0) {
         await supabase
           .from("books")
@@ -88,12 +109,23 @@ const useBooks = () => {
             owner_id: user.id,
           },
         ])
-        .select()
+        .select(
+          `
+          *,
+          monthly_budgets (
+            id,
+            book_id,
+            month,
+            amount,
+            created_at,
+            updated_at
+          )
+        `
+        )
         .single();
 
       if (error) throw error;
 
-      // Refetch to ensure correct order with is_default first
       await fetchBooks();
 
       toast({
@@ -118,9 +150,8 @@ const useBooks = () => {
     updates: Partial<Pick<Book, "name" | "type" | "description" | "is_default">>
   ) => {
     if (!user) return { error: "User not authenticated" };
-    console.log("Updating book with ID:", id, "Updates:", updates);
+
     try {
-      // Only reset other books' is_default if setting is_default to true and there are other books
       if (updates.is_default && books.length > 1) {
         await supabase
           .from("books")
@@ -134,12 +165,23 @@ const useBooks = () => {
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
         .eq("owner_id", user.id)
-        .select()
+        .select(
+          `
+          *,
+          monthly_budgets (
+            id,
+            book_id,
+            month,
+            amount,
+            created_at,
+            updated_at
+          )
+        `
+        )
         .single();
 
       if (error) throw error;
 
-      // Refetch to ensure correct order with is_default first
       await fetchBooks();
 
       toast({
@@ -159,6 +201,44 @@ const useBooks = () => {
     }
   };
 
+  const setMonthlyBudget = async (
+    bookId: string,
+    month: string,
+    amount: number
+  ) => {
+    if (!user) return { error: "User not authenticated" };
+
+    try {
+      const { data, error } = await supabase
+        .from("monthly_budgets")
+        .upsert(
+          {
+            book_id: bookId,
+            month,
+            amount,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "book_id,month" } // Use composite key
+        )
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchBooks();
+
+      return { data, error: null };
+    } catch (error: any) {
+      console.error("Error setting monthly budget:", error);
+      toast({
+        title: "Error setting monthly budget",
+        description: error.message,
+        variant: "destructive",
+      });
+      return { error: error.message };
+    }
+  };
+
   const deleteBook = async (id: string) => {
     try {
       const { error } = await supabase
@@ -169,7 +249,6 @@ const useBooks = () => {
 
       if (error) throw error;
 
-      // Optimistically update the state
       setBooks((prev) => prev.filter((book) => book.id !== id));
       toast({
         title: "Book deleted",
@@ -188,7 +267,6 @@ const useBooks = () => {
     }
   };
 
-  // Initial fetch when user changes
   useEffect(() => {
     if (user) {
       fetchBooks();
@@ -197,9 +275,8 @@ const useBooks = () => {
       setInitialized(true);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchBooks]);
 
-  // Set up realtime subscription
   useEffect(() => {
     if (!user || !initialized) return;
 
@@ -213,10 +290,17 @@ const useBooks = () => {
           table: "books",
           filter: `owner_id=eq.${user.id}`,
         },
-        () => {
-          // Refetch on any change to ensure is_default order is maintained
-          fetchBooks();
-        }
+        () => fetchBooks()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "monthly_budgets",
+          filter: `book_id=in.(${books.map((b) => b.id).join(",")})`,
+        },
+        () => fetchBooks()
       )
       .subscribe((status) => {
         console.log("Books subscription status:", status);
@@ -225,7 +309,7 @@ const useBooks = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, initialized, fetchBooks]);
+  }, [user, initialized, fetchBooks, books]);
 
   return {
     books,
@@ -234,6 +318,7 @@ const useBooks = () => {
     initialized,
     createBook,
     updateBook,
+    setMonthlyBudget,
     deleteBook,
     refetch: fetchBooks,
   };
