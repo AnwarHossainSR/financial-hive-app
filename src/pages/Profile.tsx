@@ -29,7 +29,7 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const Profile = () => {
   const { user } = useAuth();
@@ -44,10 +44,27 @@ export const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState(
     user?.user_metadata?.avatar_url || ""
   );
-  const [budgetMonth, setBudgetMonth] = useState(
-    new Date().toISOString().slice(0, 7)
-  ); // YYYY-MM
+  const [budgetMonth, setBudgetMonth] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const initialMonth = `${year}-${month}`; // e.g., "2025-07"
+    console.log("Initial budgetMonth:", initialMonth); // Debug
+    return initialMonth;
+  });
   const [newBudget, setNewBudget] = useState("");
+
+  // Reset budgetMonth when book changes
+  useEffect(() => {
+    if (selectedBookId !== "all") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const currentMonth = `${year}-${month}`; // e.g., "2025-07"
+      console.log("Reset budgetMonth on book change:", currentMonth); // Debug
+      setBudgetMonth(currentMonth);
+    }
+  }, [selectedBookId]);
 
   // Dynamic transaction filters based on book and time period
   const getDateRange = () => {
@@ -179,14 +196,17 @@ export const Profile = () => {
     const now = new Date();
     for (let i = 0; i < 12; i++) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
       months.push({
-        value: date.toISOString().slice(0, 7),
+        value: `${year}-${month}`, // e.g., "2025-07"
         label: date.toLocaleString("default", {
           month: "long",
           year: "numeric",
-        }),
+        }), // e.g., "July 2025"
       });
     }
+    console.log("Profile month options:", months); // Debug
     return months;
   };
 
@@ -318,12 +338,23 @@ export const Profile = () => {
               </CardHeader>
               <CardContent className="flex flex-col sm:flex-row gap-4">
                 <Select
+                  key={selectedBookId} // Force re-render when book changes
                   value={budgetMonth}
-                  onValueChange={setBudgetMonth}
+                  onValueChange={(value) => {
+                    console.log("Budget month changed to:", value); // Debug
+                    setBudgetMonth(value);
+                  }}
                   disabled={selectedBookId === "all"}
                 >
                   <SelectTrigger className="w-full sm:w-[200px]">
-                    <SelectValue placeholder="Select Month" />
+                    <SelectValue
+                      placeholder="Select Month"
+                      children={
+                        getMonthOptions().find(
+                          (month) => month.value === budgetMonth
+                        )?.label || "Select Month"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {getMonthOptions().map((month) => (

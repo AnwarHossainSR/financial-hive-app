@@ -103,36 +103,31 @@ const Index = () => {
   }, [books, booksInitialized, searchParams, setSearchParams]);
 
   // Calculate financial stats and budget progress
-  const { totalIncome, totalExpense, monthlyBudget, budgetProgress } =
-    useMemo(() => {
-      const income = transactions
-        .filter((t) => t.type === "income")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+  const { totalIncome, totalExpense, monthlyBudget } = useMemo(() => {
+    const income = transactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
-      const expense = transactions
-        .filter((t) => t.type === "expense")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+    const expense = transactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
-      // Filter transactions for the selected month
-      const monthExpenses = transactions
-        .filter((t) => t.date.startsWith(selectedMonth) && t.type === "expense")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+    // Filter transactions for the selected month
+    const monthExpenses = transactions
+      .filter((t) => t.date.startsWith(selectedMonth) && t.type === "expense")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
-      // Get monthly budget for the selected book and month
-      const monthlyBudget =
-        selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
-          ?.amount || 5000;
-      const budgetProgress = monthlyBudget
-        ? (monthExpenses / monthlyBudget) * 100
-        : 0;
+    // Get monthly budget for the selected book and month
+    const monthlyBudget =
+      selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
+        ?.amount || 5000;
 
-      return {
-        totalIncome: income,
-        totalExpense: expense,
-        monthlyBudget,
-        budgetProgress,
-      };
-    }, [transactions, selectedBook, selectedMonth]);
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      monthlyBudget,
+    };
+  }, [transactions, selectedBook, selectedMonth]);
 
   const handleAddTransaction = async (newTransaction: any) => {
     const filteredQuery = selectedBook
@@ -403,7 +398,6 @@ const Index = () => {
               monthlyExpense={totalExpense}
               transactionCount={transactions.length}
               monthlyBudget={monthlyBudget}
-              budgetProgress={budgetProgress}
             />
 
             {/* Recent Transactions */}

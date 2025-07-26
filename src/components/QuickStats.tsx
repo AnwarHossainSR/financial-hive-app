@@ -17,7 +17,6 @@ interface QuickStatsProps {
   monthlyExpense: number;
   transactionCount: number;
   monthlyBudget: number;
-  budgetProgress: number;
 }
 
 interface StatCardProps {
@@ -136,13 +135,12 @@ export function QuickStats({
   monthlyExpense,
   transactionCount,
   monthlyBudget = 5000,
-  budgetProgress,
 }: QuickStatsProps) {
   const [isMobileStatsOpen, setIsMobileStatsOpen] = useState(false);
 
   const monthlySavings = monthlyIncome - monthlyExpense;
-  const savingsProgress = budgetProgress;
-  console.log("savingsProgress", savingsProgress);
+  const savingsProgress = (monthlySavings / monthlyBudget) * 100;
+
   // Mock trend data - in real app, this would come from comparing with previous month
   const incomeTrend = { value: 12.5, isPositive: true };
   const expenseTrend = { value: 8.3, isPositive: false };
