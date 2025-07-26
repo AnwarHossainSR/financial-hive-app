@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { BookOpen, Download, Settings, Upload, User } from "lucide-react";
+import { Download, Settings, Upload, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NotificationDropdown } from "./NotificationDropdown";
 
@@ -97,7 +97,10 @@ export function Header({
             onClick={() => navigate("/")}
           >
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-primary-foreground" />
+              <img
+                src="/cheque.png"
+                className="w-5 h-5 text-primary-foreground"
+              />
             </div>
             <div className="flex flex-col">
               <h1 className="text-lg font-bold leading-none">{title}</h1>
