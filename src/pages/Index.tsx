@@ -24,7 +24,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
-import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
+import {
+  BookOpen,
+  Calendar,
+  Download,
+  Filter,
+  Plus,
+  Search,
+  TrendingUp,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -38,6 +46,70 @@ interface Transaction {
   image_url?: string;
 }
 
+// Skeleton Components
+const BookSelectorSkeleton = () => (
+  <div className="relative">
+    <div className="h-11 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg animate-pulse" />
+  </div>
+);
+
+const QuickStatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+    {[...Array(4)].map((_, i) => (
+      <Card
+        key={i}
+        className="border-none shadow-lg rounded-xl bg-white dark:bg-gray-800 overflow-hidden"
+      >
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2 flex-1">
+              <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded animate-pulse w-20" />
+              <div className="h-8 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded animate-pulse w-24" />
+            </div>
+            <div className="h-12 w-12 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-full animate-pulse" />
+          </div>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
+
+const TransactionsSkeleton = () => (
+  <Card className="border-none shadow-xl rounded-2xl bg-white dark:bg-gray-800 overflow-hidden">
+    <CardHeader className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded animate-pulse w-40" />
+        <div className="flex gap-2">
+          <div className="h-9 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg animate-pulse w-64" />
+          <div className="h-9 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg animate-pulse w-20" />
+          <div className="h-9 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg animate-pulse w-24" />
+          <div className="h-9 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700 rounded-lg animate-pulse w-32" />
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent className="p-6 space-y-4">
+      {[...Array(5)].map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl"
+        >
+          <div className="flex items-center gap-4 flex-1">
+            <div className="h-12 w-12 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded-full animate-pulse" />
+            <div className="space-y-2 flex-1">
+              <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded animate-pulse w-32" />
+              <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded animate-pulse w-24" />
+            </div>
+          </div>
+          <div className="text-right space-y-2">
+            <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded animate-pulse w-20" />
+            <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 rounded animate-pulse w-16" />
+          </div>
+        </div>
+      ))}
+    </CardContent>
+  </Card>
+);
+
 const Index = () => {
   const { toast } = useToast();
   const { books, initialized: booksInitialized } = useBooks();
@@ -50,6 +122,7 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+
   // Update the selectedMonth state initialization at the top of the Index component
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -59,6 +132,7 @@ const Index = () => {
     console.log("Initial selectedMonth:", initialMonth); // Debug
     return initialMonth;
   });
+
   console.log("selectedMonth", selectedMonth);
   const {
     transactions,
@@ -326,7 +400,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
       <Header
         showImportExport={true}
         onImportCSV={handleImportCSV}
@@ -338,158 +412,207 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Book and Month Selector */}
-        <div className="relative flex flex-col sm:flex-row gap-4">
-          <BookSelector
-            selectedBook={selectedBook}
-            onSelectBook={setSelectedBook}
-          />
+        <div className="relative flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          {!booksInitialized ? (
+            <BookSelectorSkeleton />
+          ) : (
+            <div className="flex-1 sm:flex-none">
+              <BookSelector
+                selectedBook={selectedBook}
+                onSelectBook={setSelectedBook}
+              />
+            </div>
+          )}
+
           {selectedBook && (
-            <Select
-              key={selectedBook.id} // Force re-render when book changes
-              value={selectedMonth}
-              onValueChange={(value) => {
-                console.log("Selected month changed to:", value); // Debug
-                setSelectedMonth(value);
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue
-                  placeholder="Select Month"
-                  children={
-                    getMonthOptions().find(
-                      (month) => month.value === selectedMonth
-                    )?.label || "Select Month"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {getMonthOptions().map((month) => (
-                  <SelectItem key={month.value} value={month.value}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-3 py-2 shadow-sm border border-gray-100 dark:border-gray-700">
+              <Calendar className="w-4 h-4 text-blue-500" />
+              <Select
+                key={selectedBook.id}
+                value={selectedMonth}
+                onValueChange={(value) => {
+                  console.log("Selected month changed to:", value);
+                  setSelectedMonth(value);
+                }}
+              >
+                <SelectTrigger className="w-[180px] border-none bg-transparent focus:ring-0 focus:ring-offset-0">
+                  <SelectValue
+                    placeholder="Select Month"
+                    children={
+                      getMonthOptions().find(
+                        (month) => month.value === selectedMonth
+                      )?.label || "Select Month"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMonthOptions().map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 
         {!selectedBook ? (
-          <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
-            <CardContent className="py-16 text-center">
-              <BookOpen className="w-20 h-20 mx-auto mb-6 text-blue-500 dark:text-blue-400 animate-bounce" />
-              <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
+          <Card className="border-none shadow-2xl bg-gradient-to-br from-white to-blue-50/50 dark:from-gray-800 dark:to-gray-800/80 rounded-3xl overflow-hidden backdrop-blur-sm">
+            <CardContent className="py-20 text-center">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-3xl opacity-20 scale-150"></div>
+                <BookOpen className="relative w-24 h-24 mx-auto mb-8 text-blue-500 dark:text-blue-400 animate-bounce drop-shadow-lg" />
+              </div>
+              <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent mb-6">
                 Welcome to CashBook
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
+              <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto leading-relaxed">
                 Select a book above to start tracking your income and expenses
-                with ease.
+                with modern, intuitive design.
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Organize your finances by creating books for personal, business,
-                or project-specific expenses.
-              </p>
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <TrendingUp className="w-4 h-4" />
+                <span>
+                  Organize your finances by creating books for personal,
+                  business, or project-specific expenses.
+                </span>
+              </div>
             </CardContent>
           </Card>
         ) : (
           <>
             {/* Quick Stats */}
-            <QuickStats
-              monthlyIncome={totalIncome}
-              monthlyExpense={totalExpense}
-              transactionCount={transactions.length}
-              monthlyBudget={monthlyBudget}
-            />
+            {transactionsLoading && !transactionsInitialized ? (
+              <QuickStatsSkeleton />
+            ) : (
+              <QuickStats
+                monthlyIncome={totalIncome}
+                monthlyExpense={totalExpense}
+                transactionCount={transactions.length}
+                monthlyBudget={monthlyBudget}
+              />
+            )}
 
             {/* Recent Transactions */}
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md animate-scale-in">
-              <CardHeader className="px-4 sm:px-5 py-3 border-b border-border">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-                  <CardTitle className="text-base sm:text-lg font-semibold text-foreground">
-                    Recent Transactions
-                  </CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <div className="relative w-full sm:w-64">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input
-                        placeholder="Search transactions..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 text-sm bg-background border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all w-full"
-                      />
+            {transactionsLoading && !transactionsInitialized ? (
+              <TransactionsSkeleton />
+            ) : (
+              <Card className="border-none shadow-xl rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg overflow-hidden transform transition-all duration-300 hover:shadow-2xl">
+                <CardHeader className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-blue-50/30 dark:from-gray-800/50 dark:to-gray-700/30">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-blue-500" />
+                      Recent Transactions
+                    </CardTitle>
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                      <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                          placeholder="Search transactions..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10 text-sm bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all rounded-xl backdrop-blur-sm"
+                      >
+                        <Filter className="w-4 h-4 mr-2" />
+                        <span className="hidden sm:inline">Filter</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleImportCSV}
+                        disabled={!canAddTransaction}
+                        className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all rounded-xl backdrop-blur-sm disabled:opacity-50"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        <span className="hidden sm:inline">Import</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => setShowAddForm(true)}
+                        disabled={!canAddTransaction}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:transform-none"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        <span className="hidden sm:inline">
+                          Add Transaction
+                        </span>
+                      </Button>
                     </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all rounded-lg"
-                    >
-                      <Filter className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Filter</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleImportCSV}
-                      disabled={!canAddTransaction}
-                      className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all rounded-lg"
-                    >
-                      <Download className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Import</span>
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      onClick={() => setShowAddForm(true)}
-                      disabled={!canAddTransaction}
-                      className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg transition-all"
-                    >
-                      <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Add Transaction</span>
-                    </Button>
                   </div>
-                </div>
-              </CardHeader>
+                </CardHeader>
 
-              <CardContent className="p-4 sm:p-5 space-y-3">
-                {transactionsLoading && !transactionsInitialized ? (
-                  <div className="space-y-3">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-16 bg-muted rounded-lg animate-pulse"
-                      ></div>
-                    ))}
-                  </div>
-                ) : transactions.length > 0 ? (
-                  transactions.map((transaction) => (
-                    <TransactionCard
-                      key={transaction.id}
-                      transaction={transaction}
-                      onDelete={() => handleDeleteTransaction(transaction)}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    {searchQuery
-                      ? "No transactions match your search."
-                      : "No transactions yet. Add your first transaction to get started!"}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                <CardContent className="p-6 space-y-4">
+                  {transactions.length > 0 ? (
+                    <div className="space-y-3">
+                      {transactions.map((transaction, index) => (
+                        <div
+                          key={transaction.id}
+                          className="transform transition-all duration-200 hover:scale-[1.02] opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
+                          style={{
+                            animationDelay: `${index * 50}ms`,
+                          }}
+                        >
+                          <TransactionCard
+                            transaction={transaction}
+                            onDelete={() =>
+                              handleDeleteTransaction(transaction)
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-16 opacity-0 animate-[fadeInUp_0.5s_ease-out_0.2s_forwards]">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full blur-2xl opacity-10 scale-150"></div>
+                        <TrendingUp className="relative w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                        {searchQuery
+                          ? "No matching transactions"
+                          : "No transactions yet"}
+                      </h4>
+                      <p className="text-gray-500 dark:text-gray-500 mb-6">
+                        {searchQuery
+                          ? "Try adjusting your search terms."
+                          : "Add your first transaction to get started with tracking your finances!"}
+                      </p>
+                      {!searchQuery && (
+                        <Button
+                          onClick={() => setShowAddForm(true)}
+                          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Your First Transaction
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </main>
 
       {/* Add Transaction Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
+        <DialogContent className="max-w-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent">
               Add New Transaction
               {selectedBook && (
-                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 block">
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 block mt-1">
                   to {selectedBook.name}
                 </span>
               )}

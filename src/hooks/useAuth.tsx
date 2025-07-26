@@ -207,6 +207,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Sign out error:", error);
         setLoading(false);
       }
+      setUser(null);
+      setSession(null); // Clear session on sign out
       // Loading will be set to false by the auth state change listener
     } catch (error) {
       console.error("Sign out error:", error);

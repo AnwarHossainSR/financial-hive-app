@@ -6,7 +6,7 @@ import { defineConfig } from "vite";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 3000,
   },
   plugins: [react()].filter(Boolean),
   resolve: {
@@ -14,4 +14,6 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  publicDir: "public",
+  base: "/",
 }));
