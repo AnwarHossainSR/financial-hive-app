@@ -14,6 +14,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -43,6 +50,9 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  ); // YYYY-MM
 
   const {
     transactions,
@@ -65,32 +75,46 @@ const Index = () => {
         if (book) {
           setSelectedBook(book);
         } else {
-          // Invalid bookId, clear query param and show homepage
           setSearchParams({});
           setSelectedBook(null);
         }
       } else {
-        // No bookId in query params, ensure homepage is shown
         setSelectedBook(null);
       }
     }
   }, [books, booksInitialized, searchParams, setSearchParams]);
 
-  const { totalIncome, totalExpense } = useMemo(() => {
-    const income = transactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+  // Calculate financial stats and budget progress
+  const { totalIncome, totalExpense, monthlyBudget, budgetProgress } =
+    useMemo(() => {
+      const income = transactions
+        .filter((t) => t.type === "income")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    const expense = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      const expense = transactions
+        .filter((t) => t.type === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      balance: income - expense,
-    };
-  }, [transactions]);
+      // Filter transactions for the selected month
+      const monthExpenses = transactions
+        .filter((t) => t.date.startsWith(selectedMonth) && t.type === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      // Get monthly budget for the selected book and month
+      const monthlyBudget =
+        selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
+          ?.amount || 5000;
+      const budgetProgress = monthlyBudget
+        ? (monthExpenses / monthlyBudget) * 100
+        : 0;
+
+      return {
+        totalIncome: income,
+        totalExpense: expense,
+        monthlyBudget,
+        budgetProgress,
+      };
+    }, [transactions, selectedBook, selectedMonth]);
 
   const handleAddTransaction = async (newTransaction: any) => {
     const filteredQuery = selectedBook
@@ -173,12 +197,6 @@ const Index = () => {
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
       doc.text(`Total Transactions: ${transactions.length}`, 20, 45);
-      const totalIncome = transactions
-        .filter((t) => t.type === "income")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
-      const totalExpense = transactions
-        .filter((t) => t.type === "expense")
-        .reduce((sum, t) => sum + Number(t.amount), 0);
       doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 55);
       doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 65);
       doc.text(
@@ -274,6 +292,23 @@ const Index = () => {
 
   const canAddTransaction = selectedBook !== null;
 
+  // Generate last 12 months for budget selection
+  const getMonthOptions = () => {
+    const months = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        value: date.toISOString().slice(0, 7),
+        label: date.toLocaleString("default", {
+          month: "long",
+          year: "numeric",
+        }),
+      });
+    }
+    return months;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header
@@ -286,12 +321,26 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Book Selector */}
-        <div className="relative">
+        {/* Book and Month Selector */}
+        <div className="relative flex flex-col sm:flex-row gap-4">
           <BookSelector
             selectedBook={selectedBook}
             onSelectBook={setSelectedBook}
           />
+          {selectedBook && (
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Select Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {getMonthOptions().map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {!selectedBook ? (
@@ -318,7 +367,8 @@ const Index = () => {
               monthlyIncome={totalIncome}
               monthlyExpense={totalExpense}
               transactionCount={transactions.length}
-              savingsGoal={5000}
+              monthlyBudget={monthlyBudget}
+              budgetProgress={budgetProgress}
             />
 
             {/* Recent Transactions */}
