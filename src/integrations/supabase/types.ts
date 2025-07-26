@@ -124,6 +124,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          role: string
           updated_at: string
           user_id: string
         }
@@ -133,6 +134,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          role?: string
           updated_at?: string
           user_id: string
         }
@@ -142,6 +144,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          role?: string
           updated_at?: string
           user_id?: string
         }
@@ -191,6 +194,47 @@ export type Database = {
           {
             foreignKeyName: "transactions_book_id_fkey"
             columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          currency: string
+          default_book_id: string | null
+          export_format: string
+          id: string
+          notifications: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          default_book_id?: string | null
+          export_format?: string
+          id?: string
+          notifications?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          default_book_id?: string | null
+          export_format?: string
+          id?: string
+          notifications?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_default_book_id_fkey"
+            columns: ["default_book_id"]
             isOneToOne: false
             referencedRelation: "books"
             referencedColumns: ["id"]

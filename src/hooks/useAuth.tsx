@@ -13,8 +13,9 @@ interface AuthContextType {
   ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
-  signInWithGithub: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (password: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,7 +67,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Handle profile creation/update for sign in events
           if (
             session?.user &&
-            (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
+            (event === "SIGNED_IN" ||
+              event === "TOKEN_REFRESHED" ||
+              event === "PASSWORD_RECOVERY")
           ) {
             await createOrUpdateProfile(session.user);
           }
@@ -182,18 +185,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signInWithGithub = async () => {
+  const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      console.log("error", error);
+
+      return { error };
+    } catch (error) {
+      console.error("Reset password error:", error);
+      return { error };
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password,
       });
 
       return { error };
     } catch (error) {
-      console.error("GitHub sign in error:", error);
+      console.error("Update password error:", error);
       return { error };
     }
   };
@@ -207,6 +222,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Sign out error:", error);
         setLoading(false);
       }
+      setUser(null);
+      setSession(null); // Clear session on sign out
       // Loading will be set to false by the auth state change listener
     } catch (error) {
       console.error("Sign out error:", error);
@@ -223,8 +240,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signUp,
         signIn,
         signInWithGoogle,
-        signInWithGithub,
         signOut,
+        resetPassword,
+        updatePassword,
       }}
     >
       {children}

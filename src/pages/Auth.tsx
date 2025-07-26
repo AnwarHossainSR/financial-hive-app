@@ -1,34 +1,83 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { DollarSign, Loader2 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { Navigate, useNavigate } from "react-router-dom";
+import { z } from "zod";
 
-const Auth = () => {
-  const { user, loading, signIn, signUp, signInWithGoogle, signInWithGithub } =
-    useAuth();
-  const { toast } = useToast();
+// Validation schemas
+const signInSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const [signInData, setSignInData] = useState({
-    email: "",
-    password: "",
+const signUpSchema = z
+  .object({
+    displayName: z.string().min(1, "Display name is required"),
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
   });
 
-  const [signUpData, setSignUpData] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-    displayName: "",
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+type SignInData = z.infer<typeof signInSchema>;
+type SignUpData = z.infer<typeof signUpSchema>;
+type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
+
+const Auth = () => {
+  const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } =
+    useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [view, setView] = useState<"auth" | "forgot-password" | "reset-sent">(
+    "auth"
+  );
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Form instances
+  const signInForm = useForm<SignInData>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const signUpForm = useForm<SignUpData>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      displayName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
   });
 
   if (loading) {
@@ -43,55 +92,40 @@ const Auth = () => {
     return <Navigate to="/" replace />;
   }
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async (data: SignInData) => {
     setIsLoading(true);
-    setError("");
 
     try {
-      const { error } = await signIn(signInData.email, signInData.password);
+      const { error } = await signIn(data.email, data.password);
 
       if (error) {
-        setError(error.message);
+        signInForm.setError("root", { message: error.message });
       } else {
         toast({
           title: "Welcome back!",
           description: "You have been signed in successfully.",
         });
+        navigate("/");
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      signInForm.setError("root", { message: "An unexpected error occurred" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignUp = async (data: SignUpData) => {
     setIsLoading(true);
-    setError("");
-
-    if (signUpData.password !== signUpData.confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
-
-    if (signUpData.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const { error } = await signUp(
-        signUpData.email,
-        signUpData.password,
-        signUpData.displayName
+        data.email,
+        data.password,
+        data.displayName
       );
 
       if (error) {
-        setError(error.message);
+        signUpForm.setError("root", { message: error.message });
       } else {
         toast({
           title: "Account created!",
@@ -99,31 +133,189 @@ const Auth = () => {
         });
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      signUpForm.setError("root", { message: "An unexpected error occurred" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSocialLogin = async (provider: "google" | "github") => {
+  const handleForgotPassword = async (data: ForgotPasswordData) => {
     setIsLoading(true);
-    setError("");
 
     try {
-      const { error } =
-        provider === "google"
-          ? await signInWithGoogle()
-          : await signInWithGithub();
+      const { error } = await resetPassword(data.email);
 
       if (error) {
-        setError(error.message);
+        forgotPasswordForm.setError("root", { message: error.message });
+      } else {
+        setView("reset-sent");
+        toast({
+          title: "Reset link sent!",
+          description: "Check your email for password reset instructions.",
+        });
       }
     } catch (err) {
-      setError("An unexpected error occurred during social login");
+      forgotPasswordForm.setError("root", {
+        message: "An unexpected error occurred",
+      });
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleSocialLogin = async (provider: "google") => {
+    setIsLoading(true);
+
+    try {
+      const { error } = await signInWithGoogle();
+
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Login failed",
+        description: "An unexpected error occurred during social login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (view === "forgot-password") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="w-full max-w-md">
+          <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setView("auth")}
+                className="absolute left-4 top-4 p-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="flex items-center justify-center mb-2">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                Reset Password
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                Enter your email address and we'll send you a link to reset your
+                password.
+              </p>
+            </CardHeader>
+            <CardContent className="px-6 pb-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="reset-email"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Email Address
+                  </Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    {...forgotPasswordForm.register("email")}
+                    className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                      forgotPasswordForm.formState.errors.email
+                        ? "border-red-300 focus:ring-red-500"
+                        : ""
+                    }`}
+                  />
+                  {forgotPasswordForm.formState.errors.email && (
+                    <p className="text-sm text-red-600">
+                      {forgotPasswordForm.formState.errors.email.message}
+                    </p>
+                  )}
+                </div>
+
+                {forgotPasswordForm.formState.errors.root && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertDescription className="text-sm">
+                      {forgotPasswordForm.formState.errors.root.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  onClick={forgotPasswordForm.handleSubmit(
+                    handleForgotPassword
+                  )}
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
+                  disabled={isLoading}
+                >
+                  {isLoading && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Send Reset Link
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "reset-sent") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="w-full max-w-md">
+          <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <div className="flex items-center justify-center mb-2">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                  <Mail className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                Check Your Email
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                We've sent a password reset link to{" "}
+                <strong>{forgotPasswordForm.watch("email")}</strong>
+              </p>
+            </CardHeader>
+            <CardContent className="px-6 pb-6">
+              <div className="space-y-4">
+                <Alert className="border-blue-200 bg-blue-50">
+                  <AlertDescription className="text-sm text-blue-800">
+                    Didn't receive the email? Check your spam folder or try
+                    again with a different email address.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setView("forgot-password")}
+                    className="flex-1"
+                  >
+                    Try Again
+                  </Button>
+                  <Button onClick={() => setView("auth")} className="flex-1">
+                    Back to Sign In
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
@@ -131,7 +323,11 @@ const Auth = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-md">
-              <DollarSign className="w-6 h-6 text-white" />
+              <img
+                src="/cheque.png"
+                className="w-6 h-6 text-white"
+                alt="CashBook"
+              />
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900">CashBook</h1>
           </div>
@@ -169,26 +365,7 @@ const Auth = () => {
                     />
                   </svg>
                 )}
-                Google
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 h-12 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg"
-                onClick={() => handleSocialLogin("github")}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                  </svg>
-                )}
-                GitHub
+                Continue with Google
               </Button>
             </div>
 
@@ -218,7 +395,7 @@ const Auth = () => {
               </TabsList>
 
               <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-5">
+                <div className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signin-email"
@@ -230,51 +407,62 @@ const Auth = () => {
                       id="signin-email"
                       type="email"
                       placeholder="Enter your email"
-                      value={signInData.email}
-                      onChange={(e) =>
-                        setSignInData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signInForm.register("email")}
+                      className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                        signInForm.formState.errors.email
+                          ? "border-red-300 focus:ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {signInForm.formState.errors.email && (
+                      <p className="text-sm text-red-600">
+                        {signInForm.formState.errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="signin-password"
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Password
-                    </Label>
-                    <Input
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="signin-password"
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Password
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => setView("forgot-password")}
+                        className="text-xs text-primary hover:text-primary/80 p-0 h-auto"
+                      >
+                        Forgot password?
+                      </Button>
+                    </div>
+                    <PasswordInput
                       id="signin-password"
-                      type="password"
                       placeholder="Enter your password"
-                      value={signInData.password}
-                      onChange={(e) =>
-                        setSignInData((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signInForm.register("password")}
+                      showPassword={showPassword}
+                      onTogglePassword={() => setShowPassword(!showPassword)}
+                      error={signInForm.formState.errors.password?.message}
                     />
+                    {signInForm.formState.errors.password && (
+                      <p className="text-sm text-red-600">
+                        {signInForm.formState.errors.password.message}
+                      </p>
+                    )}
                   </div>
 
-                  {error && (
+                  {signInForm.formState.errors.root && (
                     <Alert variant="destructive" className="py-2">
                       <AlertDescription className="text-sm">
-                        {error}
+                        {signInForm.formState.errors.root.message}
                       </AlertDescription>
                     </Alert>
                   )}
 
                   <Button
-                    type="submit"
+                    onClick={signInForm.handleSubmit(handleSignIn)}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                     disabled={isLoading}
                   >
@@ -283,11 +471,11 @@ const Auth = () => {
                     )}
                     Sign In
                   </Button>
-                </form>
+                </div>
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-5">
+                <div className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signup-name"
@@ -299,16 +487,18 @@ const Auth = () => {
                       id="signup-name"
                       type="text"
                       placeholder="Enter your name"
-                      value={signUpData.displayName}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          displayName: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signUpForm.register("displayName")}
+                      className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                        signUpForm.formState.errors.displayName
+                          ? "border-red-300 focus:ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {signUpForm.formState.errors.displayName && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.displayName.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -322,16 +512,18 @@ const Auth = () => {
                       id="signup-email"
                       type="email"
                       placeholder="Enter your email"
-                      value={signUpData.email}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      {...signUpForm.register("email")}
+                      className={`h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary ${
+                        signUpForm.formState.errors.email
+                          ? "border-red-300 focus:ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {signUpForm.formState.errors.email && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -341,20 +533,19 @@ const Auth = () => {
                     >
                       Password
                     </Label>
-                    <Input
+                    <PasswordInput
                       id="signup-password"
-                      type="password"
-                      placeholder="Choose a password"
-                      value={signUpData.password}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      placeholder="Choose a password (min. 6 characters)"
+                      {...signUpForm.register("password")}
+                      showPassword={showPassword}
+                      onTogglePassword={() => setShowPassword(!showPassword)}
+                      error={signUpForm.formState.errors.password?.message}
                     />
+                    {signUpForm.formState.errors.password && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.password.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -364,32 +555,35 @@ const Auth = () => {
                     >
                       Confirm Password
                     </Label>
-                    <Input
+                    <PasswordInput
                       id="signup-confirm"
-                      type="password"
                       placeholder="Confirm your password"
-                      value={signUpData.confirmPassword}
-                      onChange={(e) =>
-                        setSignUpData((prev) => ({
-                          ...prev,
-                          confirmPassword: e.target.value,
-                        }))
+                      {...signUpForm.register("confirmPassword")}
+                      showPassword={showConfirmPassword}
+                      onTogglePassword={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
                       }
-                      className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                      required
+                      error={
+                        signUpForm.formState.errors.confirmPassword?.message
+                      }
                     />
+                    {signUpForm.formState.errors.confirmPassword && (
+                      <p className="text-sm text-red-600">
+                        {signUpForm.formState.errors.confirmPassword.message}
+                      </p>
+                    )}
                   </div>
 
-                  {error && (
+                  {signUpForm.formState.errors.root && (
                     <Alert variant="destructive" className="py-2">
                       <AlertDescription className="text-sm">
-                        {error}
+                        {signUpForm.formState.errors.root.message}
                       </AlertDescription>
                     </Alert>
                   )}
 
                   <Button
-                    type="submit"
+                    onClick={signUpForm.handleSubmit(handleSignUp)}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
                     disabled={isLoading}
                   >
@@ -398,7 +592,7 @@ const Auth = () => {
                     )}
                     Create Account
                   </Button>
-                </form>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>

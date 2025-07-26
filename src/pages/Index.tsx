@@ -1,30 +1,22 @@
-import { BookSelector } from "@/components/BookSelector";
+import { BookAndMonthSelector } from "@/components/BookAndMonthSelector";
 import { CSVImport } from "@/components/CSVImport";
 import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
+import { EmptyBookState } from "@/components/EmptyBookState";
 import { Header } from "@/components/Header";
 import { QuickStats } from "@/components/QuickStats";
-import { TransactionCard } from "@/components/TransactionCard";
 import { TransactionForm } from "@/components/TransactionForm";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TransactionsSection } from "@/components/TransactionsSection";
+import { QuickStatsSkeleton } from "@/components/skeleton/QuickStatsSkeleton";
+import { TransactionsSkeleton } from "@/components/skeleton/TransactionsSkeleton";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
-import { BookOpen, Download, Filter, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -50,16 +42,14 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  // Update the selectedMonth state initialization at the top of the Index component
+
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0"); // getMonth is 0-based, +1 for 1-based
-    const initialMonth = `${year}-${month}`; // e.g., "2025-07"
-    console.log("Initial selectedMonth:", initialMonth); // Debug
-    return initialMonth;
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
   });
-  console.log("selectedMonth", selectedMonth);
+
   const {
     transactions,
     loading: transactionsLoading,
@@ -78,8 +68,7 @@ const Index = () => {
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
-      const currentMonth = `${year}-${month}`; // e.g., "2025-07"
-      console.log("Reset selectedMonth on book change:", currentMonth); // Debug
+      const currentMonth = `${year}-${month}`;
       setSelectedMonth(currentMonth);
     }
   }, [selectedBook]);
@@ -112,12 +101,6 @@ const Index = () => {
       .filter((t) => t.type === "expense")
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    // Filter transactions for the selected month
-    const monthExpenses = transactions
-      .filter((t) => t.date.startsWith(selectedMonth) && t.type === "expense")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    // Get monthly budget for the selected book and month
     const monthlyBudget =
       selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
         ?.amount || 5000;
@@ -235,11 +218,11 @@ const Index = () => {
           cellPadding: 3,
         },
         headStyles: {
-          fillColor: [59, 130, 246], // Tailwind blue-500
+          fillColor: [59, 130, 246],
           textColor: 255,
         },
         alternateRowStyles: {
-          fillColor: [241, 245, 249], // Tailwind slate-100
+          fillColor: [241, 245, 249],
         },
       });
 
@@ -305,28 +288,8 @@ const Index = () => {
 
   const canAddTransaction = selectedBook !== null;
 
-  // Generate last 12 months for budget selection
-  const getMonthOptions = () => {
-    const months = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0"); // +1 for 1-based month
-      months.push({
-        value: `${year}-${month}`, // e.g., "2025-07"
-        label: date.toLocaleString("default", {
-          month: "long",
-          year: "numeric",
-        }), // e.g., "July 2025"
-      });
-    }
-    console.log("Month options:", months); // Debug
-    return months;
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
       <Header
         showImportExport={true}
         onImportCSV={handleImportCSV}
@@ -337,159 +300,54 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Book and Month Selector */}
-        <div className="relative flex flex-col sm:flex-row gap-4">
-          <BookSelector
-            selectedBook={selectedBook}
-            onSelectBook={setSelectedBook}
-          />
-          {selectedBook && (
-            <Select
-              key={selectedBook.id} // Force re-render when book changes
-              value={selectedMonth}
-              onValueChange={(value) => {
-                console.log("Selected month changed to:", value); // Debug
-                setSelectedMonth(value);
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue
-                  placeholder="Select Month"
-                  children={
-                    getMonthOptions().find(
-                      (month) => month.value === selectedMonth
-                    )?.label || "Select Month"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {getMonthOptions().map((month) => (
-                  <SelectItem key={month.value} value={month.value}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        <BookAndMonthSelector
+          selectedBook={selectedBook}
+          onSelectBook={setSelectedBook}
+          selectedMonth={selectedMonth}
+          onSelectMonth={setSelectedMonth}
+          booksInitialized={booksInitialized}
+        />
 
         {!selectedBook ? (
-          <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
-            <CardContent className="py-16 text-center">
-              <BookOpen className="w-20 h-20 mx-auto mb-6 text-blue-500 dark:text-blue-400 animate-bounce" />
-              <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
-                Welcome to CashBook
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md mx-auto">
-                Select a book above to start tracking your income and expenses
-                with ease.
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Organize your finances by creating books for personal, business,
-                or project-specific expenses.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyBookState />
         ) : (
           <>
-            {/* Quick Stats */}
-            <QuickStats
-              monthlyIncome={totalIncome}
-              monthlyExpense={totalExpense}
-              transactionCount={transactions.length}
-              monthlyBudget={monthlyBudget}
-            />
+            {transactionsLoading && !transactionsInitialized ? (
+              <QuickStatsSkeleton />
+            ) : (
+              <QuickStats
+                monthlyIncome={totalIncome}
+                monthlyExpense={totalExpense}
+                transactionCount={transactions.length}
+                monthlyBudget={monthlyBudget}
+              />
+            )}
 
-            {/* Recent Transactions */}
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md animate-scale-in">
-              <CardHeader className="px-4 sm:px-5 py-3 border-b border-border">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-                  <CardTitle className="text-base sm:text-lg font-semibold text-foreground">
-                    Recent Transactions
-                  </CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <div className="relative w-full sm:w-64">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input
-                        placeholder="Search transactions..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 text-sm bg-background border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all w-full"
-                      />
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all rounded-lg"
-                    >
-                      <Filter className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Filter</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleImportCSV}
-                      disabled={!canAddTransaction}
-                      className="border-border text-foreground hover:bg-primary/10 hover:border-primary/50 transition-all rounded-lg"
-                    >
-                      <Download className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Import</span>
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      onClick={() => setShowAddForm(true)}
-                      disabled={!canAddTransaction}
-                      className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg transition-all"
-                    >
-                      <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Add Transaction</span>
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-4 sm:p-5 space-y-3">
-                {transactionsLoading && !transactionsInitialized ? (
-                  <div className="space-y-3">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-16 bg-muted rounded-lg animate-pulse"
-                      ></div>
-                    ))}
-                  </div>
-                ) : transactions.length > 0 ? (
-                  transactions.map((transaction) => (
-                    <TransactionCard
-                      key={transaction.id}
-                      transaction={transaction}
-                      onDelete={() => handleDeleteTransaction(transaction)}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    {searchQuery
-                      ? "No transactions match your search."
-                      : "No transactions yet. Add your first transaction to get started!"}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {transactionsLoading && !transactionsInitialized ? (
+              <TransactionsSkeleton />
+            ) : (
+              <TransactionsSection
+                transactions={transactions}
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                onDeleteTransaction={handleDeleteTransaction}
+                onAddTransaction={() => setShowAddForm(true)}
+                onImportCSV={handleImportCSV}
+                canAddTransaction={canAddTransaction}
+              />
+            )}
           </>
         )}
       </main>
 
       {/* Add Transaction Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
+        <DialogContent className="max-w-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent">
               Add New Transaction
               {selectedBook && (
-                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 block">
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 block mt-1">
                   to {selectedBook.name}
                 </span>
               )}
