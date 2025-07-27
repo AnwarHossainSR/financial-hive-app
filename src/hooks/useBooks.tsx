@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { debounce } from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
@@ -45,6 +46,9 @@ const useBooks = () => {
     }
 
     try {
+      const minMonth = `${new Date().getFullYear() - 1}-${String(
+        new Date().getMonth() + 1
+      ).padStart(2, "0")}`;
       const { data: bookData, error: bookError } = await supabase
         .from("books")
         .select(
@@ -66,7 +70,16 @@ const useBooks = () => {
 
       if (bookError) throw bookError;
 
-      setBooks(bookData || []);
+      // Filter monthly_budgets client-side
+      const filteredBooks = (bookData || []).map((book) => ({
+        ...book,
+        monthly_budgets:
+          book.monthly_budgets?.filter(
+            (budget: MonthlyBudget) => budget.month >= minMonth
+          ) || [],
+      }));
+
+      setBooks(filteredBooks);
       setError(null);
     } catch (error: any) {
       console.error("Error loading books:", error);
@@ -81,6 +94,10 @@ const useBooks = () => {
       setInitialized(true);
     }
   }, [user, toast, initialized]);
+
+  const debouncedFetchBooks = useCallback(debounce(fetchBooks, 500), [
+    fetchBooks,
+  ]);
 
   const createBook = async (
     name: string,
@@ -218,7 +235,7 @@ const useBooks = () => {
             amount,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "book_id,month" } // Use composite key
+          { onConflict: "book_id,month" }
         )
         .select()
         .single();
@@ -278,38 +295,111 @@ const useBooks = () => {
   }, [user, fetchBooks]);
 
   useEffect(() => {
-    if (!user || !initialized) return;
+    if (!user || !initialized || books.length === 0) return;
 
     const channel = supabase
       .channel(`books-changes-${user.id}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "books",
           filter: `owner_id=eq.${user.id}`,
         },
-        () => fetchBooks()
+        (payload) => {
+          console.log("Books insert:", payload);
+          debouncedFetchBooks();
+        }
       )
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "UPDATE",
+          schema: "public",
+          table: "books",
+          filter: `owner_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log("Books update:", payload);
+          debouncedFetchBooks();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "books",
+          filter: `owner_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log("Books delete:", payload);
+          debouncedFetchBooks();
+        }
+      )
+      // Only subscribe to monthly_budgets if books exist
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
           schema: "public",
           table: "monthly_budgets",
           filter: `book_id=in.(${books.map((b) => b.id).join(",")})`,
         },
-        () => fetchBooks()
+        (payload) => {
+          console.log("Monthly budgets insert:", payload);
+          debouncedFetchBooks();
+        }
       )
-      .subscribe((status) => {
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "monthly_budgets",
+          filter: `book_id=in.(${books.map((b) => b.id).join(",")})`,
+        },
+        (payload) => {
+          console.log("Monthly budgets update:", payload);
+          debouncedFetchBooks();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "monthly_budgets",
+          filter: `book_id=in.(${books.map((b) => b.id).join(",")})`,
+        },
+        (payload) => {
+          console.log("Monthly budgets delete:", payload);
+          debouncedFetchBooks();
+        }
+      )
+      .subscribe((status, err) => {
         console.log("Books subscription status:", status);
+        if (err) {
+          console.error("Subscription error:", err);
+          toast({
+            title: "Realtime subscription error",
+            description: "Failed to subscribe to updates. Please refresh.",
+            variant: "destructive",
+          });
+        }
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, initialized, fetchBooks, books]);
+  }, [
+    user,
+    initialized,
+    debouncedFetchBooks,
+    toast,
+    books.map((b) => b.id).join(","),
+  ]);
 
   return {
     books,

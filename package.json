@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "supebase:link": "npx supabase link",
     "generate-types": "dotenv -e .env -- node scripts/generateSupabaseTypes.js",
     "migrate-and-types": "npx supabase db push && npm run generate-types",
     "dev": "npm run generate-types && vite",
@@ -13,7 +14,10 @@
     "preview": "vite preview",
     "migration:create": "npx supabase migration new create_employees_table",
     "migration:push": "npx supabase db push",
-    "migration:up": "npx supabase migration up"
+    "migration:up": "npx supabase migration up",
+    "reset:db": "dotenv -e .env -- node scripts/resetDatabase.js",
+    "reset:db:force": "AUTOMATED_RESET=true dotenv -e .env -- node scripts/resetDatabase.js",
+    "migration:link": "npx supabase link"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.0",
@@ -86,6 +90,7 @@
     "postcss": "^8.4.47",
     "supabase": "^2.31.8",
     "tailwindcss": "^3.4.11",
+    "ts-node": "^10.9.2",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^7.0.6"
