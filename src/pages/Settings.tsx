@@ -147,7 +147,6 @@ export const Settings = () => {
                       disabled={loading}
                       className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg"
                     >
-                      "Save All Settings" button for immediate saves
                       {loading ? (
                         <Loader size="sm" />
                       ) : (
