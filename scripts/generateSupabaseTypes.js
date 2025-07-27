@@ -1,5 +1,8 @@
 import { exec } from "child_process";
+import dotenv from "dotenv";
 
+// Load environment variables
+dotenv.config();
 const projectId = process.env.VITE_SUPEBASE_PROJECT_ID;
 
 if (!projectId) {

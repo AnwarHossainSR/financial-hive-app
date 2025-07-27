@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "supebase:link": "npx supabase link",
-    "generate-types": "dotenv -e .env -- node scripts/generateSupabaseTypes.js",
+    "generate-types": "node scripts/generateSupabaseTypes.js",
     "migrate-and-types": "npx supabase db push && npm run generate-types",
     "dev": "npm run generate-types && vite",
     "build": "vite build",
@@ -15,9 +15,10 @@
     "migration:create": "npx supabase migration new create_employees_table",
     "migration:push": "npx supabase db push",
     "migration:up": "npx supabase migration up",
-    "reset:db": "dotenv -e .env -- node scripts/resetDatabase.js",
-    "reset:db:force": "AUTOMATED_RESET=true dotenv -e .env -- node scripts/resetDatabase.js",
-    "migration:link": "npx supabase link"
+    "reset:db": "node scripts/resetDatabase.js",
+    "reset:db:force": "AUTOMATED_RESET=true node scripts/resetDatabase.js",
+    "migration:link": "npx supabase link",
+    "db:seed": "node scripts/seed.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.0",
@@ -54,6 +55,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.1",
     "embla-carousel-react": "^8.3.0",
     "input-otp": "^1.2.4",
     "jspdf": "^3.0.1",
@@ -82,7 +84,6 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
-    "dotenv-cli": "^9.0.0",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",

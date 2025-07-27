@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
 import * as readline from "node:readline";
+
+// Load environment variables
+dotenv.config();
 
 // Initialize Supabase admin client with service role key
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "your-supabase-url";
