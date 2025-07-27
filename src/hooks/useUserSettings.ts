@@ -15,7 +15,7 @@ export const useUserSettings = () => {
       email: true,
     },
     export_format: "csv",
-    currency: "USD",
+    currency: "BDT",
   });
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,16 +76,16 @@ export const useUserSettings = () => {
     setLoading(true);
     try {
       const updates = { ...settings, ...newSettings };
-      const { error } = await supabase
-        .from("user_settings")
-        .upsert({
+      const { error } = await supabase.from("user_settings").upsert(
+        {
           user_id: user.id,
           default_book_id: updates.default_book_id,
           notifications: updates.notifications,
           export_format: updates.export_format,
           currency: updates.currency,
-        })
-        .eq("user_id", user.id);
+        },
+        { onConflict: "user_id" } // Specify the conflict target
+      );
 
       if (error) throw error;
 
@@ -104,7 +104,6 @@ export const useUserSettings = () => {
       setLoading(false);
     }
   };
-
   // Export data
   const exportData = async (format: "csv" | "json") => {
     setLoading(true);
@@ -191,7 +190,7 @@ export const useUserSettings = () => {
     setLoading(true);
     try {
       // Define tables in deletion order to respect foreign key constraints
-      const tables = [
+      const tables: string[] = [
         "transactions",
         "book_members",
         "monthly_budgets",
@@ -203,7 +202,7 @@ export const useUserSettings = () => {
       // Delete from each table
       for (const table of tables) {
         const { error, count } = await supabase
-          .from(table)
+          .from(table as any)
           .delete()
           .not("id", "is", null); // Optional: ensures all rows are targeted
 
@@ -217,6 +216,37 @@ export const useUserSettings = () => {
           throw new Error(`Failed to delete ${table}: ${error.message}`);
         }
         console.log(`Deleted ${count || 0} rows from ${table}`);
+      }
+
+      // Delete Auth all users
+      const { error: authError, data }: any = await supabase
+        .from("auth.users")
+        .select("id");
+
+      if (authError) {
+        console.error("Error listing users:", {
+          message: authError.message,
+          details: authError.details,
+          hint: authError.hint,
+          code: authError.code,
+        });
+        throw new Error(`Failed to list users: ${authError.message}`);
+      }
+
+      if (data) {
+        for (const user of data.users) {
+          const { error: userError }: any =
+            await supabase.auth.admin.deleteUser(user.id);
+          if (userError) {
+            console.error("Error deleting user:", {
+              message: userError.message,
+              details: userError.details,
+              hint: userError.hint,
+              code: userError.code,
+            });
+            throw new Error(`Failed to delete user: ${userError.message}`);
+          }
+        }
       }
 
       // Delete storage objects in receipts bucket
@@ -281,6 +311,7 @@ export const useUserSettings = () => {
 
       // Delete user from auth
       await supabase.auth.signOut();
+      await supabase.auth.admin.deleteUser(user.id);
       toast({
         title: "Account deleted",
         description: "Your account has been permanently deleted.",

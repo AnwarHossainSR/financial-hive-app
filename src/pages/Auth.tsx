@@ -167,15 +167,11 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await signInWithGoogle();
-
-      if (error) {
-        toast({
-          title: "Login failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Google login not implemented yet",
+        description: "Please try again later",
+        variant: "destructive",
+      });
     } catch (err) {
       toast({
         title: "Login failed",
