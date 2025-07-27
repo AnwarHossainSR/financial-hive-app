@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { debounce } from "lodash";
 import {
   AlertTriangle,
   Bell,
@@ -29,6 +30,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { useCallback } from "react";
 
 export const Settings = () => {
   const { user } = useAuth();
@@ -44,9 +46,17 @@ export const Settings = () => {
     deleteAccount,
   } = useUserSettings();
 
+  // Debounced version of updateSettings
+  const debouncedUpdateSettings = useCallback(
+    debounce((newSettings: Partial<typeof settings>) => {
+      updateSettings(newSettings);
+    }, 500),
+    [updateSettings]
+  );
+
   const handleSaveSettings = async () => {
     try {
-      await updateSettings(settings);
+      await updateSettings(settings); // Immediate save without debounce
     } catch (error: any) {
       toast({
         title: "Error saving settings",
@@ -137,6 +147,7 @@ export const Settings = () => {
                       disabled={loading}
                       className="bg-gradient-primary text-primary-foreground hover:opacity-90 rounded-lg"
                     >
+                      "Save All Settings" button for immediate saves
                       {loading ? (
                         <Loader size="sm" />
                       ) : (
@@ -182,7 +193,9 @@ export const Settings = () => {
                     <Select
                       value={settings.default_book_id || ""}
                       onValueChange={(value) =>
-                        updateSettings({ default_book_id: value || null })
+                        debouncedUpdateSettings({
+                          default_book_id: value || null,
+                        })
                       }
                     >
                       <SelectTrigger id="default-book" className="w-full">
@@ -206,7 +219,7 @@ export const Settings = () => {
                       placeholder="USD, BDT, EUR..."
                       value={settings.currency}
                       onChange={(e) =>
-                        updateSettings({
+                        debouncedUpdateSettings({
                           currency: e.target.value.toUpperCase(),
                         })
                       }
@@ -303,7 +316,7 @@ export const Settings = () => {
                     <Switch
                       checked={settings.notifications.transactions}
                       onCheckedChange={(checked) =>
-                        updateSettings({
+                        debouncedUpdateSettings({
                           notifications: {
                             ...settings.notifications,
                             transactions: checked,
@@ -323,7 +336,7 @@ export const Settings = () => {
                     <Switch
                       checked={settings.notifications.books}
                       onCheckedChange={(checked) =>
-                        updateSettings({
+                        debouncedUpdateSettings({
                           notifications: {
                             ...settings.notifications,
                             books: checked,
@@ -343,7 +356,7 @@ export const Settings = () => {
                     <Switch
                       checked={settings.notifications.reports}
                       onCheckedChange={(checked) =>
-                        updateSettings({
+                        debouncedUpdateSettings({
                           notifications: {
                             ...settings.notifications,
                             reports: checked,
@@ -363,7 +376,7 @@ export const Settings = () => {
                     <Switch
                       checked={settings.notifications.email}
                       onCheckedChange={(checked) =>
-                        updateSettings({
+                        debouncedUpdateSettings({
                           notifications: {
                             ...settings.notifications,
                             email: checked,
@@ -399,7 +412,7 @@ export const Settings = () => {
                       <Select
                         value={settings.export_format}
                         onValueChange={(value) =>
-                          updateSettings({
+                          debouncedUpdateSettings({
                             export_format: value as "csv" | "json",
                           })
                         }

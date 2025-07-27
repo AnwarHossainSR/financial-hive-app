@@ -15,7 +15,7 @@ export const useUserSettings = () => {
       email: true,
     },
     export_format: "csv",
-    currency: "USD",
+    currency: "BDT",
   });
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,16 +76,16 @@ export const useUserSettings = () => {
     setLoading(true);
     try {
       const updates = { ...settings, ...newSettings };
-      const { error } = await supabase
-        .from("user_settings")
-        .upsert({
+      const { error } = await supabase.from("user_settings").upsert(
+        {
           user_id: user.id,
           default_book_id: updates.default_book_id,
           notifications: updates.notifications,
           export_format: updates.export_format,
           currency: updates.currency,
-        })
-        .eq("user_id", user.id);
+        },
+        { onConflict: "user_id" } // Specify the conflict target
+      );
 
       if (error) throw error;
 
@@ -104,7 +104,6 @@ export const useUserSettings = () => {
       setLoading(false);
     }
   };
-
   // Export data
   const exportData = async (format: "csv" | "json") => {
     setLoading(true);
