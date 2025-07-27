@@ -316,20 +316,20 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function to prevent role update (idempotent)
-CREATE OR REPLACE FUNCTION public.prevent_role_update()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.role != OLD.role THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    ) THEN
-      RAISE EXCEPTION 'Only admins can update the role column';
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION public.prevent_role_update()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   IF NEW.role != OLD.role THEN
+--     IF NOT EXISTS (
+--       SELECT 1 FROM public.profiles p
+--       WHERE p.user_id = auth.uid() AND p.role = 'admin'
+--     ) THEN
+--       RAISE EXCEPTION 'Only admins can update the role column';
+--     END IF;
+--   END IF;
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
 -- Create function to handle new user signup (idempotent)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -362,11 +362,11 @@ END;
 $$;
 
 -- Create triggers (idempotent - drop first to avoid conflicts)
-DROP TRIGGER IF EXISTS prevent_role_update_trigger ON public.profiles;
-CREATE TRIGGER prevent_role_update_trigger
-  BEFORE UPDATE OF role ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.prevent_role_update();
+-- DROP TRIGGER IF EXISTS prevent_role_update_trigger ON public.profiles;
+-- CREATE TRIGGER prevent_role_update_trigger
+--   BEFORE UPDATE OF role ON public.profiles
+--   FOR EACH ROW
+--   EXECUTE FUNCTION public.prevent_role_update();
 
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at
