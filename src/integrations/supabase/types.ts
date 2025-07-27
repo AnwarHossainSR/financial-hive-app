@@ -246,6 +246,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_database_reset: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       has_book_access: {
         Args: {
           book_uuid: string

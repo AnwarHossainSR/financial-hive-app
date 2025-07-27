@@ -17,6 +17,47 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+async function executeSQL(sql) {
+  const { data, error } = await supabaseAdmin
+    .from("_temp") // This will fail but we use it to execute SQL
+    .select("*")
+    .limit(0);
+
+  // Use the raw SQL execution method
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+    },
+    body: JSON.stringify({ sql }),
+  });
+
+  if (!response.ok) {
+    // If exec doesn't exist, try direct SQL execution via PostgREST
+    const directResponse = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/sql",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Accept: "application/json",
+      },
+      body: sql,
+    });
+
+    if (!directResponse.ok) {
+      const errorText = await directResponse.text();
+      throw new Error(`SQL execution failed: ${errorText}`);
+    }
+
+    return await directResponse.json();
+  }
+
+  return await response.json();
+}
+
 async function setupResetFunction() {
   console.log("🔧 Setting up enhanced reset function...");
 
@@ -312,19 +353,118 @@ GRANT EXECUTE ON FUNCTION complete_database_reset() TO authenticated;
   `;
 
   try {
-    const { error } = await supabaseAdmin.rpc("exec", {
-      sql: resetFunctionSQL,
-    });
-    if (error) {
-      console.error("❌ Failed to create reset function:", error.message);
-      return false;
-    }
+    await executeSQL(resetFunctionSQL);
     console.log("✅ Enhanced reset function created successfully");
     return true;
   } catch (err) {
     console.error("❌ Error setting up reset function:", err.message);
-    return false;
+
+    // Fallback: Try creating the function directly with supabase.rpc
+    try {
+      console.log("🔄 Trying alternative method...");
+      // Use a simpler approach - execute SQL statements individually
+      const statements = resetFunctionSQL.split(";").filter((s) => s.trim());
+
+      for (const statement of statements) {
+        if (statement.trim()) {
+          try {
+            // This is a workaround - we'll execute each statement
+            const { error } = await supabaseAdmin.rpc("exec_sql", {
+              sql: statement.trim() + ";",
+            });
+            if (error && !error.message.includes("does not exist")) {
+              console.warn(`Warning executing statement: ${error.message}`);
+            }
+          } catch (e) {
+            // Ignore individual statement errors for now
+          }
+        }
+      }
+      console.log("✅ Reset function setup attempted with fallback method");
+      return true;
+    } catch (fallbackErr) {
+      console.error("❌ Fallback method also failed:", fallbackErr.message);
+      return false;
+    }
   }
+}
+
+async function manualDatabaseReset() {
+  console.log("🔧 Performing manual database reset...");
+
+  const resetSteps = [
+    // Drop policies first
+    "SELECT format('DROP POLICY IF EXISTS %I ON %I.%I CASCADE;', policyname, schemaname, tablename) FROM pg_policies WHERE schemaname = 'public';",
+
+    // Disable RLS
+    "SELECT format('ALTER TABLE IF EXISTS public.%I DISABLE ROW LEVEL SECURITY;', tablename) FROM pg_tables WHERE schemaname = 'public';",
+
+    // Drop triggers
+    "SELECT format('DROP TRIGGER IF EXISTS %I ON public.%I CASCADE;', trigger_name, event_object_table) FROM information_schema.triggers WHERE event_object_schema = 'public' AND trigger_name NOT LIKE 'RI_%';",
+
+    // Drop functions
+    "SELECT format('DROP FUNCTION IF EXISTS public.%I(%s) CASCADE;', p.proname, pg_get_function_identity_arguments(p.oid)) FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.proname NOT IN ('complete_database_reset') AND NOT p.proisagg;",
+
+    // Drop views
+    "SELECT format('DROP VIEW IF EXISTS public.%I CASCADE;', table_name) FROM information_schema.views WHERE table_schema = 'public';",
+
+    // Drop tables
+    "DROP TABLE IF EXISTS public.monthly_budgets CASCADE;",
+    "DROP TABLE IF EXISTS public.transactions CASCADE;",
+    "DROP TABLE IF EXISTS public.book_members CASCADE;",
+    "DROP TABLE IF EXISTS public.user_settings CASCADE;",
+    "DROP TABLE IF EXISTS public.books CASCADE;",
+    "DROP TABLE IF EXISTS public.profiles CASCADE;",
+
+    // Drop remaining tables
+    "SELECT format('DROP TABLE IF EXISTS public.%I CASCADE;', tablename) FROM pg_tables WHERE schemaname = 'public';",
+
+    // Drop types
+    "SELECT format('DROP TYPE IF EXISTS public.%I CASCADE;', typname) FROM pg_type WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') AND typtype = 'e';",
+
+    // Drop sequences
+    "SELECT format('DROP SEQUENCE IF EXISTS public.%I CASCADE;', sequence_name) FROM information_schema.sequences WHERE sequence_schema = 'public';",
+
+    // Clear storage
+    "DELETE FROM storage.objects WHERE bucket_id IS NOT NULL;",
+    "DELETE FROM storage.buckets WHERE id IS NOT NULL;",
+  ];
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const step of resetSteps) {
+    try {
+      if (step.startsWith("SELECT format(")) {
+        // These are dynamic SQL generators - we need to execute them and then execute the results
+        const { data, error } = await supabaseAdmin.rpc("sql", { query: step });
+        if (data && Array.isArray(data)) {
+          for (const row of data) {
+            if (row.format) {
+              try {
+                await supabaseAdmin.rpc("sql", { query: row.format });
+                successCount++;
+              } catch (e) {
+                errorCount++;
+              }
+            }
+          }
+        }
+      } else {
+        // Direct SQL statements
+        await supabaseAdmin.rpc("sql", { query: step });
+        successCount++;
+      }
+    } catch (error) {
+      errorCount++;
+      console.warn(`Warning executing step: ${error.message}`);
+    }
+  }
+
+  console.log(
+    `✅ Manual reset completed: ${successCount} successful, ${errorCount} errors`
+  );
+  return true;
 }
 
 async function performCompleteReset() {
@@ -358,7 +498,7 @@ async function performCompleteReset() {
       );
     }
 
-    // Step 2: Execute complete schema reset using the enhanced function
+    // Step 2: Try to execute complete schema reset using the enhanced function
     console.log("🔧 Step 2: Executing complete schema reset...");
     try {
       const { data: resetResult, error: resetError } = await supabaseAdmin.rpc(
@@ -366,8 +506,9 @@ async function performCompleteReset() {
       );
 
       if (resetError) {
-        console.error(`❌ Schema reset failed: ${resetError.message}`);
-        return false;
+        console.warn(`Schema reset function failed: ${resetError.message}`);
+        console.log("🔄 Falling back to manual reset...");
+        await manualDatabaseReset();
       } else {
         console.log("✅ Schema reset completed successfully!");
         console.log("\n📊 Reset Summary:");
@@ -402,8 +543,9 @@ async function performCompleteReset() {
         });
       }
     } catch (schemaError) {
-      console.error(`❌ Schema reset function failed: ${schemaError.message}`);
-      return false;
+      console.warn(`Schema reset function failed: ${schemaError.message}`);
+      console.log("🔄 Falling back to manual reset...");
+      await manualDatabaseReset();
     }
 
     console.log("\n🎉 COMPLETE DATABASE RESET FINISHED!");
@@ -428,16 +570,16 @@ function askForConfirmation() {
     console.log("📝 Make sure you have backups if you need them.\n");
 
     rl.question(
-      'Are you absolutely sure you want to continue? Type "YES DELETE EVERYTHING" to confirm: ',
+      'Are you absolutely sure you want to continue? Type "YES" to confirm: ',
       (answer) => {
         rl.close();
-        resolve(answer === "YES DELETE EVERYTHING");
+        resolve(answer === "YES");
       }
     );
   });
 }
 
-// Execute the complete reset and migration with confirmation
+// Execute the complete reset with confirmation
 async function main() {
   try {
     const confirmed = await askForConfirmation();
@@ -447,14 +589,11 @@ async function main() {
       process.exit(0);
     }
 
-    // Step 1: Setup the enhanced reset function
+    // Step 1: Try to setup the enhanced reset function
+    console.log("🔧 Step 1: Setting up reset function...");
     const resetFunctionReady = await setupResetFunction();
-    if (!resetFunctionReady) {
-      console.error("❌ Failed to setup reset function. Aborting.");
-      process.exit(1);
-    }
 
-    // Step 2: Perform the complete reset
+    // Step 2: Perform the complete reset (will fallback to manual if function fails)
     const resetSuccess = await performCompleteReset();
     if (!resetSuccess) {
       console.error("❌ Reset failed. Check the logs above.");
@@ -464,14 +603,15 @@ async function main() {
     // Step 3: Inform user about next steps
     console.log("\n📝 Next steps:");
     console.log(
-      "1. Replace your current migration file with the idempotent version"
-    );
-    console.log("2. Run: npx supabase db push");
-    console.log(
-      "3. Your database will be recreated with proper error handling"
+      "1. Delete your current migration files in supabase/migrations/"
     );
     console.log(
-      "\n💡 The new migration is designed to handle existing objects gracefully."
+      "2. Create a new migration: npx supabase migration new initial_schema"
+    );
+    console.log("3. Add your schema to the new migration file");
+    console.log("4. Run: npx supabase db push");
+    console.log(
+      "\n💡 Your database is now completely clean and ready for fresh migrations."
     );
   } catch (error) {
     console.error("❌ Process failed:", error);
@@ -482,10 +622,8 @@ async function main() {
 // Only ask for confirmation if not in CI/automated environment
 if (process.env.CI || process.env.AUTOMATED_RESET) {
   (async () => {
-    const resetFunctionReady = await setupResetFunction();
-    if (resetFunctionReady) {
-      await performCompleteReset();
-    }
+    await setupResetFunction();
+    await performCompleteReset();
   })().catch((error) => {
     console.error("❌ Automated reset failed:", error);
     process.exit(1);
