@@ -379,8 +379,8 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Enable Realtime for tables
-ALTER PUBLICATION supabase_realtime ADD TABLE public.books;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.book_members;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.monthly_budgets;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_settings;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.books;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.book_members;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.monthly_budgets;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.user_settings;
