@@ -19,20 +19,20 @@ const config = {
     supabaseUrl: process.env.VITE_SUPABASE_URL,
     serviceRoleKey: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
     admin: {
-      email: "mahedianwar@gmail.com",
-      password: "&9~4$)50Fl2",
-      displayName: "Mahedi Anwar (Admin)",
+      email: process.env.VITE_ADMIN_EMAIL,
+      password: process.env.VITE_ADMIN_PASSWORD,
+      displayName: "Mahedi Hasan",
     },
   },
   production: {
     supabaseUrl: process.env.SUPABASE_URL_PROD || process.env.SUPABASE_URL,
     serviceRoleKey:
-      process.env.SUPABASE_SERVICE_ROLE_KEY_PROD ||
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY_PROD ||
+      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
     admin: {
-      email: "mahedianwar@gmail.com",
-      password: process.env.ADMIN_PASSWORD || "&9~4$)50Fl2",
-      displayName: "Mahedi Anwar (Admin)",
+      email: process.env.VITE_ADMIN_EMAIL,
+      password: process.env.VITE_ADMIN_PASSWORD,
+      displayName: "Mahedi Hasan",
     },
   },
 };
@@ -220,81 +220,47 @@ async function createSampleData(adminUserId) {
     }
 
     // Create a sample book
-    const { data: bookData, error: bookError } = await supabase
-      .from("books")
-      .insert({
-        name: "Personal Finance",
-        type: "personal",
-        owner_id: adminUserId,
-        description: "Sample personal finance book",
-        is_default: true,
-      })
-      .select()
-      .single();
+    const { error: bookError } = await supabase.from("books").insert({
+      name: "Personal Finance",
+      type: "personal",
+      owner_id: adminUserId,
+      description: "Sample personal expense finance book",
+      is_default: true,
+    });
 
     if (bookError) {
-      throw new Error(`Failed to create sample book: ${bookError.message}`);
+      console.log(
+        `Failed to create Personal Finance book: ${bookError.message}`
+      );
+    }
+
+    const { error } = await supabase.from("books").insert({
+      name: "Home Finance",
+      type: "personal",
+      owner_id: adminUserId,
+      description: "Sample home expense finance book",
+    });
+
+    if (error) {
+      console.log(`Failed to create Home Finance book: ${error.message}`);
     }
 
     console.log("✅ Sample book created");
 
-    // Create sample transactions
-    const sampleTransactions = [
-      {
-        book_id: bookData.id,
-        user_id: adminUserId,
-        type: "expense",
-        amount: 50.0,
-        category: "Groceries",
-        note: "Weekly grocery shopping",
-        date: "2025-07-20",
-      },
-      {
-        book_id: bookData.id,
-        user_id: adminUserId,
-        type: "income",
-        amount: 3000.0,
-        category: "Salary",
-        note: "Monthly salary",
-        date: "2025-07-01",
-      },
-      {
-        book_id: bookData.id,
-        user_id: adminUserId,
-        type: "expense",
-        amount: 25.99,
-        category: "Transportation",
-        note: "Bus fare",
-        date: "2025-07-25",
-      },
-    ];
+    // // Create sample budget
+    // const { error: budgetError } = await supabase
+    //   .from("monthly_budgets")
+    //   .insert({
+    //     book_id: bookData.id,
+    //     month: "2025-07",
+    //     amount: 2000.0,
+    //   });
 
-    const { error: transactionError } = await supabase
-      .from("transactions")
-      .insert(sampleTransactions);
+    // if (budgetError) {
+    //   throw new Error(`Failed to create sample budget: ${budgetError.message}`);
+    // }
 
-    if (transactionError) {
-      throw new Error(
-        `Failed to create sample transactions: ${transactionError.message}`
-      );
-    }
-
-    console.log("✅ Sample transactions created");
-
-    // Create sample budget
-    const { error: budgetError } = await supabase
-      .from("monthly_budgets")
-      .insert({
-        book_id: bookData.id,
-        month: "2025-07",
-        amount: 2000.0,
-      });
-
-    if (budgetError) {
-      throw new Error(`Failed to create sample budget: ${budgetError.message}`);
-    }
-
-    console.log("✅ Sample budget created");
+    // console.log("✅ Sample budget created");
   } catch (error) {
     console.error("❌ Error creating sample data:", error.message);
     // Don't throw - this is not critical for admin setup
