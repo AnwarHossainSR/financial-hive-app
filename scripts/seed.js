@@ -162,32 +162,6 @@ async function updateAdminProfile(userId) {
     console.log(
       "\n⚠️  Automatic profile update failed. Please run this SQL manually in your Supabase SQL editor:"
     );
-    console.log(`
--- Temporarily disable the role protection trigger
-DROP TRIGGER IF EXISTS prevent_role_update_trigger ON public.profiles;
-
--- Update the profile to admin role
-INSERT INTO public.profiles (user_id, email, display_name, role, created_at, updated_at)
-VALUES (
-  '${userId}',
-  '${currentConfig.admin.email}',
-  '${currentConfig.admin.displayName}',
-  'admin',
-  NOW(),
-  NOW()
-)
-ON CONFLICT (user_id) 
-DO UPDATE SET 
-  role = 'admin',
-  display_name = '${currentConfig.admin.displayName}',
-  updated_at = NOW();
-
--- Re-enable the role protection trigger
-CREATE TRIGGER prevent_role_update_trigger
-  BEFORE UPDATE OF role ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.prevent_role_update();
-    `);
 
     // Don't throw the error - continue with seeding
     console.log("\n⚠️  Continuing with the rest of the seeding process...");

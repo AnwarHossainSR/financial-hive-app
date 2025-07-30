@@ -15,7 +15,7 @@
     "migration:create": "npx supabase migration new create_employees_table",
     "migration:push": "npx supabase db push --yes",
     "migration:up": "npx supabase migration up",
-    "reset:db": "node scripts/resetDatabase.js",
+    "reset:db": "node scripts/resetDatabase.js --YES",
     "reset:db:force": "AUTOMATED_RESET=true node scripts/resetDatabase.js",
     "migration:link": "npx supabase link",
     "db:seed": "node scripts/seed.js"

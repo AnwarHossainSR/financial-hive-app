@@ -1,6 +1,7 @@
 -- Clean Database Migration - Financial Hive App
 -- This migration is idempotent and can be run multiple times safely
 -- Admin user setup moved to seed.js
+-- Row-Level Security (RLS) completely removed
 
 -- Create app roles enum (idempotent)
 DO $$ BEGIN
@@ -101,210 +102,13 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('receipts', 'receipts', false)
 ON CONFLICT (id) DO NOTHING;
 
--- Enable Row Level Security (idempotent)
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.book_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.monthly_budgets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
-
--- Create function to check book access (idempotent)
-CREATE OR REPLACE FUNCTION public.has_book_access(book_uuid UUID, access_role app_role DEFAULT 'viewer')
-RETURNS BOOLEAN
-LANGUAGE SQL
-STABLE
-SECURITY DEFINER
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.books b
-    WHERE b.id = book_uuid AND b.owner_id = auth.uid()
-  ) OR EXISTS (
-    SELECT 1 FROM public.book_members bm
-    WHERE bm.book_id = book_uuid 
-    AND bm.user_id = auth.uid()
-    AND (
-      CASE access_role
-        WHEN 'viewer' THEN bm.role IN ('owner', 'member', 'viewer')
-        WHEN 'member' THEN bm.role IN ('owner', 'member')
-        WHEN 'owner' THEN bm.role = 'owner'
-        ELSE false
-      END
-    )
-  );
-$$;
-
--- Drop all existing policies to avoid conflicts
-DO $$ 
-DECLARE
-    pol RECORD;
-BEGIN
-    -- Drop public table policies
-    FOR pol IN (
-        SELECT policyname, tablename 
-        FROM pg_policies 
-        WHERE schemaname = 'public'
-    ) LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, pol.tablename);
-    END LOOP;
-    
-    -- Drop storage policies
-    FOR pol IN (
-        SELECT policyname 
-        FROM pg_policies 
-        WHERE schemaname = 'storage' AND tablename = 'objects'
-    ) LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', pol.policyname);
-    END LOOP;
-END $$;
-
--- Profiles policies
-CREATE POLICY "Users can view their own profile" ON public.profiles
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = user_id AND role = 'user');
-
-CREATE POLICY "Admins or owners can delete profiles" ON public.profiles
-  FOR DELETE USING (
-    auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- Books policies
-CREATE POLICY "Users can view books they have access to" ON public.books
-  FOR SELECT USING (public.has_book_access(id, 'viewer'));
-
-CREATE POLICY "Users can create their own books" ON public.books
-  FOR INSERT WITH CHECK (auth.uid() = owner_id);
-
-CREATE POLICY "Book owners can update their books" ON public.books
-  FOR UPDATE USING (public.has_book_access(id, 'owner'));
-
-CREATE POLICY "Admins or owners can delete books" ON public.books
-  FOR DELETE USING (
-    public.has_book_access(id, 'owner') OR
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- Book members policies
-CREATE POLICY "Users can view book members for accessible books" ON public.book_members
-  FOR SELECT USING (public.has_book_access(book_id, 'viewer'));
-
-CREATE POLICY "Book owners can manage members" ON public.book_members
-  FOR ALL USING (public.has_book_access(book_id, 'owner'));
-
-CREATE POLICY "Admins can delete book members" ON public.book_members
-  FOR DELETE USING (
-    public.has_book_access(book_id, 'owner') OR
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- Transactions policies
-CREATE POLICY "Users can view transactions for accessible books" ON public.transactions
-  FOR SELECT USING (public.has_book_access(book_id, 'viewer'));
-
-CREATE POLICY "Users can create transactions for accessible books" ON public.transactions
-  FOR INSERT WITH CHECK (
-    public.has_book_access(book_id, 'member') AND 
-    auth.uid() = user_id
-  );
-
-CREATE POLICY "Users can update their own transactions" ON public.transactions
-  FOR UPDATE USING (
-    public.has_book_access(book_id, 'member') AND 
-    auth.uid() = user_id
-  );
-
-CREATE POLICY "Users can delete their own transactions" ON public.transactions
-  FOR DELETE USING (
-    (public.has_book_access(book_id, 'member') AND auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- Monthly budgets policies
-CREATE POLICY "Users can view budgets for accessible books" ON public.monthly_budgets
-  FOR SELECT USING (public.has_book_access(book_id, 'viewer'));
-
-CREATE POLICY "Book owners and members can manage budgets" ON public.monthly_budgets
-  FOR ALL USING (public.has_book_access(book_id, 'member'));
-
-CREATE POLICY "Admins can delete budgets" ON public.monthly_budgets
-  FOR DELETE USING (
-    public.has_book_access(book_id, 'owner') OR
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- User settings policies
-CREATE POLICY "Users can view their own settings" ON public.user_settings
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own settings" ON public.user_settings
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own settings" ON public.user_settings
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own settings" ON public.user_settings
-  FOR DELETE USING (
-    auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.user_id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- Storage policies for receipts
-CREATE POLICY "Users can view receipts for accessible transactions" ON storage.objects
-  FOR SELECT USING (
-    bucket_id = 'receipts' AND 
-    EXISTS (
-      SELECT 1 FROM public.transactions t 
-      WHERE t.image_url = 'receipts/' || name 
-      AND public.has_book_access(t.book_id, 'viewer')
-    )
-  );
-
-CREATE POLICY "Users can upload receipts" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'receipts' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can update their own receipts" ON storage.objects
-  FOR UPDATE USING (
-    bucket_id = 'receipts' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can delete their own receipts" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'receipts' AND (
-      auth.uid()::text = (storage.foldername(name))[1] OR
-      EXISTS (
-        SELECT 1 FROM public.profiles p
-        WHERE p.user_id = auth.uid() AND p.role = 'admin'
-      )
-    )
-  );
+-- Disable Row Level Security on all tables (idempotent)
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.books DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_members DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_budgets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_settings DISABLE ROW LEVEL SECURITY;
 
 -- Create function to update timestamps (idempotent)
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -315,21 +119,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create function to prevent role update (idempotent)
--- CREATE OR REPLACE FUNCTION public.prevent_role_update()
--- RETURNS TRIGGER AS $$
--- BEGIN
---   IF NEW.role != OLD.role THEN
---     IF NOT EXISTS (
---       SELECT 1 FROM public.profiles p
---       WHERE p.user_id = auth.uid() AND p.role = 'admin'
---     ) THEN
---       RAISE EXCEPTION 'Only admins can update the role column';
---     END IF;
---   END IF;
---   RETURN NEW;
--- END;
--- $$ LANGUAGE plpgsql;
+-- Create function to ensure only one default book per user (idempotent)
+CREATE OR REPLACE FUNCTION public.ensure_one_default_book()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.is_default = true THEN
+    -- Reset is_default to false for other books owned by the same user
+    UPDATE public.books
+    SET is_default = false
+    WHERE owner_id = NEW.owner_id
+    AND id != NEW.id
+    AND is_default = true;
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
 -- Create function to handle new user signup (idempotent)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -345,7 +151,12 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data ->> 'display_name', NEW.raw_user_meta_data ->> 'name', split_part(NEW.email, '@', 1)),
     NEW.email,
     'user'
-  );
+  )
+  ON CONFLICT (user_id) DO UPDATE
+  SET 
+    display_name = EXCLUDED.display_name,
+    email = EXCLUDED.email,
+    updated_at = now();
 
   -- Insert default user settings
   INSERT INTO public.user_settings (user_id, default_book_id, notifications, export_format, currency)
@@ -355,19 +166,19 @@ BEGIN
     '{"transactions": true, "books": true, "reports": false, "email": true}',
     'csv',
     'USD'
-  );
+  )
+  ON CONFLICT (user_id) DO UPDATE
+  SET 
+    notifications = EXCLUDED.notifications,
+    export_format = EXCLUDED.export_format,
+    currency = EXCLUDED.currency,
+    updated_at = now();
 
   RETURN NEW;
 END;
 $$;
 
 -- Create triggers (idempotent - drop first to avoid conflicts)
--- DROP TRIGGER IF EXISTS prevent_role_update_trigger ON public.profiles;
--- CREATE TRIGGER prevent_role_update_trigger
---   BEFORE UPDATE OF role ON public.profiles
---   FOR EACH ROW
---   EXECUTE FUNCTION public.prevent_role_update();
-
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
@@ -398,10 +209,24 @@ CREATE TRIGGER update_user_settings_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS ensure_one_default_book_trigger ON public.books;
+CREATE TRIGGER ensure_one_default_book_trigger
+  BEFORE INSERT OR UPDATE OF is_default
+  ON public.books
+  FOR EACH ROW
+  WHEN (NEW.is_default = true)
+  EXECUTE FUNCTION public.ensure_one_default_book();
+
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Create partial unique index to ensure only one default book per user (idempotent)
+DROP INDEX IF EXISTS idx_books_unique_default_per_user;
+CREATE UNIQUE INDEX idx_books_unique_default_per_user
+  ON public.books (owner_id)
+  WHERE is_default = true;
 
 -- Create indexes for performance (idempotent)
 CREATE INDEX IF NOT EXISTS idx_books_owner_id ON public.books(owner_id);
@@ -442,4 +267,13 @@ BEGIN
         END;
     END LOOP;
 END;
+$$;
+
+-- Optional: Debug function to verify auth.uid()
+CREATE OR REPLACE FUNCTION public.debug_auth_uid()
+RETURNS TEXT
+LANGUAGE SQL
+SECURITY DEFINER
+AS $$
+  SELECT auth.uid()::text;
 $$;
