@@ -250,12 +250,9 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
-      has_book_access: {
-        Args: {
-          book_uuid: string
-          access_role?: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: boolean
+      debug_auth_uid: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
     }
     Enums: {

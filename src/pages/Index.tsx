@@ -53,13 +53,22 @@ const Index = () => {
   const {
     transactions,
     loading: transactionsLoading,
+    loadingMore,
     initialized: transactionsInitialized,
+    pagination,
     createTransaction,
     deleteTransaction,
+    loadMore,
+    refresh,
   } = useTransactions(
     selectedBook
-      ? { bookId: selectedBook.id, search: searchQuery }
-      : { search: searchQuery }
+      ? {
+          bookId: selectedBook.id,
+          search: searchQuery,
+        }
+      : {
+          search: searchQuery,
+        }
   );
 
   // Reset selectedMonth when book changes
@@ -113,10 +122,7 @@ const Index = () => {
   }, [transactions, selectedBook, selectedMonth]);
 
   const handleAddTransaction = async (newTransaction: any) => {
-    const filteredQuery = selectedBook
-      ? { bookId: selectedBook.id, search: searchQuery }
-      : { search: searchQuery };
-    const { error } = await createTransaction(newTransaction, filteredQuery);
+    const { error } = await createTransaction(newTransaction);
     if (!error) {
       setShowAddForm(false);
       toast({
@@ -192,13 +198,14 @@ const Index = () => {
       doc.text(`${selectedBook.name} - Transaction Report`, 20, 20);
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
-      doc.text(`Total Transactions: ${transactions.length}`, 20, 45);
-      doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 55);
-      doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 65);
+      doc.text(`Month: ${selectedMonth}`, 20, 45);
+      doc.text(`Total Transactions: ${pagination.totalCount}`, 20, 55);
+      doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 65);
+      doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 75);
       doc.text(
         `Net Balance: ৳${(totalIncome - totalExpense).toLocaleString()}`,
         20,
-        75
+        85
       );
 
       const tableData = transactions.map((t) => [
@@ -212,7 +219,7 @@ const Index = () => {
       autoTable(doc, {
         head: [["Date", "Type", "Amount", "Category", "Note"]],
         body: tableData,
-        startY: 85,
+        startY: 95,
         styles: {
           fontSize: 8,
           cellPadding: 3,
@@ -226,7 +233,7 @@ const Index = () => {
         },
       });
 
-      doc.save(`${selectedBook.name}-transactions.pdf`);
+      doc.save(`${selectedBook.name}-${selectedMonth}-transactions.pdf`);
       toast({
         title: "Export Successful",
         description: `Exported ${transactions.length} transactions to PDF.`,
@@ -274,7 +281,10 @@ const Index = () => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `${selectedBook.name}-transactions.csv`);
+    link.setAttribute(
+      "download",
+      `${selectedBook.name}-${selectedMonth}-transactions.csv`
+    );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -318,7 +328,7 @@ const Index = () => {
               <QuickStats
                 monthlyIncome={totalIncome}
                 monthlyExpense={totalExpense}
-                transactionCount={transactions.length}
+                transactionCount={pagination.totalCount}
                 monthlyBudget={monthlyBudget}
               />
             )}
@@ -334,6 +344,10 @@ const Index = () => {
                 onAddTransaction={() => setShowAddForm(true)}
                 onImportCSV={handleImportCSV}
                 canAddTransaction={canAddTransaction}
+                pagination={pagination}
+                onLoadMore={loadMore}
+                loadingMore={loadingMore}
+                loading={transactionsLoading}
               />
             )}
           </>
