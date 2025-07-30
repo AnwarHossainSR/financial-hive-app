@@ -60,16 +60,10 @@ const Index = () => {
     deleteTransaction,
     loadMore,
     refresh,
-  } = useTransactions(
-    selectedBook
-      ? {
-          bookId: selectedBook.id,
-          search: searchQuery,
-        }
-      : {
-          search: searchQuery,
-        }
-  );
+  } = useTransactions({
+    bookId: selectedBook.id,
+    search: searchQuery,
+  });
 
   // Reset selectedMonth when book changes
   useEffect(() => {

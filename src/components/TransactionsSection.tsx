@@ -164,7 +164,6 @@ export const TransactionsSection = ({
             {/* Visible transactions */}
             <div className="px-6 space-y-3">
               {visibleTransactions.map((transaction, index) => {
-                const actualIndex = startIndex + index;
                 return (
                   <div
                     key={transaction.id}
