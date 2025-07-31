@@ -85,13 +85,14 @@ const useTransactions = (filters?: TransactionFilters) => {
         `note.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,amount::text.ilike.%${searchTerm}%`
       );
     }
-
+    console.log("currentFilters 1", currentFilters);
+    console.log("query 1", query);
     return query;
   }, []);
 
   // Get total count for pagination
   const getTotalCount = useCallback(async () => {
-    if (!user) return 0;
+    if (!user || !currentFiltersRef.current?.bookId) return 0;
 
     try {
       let countQuery = supabase
@@ -113,7 +114,8 @@ const useTransactions = (filters?: TransactionFilters) => {
   // Fetch transactions with pagination
   const fetchTransactions = useCallback(
     async (page: number = 0, append: boolean = false) => {
-      if (!user || isFetchingRef.current) return;
+      if (!user || !currentFiltersRef.current?.bookId || isFetchingRef.current)
+        return;
 
       isFetchingRef.current = true;
 
@@ -140,6 +142,8 @@ const useTransactions = (filters?: TransactionFilters) => {
 
         query = buildQuery(query);
 
+        console.log("query", query);
+
         const { data, error } = await query;
 
         if (error) throw error;
@@ -149,7 +153,6 @@ const useTransactions = (filters?: TransactionFilters) => {
         // Update transactions list
         if (append) {
           setTransactions((prev) => {
-            // Remove duplicates based on ID
             const existingIds = new Set(prev.map((t) => t.id));
             const uniqueNew = newTransactions.filter(
               (t) => !existingIds.has(t.id)
@@ -190,7 +193,12 @@ const useTransactions = (filters?: TransactionFilters) => {
 
   // Load more transactions (for infinite scroll)
   const loadMore = useCallback(async () => {
-    if (loadingMore || !pagination.hasNextPage) return;
+    if (
+      loadingMore ||
+      !pagination.hasNextPage ||
+      !currentFiltersRef.current?.bookId
+    )
+      return;
     await fetchTransactions(pagination.currentPage + 1, true);
   }, [
     fetchTransactions,
@@ -201,6 +209,7 @@ const useTransactions = (filters?: TransactionFilters) => {
 
   // Reset and fetch from beginning
   const refresh = useCallback(async () => {
+    if (!currentFiltersRef.current?.bookId) return;
     setTransactions([]);
     setPagination({
       currentPage: 0,
@@ -219,12 +228,14 @@ const useTransactions = (filters?: TransactionFilters) => {
     >,
     filteredQuery: any = {}
   ) => {
-    if (!user) return { error: "User not authenticated" };
+    if (!user || !currentFiltersRef.current?.bookId)
+      return { error: "No book selected" };
 
     try {
       const transactionData = {
         ...transaction,
         user_id: user.id,
+        book_id: currentFiltersRef.current.bookId,
         amount: Number(transaction.amount),
         date: transaction.date || new Date().toISOString().split("T")[0],
       };
@@ -237,7 +248,6 @@ const useTransactions = (filters?: TransactionFilters) => {
 
       if (error) throw error;
 
-      // Refresh transactions to maintain consistency
       await refresh();
 
       toast({
@@ -265,6 +275,9 @@ const useTransactions = (filters?: TransactionFilters) => {
       Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">
     >
   ) => {
+    if (!user || !currentFiltersRef.current?.bookId)
+      return { error: "No book selected" };
+
     try {
       const updateData = {
         ...updates,
@@ -279,13 +292,13 @@ const useTransactions = (filters?: TransactionFilters) => {
         .from("transactions")
         .update(updateData)
         .eq("id", id)
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
+        .eq("book_id", currentFiltersRef.current.bookId)
         .select()
         .single();
 
       if (error) throw error;
 
-      // Update the state optimistically
       setTransactions((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...data } : t))
       );
@@ -308,19 +321,20 @@ const useTransactions = (filters?: TransactionFilters) => {
   };
 
   const deleteTransaction = async (id: string) => {
+    if (!user || !currentFiltersRef.current?.bookId)
+      return { error: "No book selected" };
+
     try {
       const { error } = await supabase
         .from("transactions")
         .delete()
         .eq("id", id)
-        .eq("user_id", user?.id);
+        .eq("user_id", user.id)
+        .eq("book_id", currentFiltersRef.current.bookId);
 
       if (error) throw error;
 
-      // Remove from state optimistically
       setTransactions((prev) => prev.filter((t) => t.id !== id));
-
-      // Update pagination count
       setPagination((prev) => ({
         ...prev,
         totalCount: Math.max(0, prev.totalCount - 1),
@@ -384,13 +398,15 @@ const useTransactions = (filters?: TransactionFilters) => {
       "id" | "user_id" | "created_at" | "updated_at"
     >[]
   ) => {
-    if (!user) return { error: "User not authenticated" };
+    if (!user || !currentFiltersRef.current?.bookId)
+      return { error: "No book selected" };
     if (!transactions.length) return { error: "No transactions to import" };
 
     try {
       const transactionData = transactions.map((transaction) => ({
         ...transaction,
         user_id: user.id,
+        book_id: currentFiltersRef.current.bookId,
         amount: Number(transaction.amount),
         date: transaction.date || new Date().toISOString().split("T")[0],
       }));
@@ -402,7 +418,6 @@ const useTransactions = (filters?: TransactionFilters) => {
 
       if (error) throw error;
 
-      // Refresh transactions to show imported data
       await refresh();
 
       toast({
@@ -426,7 +441,7 @@ const useTransactions = (filters?: TransactionFilters) => {
   const prevFiltersRef = useRef<string>("");
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !filters?.bookId) {
       setTransactions([]);
       setInitialized(true);
       setLoading(false);
@@ -442,17 +457,15 @@ const useTransactions = (filters?: TransactionFilters) => {
       search: filters?.search,
     });
 
-    // Reset and fetch when filters change
     if (currentFiltersStr !== prevFiltersRef.current) {
       prevFiltersRef.current = currentFiltersStr;
 
-      // Debounce search queries
       const timeoutId = setTimeout(
         () => {
           refresh();
         },
         filters?.search ? 300 : 0
-      ); // 300ms debounce for search, immediate for other filters
+      );
 
       return () => clearTimeout(timeoutId);
     }
@@ -469,7 +482,7 @@ const useTransactions = (filters?: TransactionFilters) => {
 
   // Set up realtime subscription
   useEffect(() => {
-    if (!user || !initialized) return;
+    if (!user || !filters?.bookId || !initialized) return;
 
     console.log("Setting up realtime subscription for user:", user.id);
 
@@ -481,13 +494,12 @@ const useTransactions = (filters?: TransactionFilters) => {
           event: "*",
           schema: "public",
           table: "transactions",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${user.id},book_id=eq.${filters.bookId}`,
         },
         (payload) => {
           console.log("Transaction change received:", payload);
 
           if (payload.eventType === "INSERT" && payload.new) {
-            // For inserts, we refresh to maintain proper ordering and pagination
             refresh();
           } else if (payload.eventType === "UPDATE" && payload.new) {
             const updatedTransaction = payload.new as Transaction;
@@ -518,7 +530,7 @@ const useTransactions = (filters?: TransactionFilters) => {
       console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
-  }, [user, initialized, refresh]);
+  }, [user, filters?.bookId, initialized, refresh]);
 
   return {
     transactions,

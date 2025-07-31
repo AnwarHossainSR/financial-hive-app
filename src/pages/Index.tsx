@@ -61,7 +61,7 @@ const Index = () => {
     loadMore,
     refresh,
   } = useTransactions({
-    bookId: selectedBook.id,
+    bookId: selectedBook?.id || "",
     search: searchQuery,
   });
 

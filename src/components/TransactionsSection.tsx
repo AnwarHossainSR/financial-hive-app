@@ -80,8 +80,6 @@ export const TransactionsSection = ({
     return transactions.slice(startIndex, endIndex);
   }, [transactions, startIndex, endIndex]);
 
-  // Calculate total virtual height
-  const totalHeight = transactions.length * ITEM_HEIGHT;
   return (
     <Card className="border-none shadow-xl rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg overflow-hidden transform transition-all duration-300 hover:shadow-2xl">
       <CardHeader className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-blue-50/30 dark:from-gray-800/50 dark:to-gray-700/30">
