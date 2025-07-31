@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
-import { useTransactions } from "@/hooks/useTransactions";
+import { TransactionFilters, useTransactions } from "@/hooks/useTransactions";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -42,6 +42,13 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [filters, setFilters] = useState<TransactionFilters>({
+    type: undefined,
+    category: undefined,
+    startDate: undefined,
+    endDate: undefined,
+    search: undefined,
+  }); // Removed 'as const' to allow optional fields
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -62,10 +69,10 @@ const Index = () => {
     refresh,
   } = useTransactions({
     bookId: selectedBook?.id || "",
-    search: searchQuery,
+    ...filters,
+    search: searchQuery, // Override search from filters with the local searchQuery
   });
 
-  // Reset selectedMonth when book changes
   useEffect(() => {
     if (selectedBook) {
       const now = new Date();
@@ -76,7 +83,6 @@ const Index = () => {
     }
   }, [selectedBook]);
 
-  // Initialize selectedBook from query param only
   useEffect(() => {
     if (booksInitialized && books.length > 0) {
       const bookId = searchParams.get("bookId");
@@ -94,7 +100,6 @@ const Index = () => {
     }
   }, [books, booksInitialized, searchParams, setSearchParams]);
 
-  // Calculate financial stats and budget progress
   const { totalIncome, totalExpense, monthlyBudget } = useMemo(() => {
     const income = transactions
       .filter((t) => t.type === "income")
@@ -292,6 +297,10 @@ const Index = () => {
 
   const canAddTransaction = selectedBook !== null;
 
+  const handleFilterChange = (newFilters: TransactionFilters) => {
+    setFilters(newFilters);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
       <Header
@@ -342,13 +351,13 @@ const Index = () => {
                 onLoadMore={loadMore}
                 loadingMore={loadingMore}
                 loading={transactionsLoading}
+                onFilterChange={handleFilterChange}
               />
             )}
           </>
         )}
       </main>
 
-      {/* Add Transaction Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
         <DialogContent className="max-w-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
           <DialogHeader>
@@ -371,14 +380,12 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* CSV Import Dialog */}
       <CSVImport
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
         selectedBook={selectedBook}
       />
 
-      {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
