@@ -1,3 +1,4 @@
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { Header } from "@/components/Header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -274,19 +275,7 @@ export const Settings = () => {
                           Update your account password
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          toast({
-                            title: "Password Change Not Implemented",
-                            description:
-                              "Password change functionality is not yet available.",
-                          })
-                        }
-                      >
-                        Change
-                      </Button>
+                      <ChangePasswordDialog />
                     </div>
                   </div>
                 </div>
