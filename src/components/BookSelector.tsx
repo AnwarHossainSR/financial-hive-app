@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,6 +27,7 @@ import {
   Loader2,
   Plus,
   Settings,
+  Star,
   Trash2,
   User,
 } from "lucide-react";
@@ -200,9 +202,22 @@ export const BookSelector = ({
                 <User className="w-6 h-6 text-primary" />
               )}
               <div>
-                <h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-                  {selectedBook.name}
-                </h2>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-foreground">
+                    {selectedBook.name}
+                  </h2>
+                  {selectedBook.is_default && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 
+                               text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800 
+                               px-2 py-1 text-xs font-semibold rounded-full shadow-sm"
+                    >
+                      <Star className="w-3 h-3 mr-1 fill-current" />
+                      Default
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground capitalize">
                   {selectedBook.type}
                 </p>
@@ -246,13 +261,35 @@ export const BookSelector = ({
                     key={book.id}
                     className={cn(
                       "group relative p-4 rounded-lg border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-income hover:border-primary/50",
-                      "animate-scale-in"
+                      "animate-scale-in",
+                      book.is_default &&
+                        "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-sm"
                     )}
                     onClick={() => {
                       onSelectBook(book);
                       setSearchParams({ bookId: book.id });
                     }}
                   >
+                    {/* Default Book Indicator */}
+                    {book.is_default && (
+                      <div className="absolute -top-2 -right-2 z-10">
+                        <div className="relative">
+                          <Badge
+                            variant="secondary"
+                            className="bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 
+                                     text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800 
+                                     px-2 py-1 text-xs font-semibold rounded-full shadow-md
+                                     hover:shadow-lg transition-all duration-200"
+                          >
+                            <Star className="w-3 h-3 mr-1 fill-current" />
+                            Default
+                          </Badge>
+                          {/* Subtle glow effect */}
+                          <div className="absolute inset-0 bg-gradient-to-r from-amber-200/30 to-yellow-200/30 rounded-full blur-sm -z-10 scale-125" />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
                         {book.type === "business" ? (
