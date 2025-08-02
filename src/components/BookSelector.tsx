@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { BookSelectorSkeleton } from "./skeleton/BookSelectorSkeleton";
 import { Switch } from "./ui/switch";
 
 interface BookSelectorProps {
@@ -162,20 +163,7 @@ export const BookSelector = ({
   };
 
   if (loading) {
-    return (
-      <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 animate-scale-in">
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-5 bg-muted rounded w-1/4"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-24 bg-muted rounded-lg"></div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <BookSelectorSkeleton />;
   }
 
   return (
@@ -255,12 +243,12 @@ export const BookSelector = ({
 
           <CardContent className="p-5">
             {books.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
                 {books.map((book) => (
                   <div
                     key={book.id}
                     className={cn(
-                      "group relative p-4 rounded-lg border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-income hover:border-primary/50",
+                      "group relative p-3 rounded-lg border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-income hover:border-primary/50",
                       "animate-scale-in",
                       book.is_default &&
                         "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-sm"
@@ -272,16 +260,16 @@ export const BookSelector = ({
                   >
                     {/* Default Book Indicator */}
                     {book.is_default && (
-                      <div className="absolute -top-2 -right-2 z-10">
+                      <div className="absolute -top-1 -right-1 z-10">
                         <div className="relative">
                           <Badge
                             variant="secondary"
                             className="bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 
                                      text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800 
-                                     px-2 py-1 text-xs font-semibold rounded-full shadow-md
+                                     px-1.5 py-0.5 text-xs font-semibold rounded-full shadow-md
                                      hover:shadow-lg transition-all duration-200"
                           >
-                            <Star className="w-3 h-3 mr-1 fill-current" />
+                            <Star className="w-2.5 h-2.5 mr-1 fill-current" />
                             Default
                           </Badge>
                           {/* Subtle glow effect */}
@@ -290,27 +278,27 @@ export const BookSelector = ({
                       </div>
                     )}
 
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center space-x-2">
                         {book.type === "business" ? (
-                          <Building2 className="w-6 h-6 text-income transform transition-transform duration-300 group-hover:scale-110" />
+                          <Building2 className="w-5 h-5 text-income transform transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
                         ) : (
-                          <User className="w-6 h-6 text-primary transform transition-transform duration-300 group-hover:scale-110" />
+                          <User className="w-5 h-5 text-primary transform transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
                         )}
-                        <div>
-                          <h3 className="text-base font-semibold text-foreground">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold text-foreground truncate">
                             {book.name}
                           </h3>
                           <p className="text-xs text-muted-foreground capitalize">
                             {book.type}
                           </p>
-                          {book.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {book.description}
-                            </p>
-                          )}
                         </div>
                       </div>
+                      {book.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-tight">
+                          {book.description}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
