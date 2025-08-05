@@ -71,6 +71,9 @@ interface TransactionsSectionProps {
   loadingMore: boolean;
   loading: boolean;
   onFilterChange: (filters: TransactionFilters) => void;
+  onEditTransaction: (transaction: Transaction) => void;
+  showEditForm?: boolean;
+  setShowEditForm?: (show: boolean) => void;
 }
 
 const ITEM_HEIGHT = 120;
@@ -112,6 +115,9 @@ export const TransactionsSection = ({
   loadingMore,
   loading,
   onFilterChange,
+  onEditTransaction,
+  showEditForm,
+  setShowEditForm,
 }: TransactionsSectionProps) => {
   const { containerRef, startIndex, endIndex, offsetY, handleScroll } =
     useVirtualScroll({
@@ -128,7 +134,6 @@ export const TransactionsSection = ({
   const visibleTransactions = useMemo(() => {
     return transactions.slice(startIndex, endIndex);
   }, [transactions, startIndex, endIndex]);
-  const [showEditForm, setShowEditForm] = useState(false);
   const [selectedTransaction, SetselectedTransaction] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
@@ -167,15 +172,9 @@ export const TransactionsSection = ({
     setIsFilterOpen(false);
   };
 
-  const onEditTransaction = (transaction: Transaction) => {
-    console.log("Edit transaction:", transaction);
+  const handleEditTransaction = (transaction: Transaction) => {
     setShowEditForm(true);
     SetselectedTransaction(transaction);
-  };
-
-  const handleEditTransaction = () => {
-    setShowEditForm(false);
-    SetselectedTransaction(null);
   };
 
   return (
@@ -273,7 +272,7 @@ export const TransactionsSection = ({
                   <TransactionCard
                     transaction={transaction}
                     onDelete={() => onDeleteTransaction(transaction)}
-                    onEdit={() => onEditTransaction(transaction)}
+                    onEdit={() => handleEditTransaction(transaction)}
                   />
                 </div>
               ))}
@@ -508,7 +507,7 @@ export const TransactionsSection = ({
           </DialogHeader>
           {selectedTransaction && (
             <TransactionEditForm
-              onSubmit={handleEditTransaction}
+              onSubmit={onEditTransaction}
               onCancel={() => setShowEditForm(false)}
               transaction={selectedTransaction}
             />
