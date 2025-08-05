@@ -10,10 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
-import { enUS } from "date-fns/locale";
+import { cn, formatDateForDisplay, getBangladeshTime } from "@/lib/utils";
 import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
 
@@ -44,13 +41,6 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
-// Helper function to get current time in Bangladesh timezone (Asia/Dhaka)
-const getBangladeshTime = () => {
-  const now = new Date();
-  const bangladeshTime = toZonedTime(now, "Asia/Dhaka");
-  return format(bangladeshTime, "yyyy-MM-dd'T'HH:mm");
-};
-
 export function TransactionForm({ bookId, onSubmit }: TransactionFormProps) {
   const [type, setType] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState("");
@@ -79,24 +69,6 @@ export function TransactionForm({ bookId, onSubmit }: TransactionFormProps) {
     setCategory("");
     setNote("");
     setDate(getBangladeshTime());
-  };
-
-  const formatDateForDisplay = (dateString: string) => {
-    if (!dateString) return "";
-    try {
-      const localDate = new Date(dateString);
-      const bangladeshTime = toZonedTime(localDate, "Asia/Dhaka");
-
-      return format(
-        bangladeshTime,
-        "EEE, MMM d, yyyy 'at' h:mm a '(BD Time)'",
-        {
-          locale: enUS,
-        }
-      );
-    } catch (error) {
-      return "Invalid date";
-    }
   };
 
   return (
