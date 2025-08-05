@@ -230,14 +230,13 @@ const useTransactions = (filters?: TransactionFilters) => {
   ) => {
     if (!user || !currentFiltersRef.current?.bookId)
       return { error: "No book selected" };
-
     try {
       const transactionData = {
         ...transaction,
         user_id: user.id,
         book_id: currentFiltersRef.current.bookId,
         amount: Number(transaction.amount),
-        date: transaction.date || new Date().toISOString().split("T")[0],
+        date: transaction.date,
       };
 
       const { data, error } = await supabase

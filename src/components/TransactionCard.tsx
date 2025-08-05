@@ -87,12 +87,17 @@ export function TransactionCard({
               )}
 
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {new Date(transaction.date).toLocaleDateString("en-US", {
+                {new Date(transaction.date).toLocaleString("en-US", {
                   weekday: "short",
                   month: "short",
                   day: "numeric",
                   year: "numeric",
-                })}
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                  timeZone: "Asia/Dhaka", // This forces Bangladesh timezone display
+                })}{" "}
+                BD
               </p>
             </div>
           </div>

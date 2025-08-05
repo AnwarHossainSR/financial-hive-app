@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
+import { enUS } from "date-fns/locale";
 import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
 
@@ -41,44 +44,65 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
-export function TransactionForm({
-  bookId,
-  onSubmit,
-  onCancel,
-}: TransactionFormProps) {
+// Helper function to get current time in Bangladesh timezone (Asia/Dhaka)
+const getBangladeshTime = () => {
+  const now = new Date();
+  const bangladeshTime = toZonedTime(now, "Asia/Dhaka");
+  return format(bangladeshTime, "yyyy-MM-dd'T'HH:mm");
+};
+
+export function TransactionForm({ bookId, onSubmit }: TransactionFormProps) {
   const [type, setType] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getBangladeshTime());
 
   const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !category) return;
+    if (!amount || !category || !date) return;
 
+    const localDate = new Date(date);
     onSubmit({
       book_id: bookId,
       type,
       amount: parseFloat(amount),
       category,
       note: note || undefined,
-      date,
+      date: localDate,
     });
 
     // Reset form
     setAmount("");
     setCategory("");
     setNote("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(getBangladeshTime());
+  };
+
+  const formatDateForDisplay = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      const localDate = new Date(dateString);
+      const bangladeshTime = toZonedTime(localDate, "Asia/Dhaka");
+
+      return format(
+        bangladeshTime,
+        "EEE, MMM d, yyyy 'at' h:mm a '(BD Time)'",
+        {
+          locale: enUS,
+        }
+      );
+    } catch (error) {
+      return "Invalid date";
+    }
   };
 
   return (
     <Card className="w-full max-w-lg mx-auto animate-scale-in">
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Transaction Type */}
           <div>
             <Label className="text-sm font-medium">Type</Label>
             <div className="flex space-x-2 mt-1">
@@ -146,11 +170,16 @@ export function TransactionForm({
             <Label htmlFor="date">Date</Label>
             <Input
               id="date"
-              type="date"
+              type="datetime-local"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
             />
+            {date && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 pl-1">
+                {formatDateForDisplay(date)}
+              </p>
+            )}
           </div>
 
           {/* Note */}
