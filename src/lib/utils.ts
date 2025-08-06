@@ -28,3 +28,27 @@ export const getBangladeshTime = (date = null) => {
   const bangladeshTime = toZonedTime(date, "Asia/Dhaka");
   return format(bangladeshTime, "yyyy-MM-dd'T'HH:mm");
 };
+
+// Categories from TransactionForm
+export const INCOME_CATEGORIES = [
+  "Salary",
+  "Freelance",
+  "Investment",
+  "Business",
+  "Gift",
+  "Other Income",
+];
+
+export const EXPENSE_CATEGORIES = [
+  "Food & Dining",
+  "Transportation",
+  "Shopping",
+  "Entertainment",
+  "Bills & Utilities",
+  "Healthcare",
+  "Education",
+  "Travel",
+  "Bike Maintenance",
+  "Home Rent",
+  "Other",
+];

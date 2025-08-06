@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
-import { cn } from "@/lib/utils";
+import { cn, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/utils";
 import {
   ChevronDown,
   Download,
@@ -80,28 +80,6 @@ interface TransactionsSectionProps {
 const ITEM_HEIGHT = 120;
 const CONTAINER_HEIGHT = 600;
 const OVERSCAN = 10;
-
-// Categories from TransactionForm
-const INCOME_CATEGORIES = [
-  "Salary",
-  "Freelance",
-  "Investment",
-  "Business",
-  "Gift",
-  "Other Income",
-];
-
-const EXPENSE_CATEGORIES = [
-  "Food & Dining",
-  "Transportation",
-  "Shopping",
-  "Entertainment",
-  "Bills & Utilities",
-  "Healthcare",
-  "Education",
-  "Travel",
-  "Other",
-];
 
 export const TransactionsSection = ({
   transactions,
