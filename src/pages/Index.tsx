@@ -43,13 +43,6 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filters, setFilters] = useState<TransactionFilters>({
-    type: undefined,
-    category: undefined,
-    startDate: undefined,
-    endDate: undefined,
-    search: undefined,
-  }); // Removed 'as const' to allow optional fields
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -57,6 +50,24 @@ const Index = () => {
     const month = String(now.getMonth() + 1).padStart(2, "0");
     return `${year}-${month}`;
   });
+
+  const [filters, setFilters] = useState<TransactionFilters>({
+    type: undefined,
+    category: undefined,
+    startDate: undefined,
+    endDate: undefined,
+    search: undefined,
+  });
+
+  // Create combined filters for the hook
+  const combinedFilters = useMemo(
+    () => ({
+      ...filters,
+      bookId: selectedBook?.id || "",
+      search: searchQuery, // Override search from filters with the local searchQuery
+    }),
+    [filters, selectedBook?.id, searchQuery]
+  );
 
   const {
     transactions,
@@ -69,11 +80,7 @@ const Index = () => {
     deleteTransaction,
     loadMore,
     refresh,
-  } = useTransactions({
-    bookId: selectedBook?.id || "",
-    ...filters,
-    search: searchQuery, // Override search from filters with the local searchQuery
-  });
+  } = useTransactions(combinedFilters);
 
   useEffect(() => {
     if (selectedBook) {
@@ -143,8 +150,8 @@ const Index = () => {
     if (!error) {
       setShowEditForm(false);
       toast({
-        title: "Transaction Added",
-        description: "Your transaction was successfully added.",
+        title: "Transaction Updated",
+        description: "Your transaction was successfully updated.",
       });
     }
   };
@@ -157,11 +164,19 @@ const Index = () => {
   const handleConfirmDelete = async (id: string) => {
     setIsDeleting(true);
     try {
-      await deleteTransaction(id);
-      toast({
-        title: "Transaction Deleted",
-        description: "The transaction was successfully removed.",
-      });
+      const { error } = await deleteTransaction(id);
+      if (!error) {
+        toast({
+          title: "Transaction Deleted",
+          description: "The transaction was successfully removed.",
+        });
+      } else {
+        toast({
+          title: "Deletion Failed",
+          description: "There was an error deleting the transaction.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Deletion Failed",

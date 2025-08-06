@@ -10,7 +10,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, formatDateForDisplay, getBangladeshTime } from "@/lib/utils";
+import {
+  cn,
+  EXPENSE_CATEGORIES,
+  formatDateForDisplay,
+  getBangladeshTime,
+  INCOME_CATEGORIES,
+} from "@/lib/utils";
+
 import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
 
@@ -19,27 +26,6 @@ interface TransactionFormProps {
   onSubmit: (transaction: any) => void;
   onCancel?: () => void;
 }
-
-const INCOME_CATEGORIES = [
-  "Salary",
-  "Freelance",
-  "Investment",
-  "Business",
-  "Gift",
-  "Other Income",
-];
-
-const EXPENSE_CATEGORIES = [
-  "Food & Dining",
-  "Transportation",
-  "Shopping",
-  "Entertainment",
-  "Bills & Utilities",
-  "Healthcare",
-  "Education",
-  "Travel",
-  "Other",
-];
 
 export function TransactionForm({ bookId, onSubmit }: TransactionFormProps) {
   const [type, setType] = useState<"income" | "expense">("expense");

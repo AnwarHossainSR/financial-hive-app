@@ -1,5 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback, useEffect, useState } from "react";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
@@ -24,73 +30,79 @@ export interface Book {
   monthly_budgets?: MonthlyBudget[];
 }
 
+// Query Keys Factory
+const bookKeys = {
+  all: ["books"] as const,
+  lists: () => [...bookKeys.all, "list"] as const,
+  list: (userId: string) => [...bookKeys.lists(), userId] as const,
+  detail: (id: string) => [...bookKeys.all, "detail", id] as const,
+};
+
+// Fetch function
+const fetchBooks = async (userId: string): Promise<Book[]> => {
+  if (!userId) return [];
+
+  const { data: bookData, error: bookError } = await supabase
+    .from("books")
+    .select(
+      `
+      *,
+      monthly_budgets (
+        id,
+        book_id,
+        month,
+        amount,
+        created_at,
+        updated_at
+      )
+    `
+    )
+    .eq("owner_id", userId)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (bookError) throw bookError;
+
+  return bookData || [];
+};
+
 const useBooks = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchBooks = useCallback(async () => {
-    if (!user) {
-      setBooks([]);
-      setLoading(false);
-      setInitialized(true);
-      return;
-    }
+  // Main query for books
+  const {
+    data: books = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: bookKeys.list(user?.id || ""),
+    queryFn: () => fetchBooks(user?.id || ""),
+    enabled: !!user,
+    staleTime: 300000, // 5 minutes
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
 
-    if (!initialized) {
-      setLoading(true);
-    }
+  // Create book mutation
+  const createBookMutation = useMutation({
+    mutationFn: async ({
+      name,
+      type,
+      description,
+      is_default = false,
+    }: {
+      name: string;
+      type: "personal" | "business";
+      description?: string;
+      is_default?: boolean;
+    }) => {
+      if (!user) throw new Error("User not authenticated");
 
-    try {
-      const { data: bookData, error: bookError } = await supabase
-        .from("books")
-        .select(
-          `
-          *,
-          monthly_budgets (
-            id,
-            book_id,
-            month,
-            amount,
-            created_at,
-            updated_at
-          )
-        `
-        )
-        .eq("owner_id", user.id)
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: false });
-
-      if (bookError) throw bookError;
-
-      setBooks(bookData || []);
-      setError(null);
-    } catch (error: any) {
-      console.error("Error loading books:", error);
-      setError(error.message);
-      toast({
-        title: "Error loading books",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setInitialized(true);
-    }
-  }, [user, toast, initialized]);
-
-  const createBook = async (
-    name: string,
-    type: "personal" | "business",
-    description?: string,
-    is_default = false
-  ) => {
-    if (!user) return { error: "User not authenticated" };
-
-    try {
+      // If this is going to be the default book, update all others first
       if (is_default && books.length > 0) {
         await supabase
           .from("books")
@@ -125,33 +137,53 @@ const useBooks = () => {
         .single();
 
       if (error) throw error;
-
-      await fetchBooks();
+      return data;
+    },
+    onSuccess: (data) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(
+        bookKeys.list(user?.id || ""),
+        (old: Book[] = []) => {
+          // If this is the default book, make all others non-default
+          if (data.is_default) {
+            const updatedBooks = old.map((book) => ({
+              ...book,
+              is_default: false,
+            }));
+            return [data, ...updatedBooks];
+          }
+          return [data, ...old];
+        }
+      );
 
       toast({
         title: "Book created",
-        description: `${name} has been created successfully.`,
+        description: `${data.name} has been created successfully.`,
       });
-
-      return { data, error: null };
-    } catch (error: any) {
-      console.error("Error creating book:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error creating book",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const updateBook = async (
-    id: string,
-    updates: Partial<Pick<Book, "name" | "type" | "description" | "is_default">>
-  ) => {
-    if (!user) return { error: "User not authenticated" };
+  // Update book mutation
+  const updateBookMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<
+        Pick<Book, "name" | "type" | "description" | "is_default">
+      >;
+    }) => {
+      if (!user) throw new Error("User not authenticated");
 
-    try {
+      // If making this the default book, update all others first
       if (updates.is_default && books.length > 1) {
         await supabase
           .from("books")
@@ -181,34 +213,53 @@ const useBooks = () => {
         .single();
 
       if (error) throw error;
-
-      await fetchBooks();
+      return data;
+    },
+    onSuccess: (data) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(
+        bookKeys.list(user?.id || ""),
+        (old: Book[] = []) => {
+          return old.map((book) => {
+            if (book.id === data.id) {
+              return data;
+            }
+            // If the updated book is now default, make others non-default
+            if (data.is_default) {
+              return { ...book, is_default: false };
+            }
+            return book;
+          });
+        }
+      );
 
       toast({
         title: "Book updated",
         description: "Your changes have been saved.",
       });
-
-      return { data, error: null };
-    } catch (error: any) {
-      console.error("Error updating book:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error updating book",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const setMonthlyBudget = async (
-    bookId: string,
-    month: string,
-    amount: number
-  ) => {
-    if (!user) return { error: "User not authenticated" };
+  // Set monthly budget mutation
+  const setMonthlyBudgetMutation = useMutation({
+    mutationFn: async ({
+      bookId,
+      month,
+      amount,
+    }: {
+      bookId: string;
+      month: string;
+      amount: number;
+    }) => {
+      if (!user) throw new Error("User not authenticated");
 
-    try {
       const { data, error } = await supabase
         .from("monthly_budgets")
         .upsert(
@@ -218,109 +269,166 @@ const useBooks = () => {
             amount,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "book_id,month" } // Use composite key
+          { onConflict: "book_id,month" }
         )
         .select()
         .single();
 
       if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(
+        bookKeys.list(user?.id || ""),
+        (old: Book[] = []) => {
+          return old.map((book) => {
+            if (book.id === data.book_id) {
+              const existingBudgets = book.monthly_budgets || [];
+              const updatedBudgets = existingBudgets.some(
+                (b) => b.month === data.month
+              )
+                ? existingBudgets.map((b) =>
+                    b.month === data.month ? data : b
+                  )
+                : [...existingBudgets, data];
 
-      await fetchBooks();
+              return { ...book, monthly_budgets: updatedBudgets };
+            }
+            return book;
+          });
+        }
+      );
 
-      return { data, error: null };
-    } catch (error: any) {
-      console.error("Error setting monthly budget:", error);
+      toast({
+        title: "Budget updated",
+        description: "Monthly budget has been set successfully.",
+      });
+    },
+    onError: (error: any) => {
       toast({
         title: "Error setting monthly budget",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const deleteBook = async (id: string) => {
-    try {
+  // Delete book mutation
+  const deleteBookMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error("User not authenticated");
+
       const { error } = await supabase
         .from("books")
         .delete()
         .eq("id", id)
-        .eq("owner_id", user?.id);
+        .eq("owner_id", user.id);
 
       if (error) throw error;
+      return id;
+    },
+    onSuccess: (deletedId) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(
+        bookKeys.list(user?.id || ""),
+        (old: Book[] = []) => {
+          return old.filter((book) => book.id !== deletedId);
+        }
+      );
 
-      setBooks((prev) => prev.filter((book) => book.id !== id));
       toast({
         title: "Book deleted",
         description: "The book has been removed.",
       });
-
-      return { error: null };
-    } catch (error: any) {
-      console.error("Error deleting book:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error deleting book",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  useEffect(() => {
-    if (user) {
-      fetchBooks();
-    } else {
-      setBooks([]);
-      setInitialized(true);
-      setLoading(false);
-    }
-  }, [user, fetchBooks]);
+  // Wrapper functions to match original API
+  const createBook = useCallback(
+    async (
+      name: string,
+      type: "personal" | "business",
+      description?: string,
+      is_default = false
+    ) => {
+      try {
+        const data = await createBookMutation.mutateAsync({
+          name,
+          type,
+          description,
+          is_default,
+        });
+        return { data, error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [createBookMutation]
+  );
 
-  useEffect(() => {
-    if (!user || !initialized) return;
+  const updateBook = useCallback(
+    async (
+      id: string,
+      updates: Partial<
+        Pick<Book, "name" | "type" | "description" | "is_default">
+      >
+    ) => {
+      try {
+        const data = await updateBookMutation.mutateAsync({ id, updates });
+        return { data, error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [updateBookMutation]
+  );
 
-    const channel = supabase
-      .channel(`books-changes-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "books",
-          filter: `owner_id=eq.${user.id}`,
-        },
-        () => fetchBooks()
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "monthly_budgets",
-          filter: `book_id=in.(${books.map((b) => b.id).join(",")})`,
-        },
-        () => fetchBooks()
-      )
-      .subscribe((status) => {
-        console.log("Books subscription status:", status);
-      });
+  const setMonthlyBudget = useCallback(
+    async (bookId: string, month: string, amount: number) => {
+      try {
+        const data = await setMonthlyBudgetMutation.mutateAsync({
+          bookId,
+          month,
+          amount,
+        });
+        return { data, error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [setMonthlyBudgetMutation]
+  );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, initialized, fetchBooks, books]);
+  const deleteBook = useCallback(
+    async (id: string) => {
+      try {
+        await deleteBookMutation.mutateAsync(id);
+        return { error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [deleteBookMutation]
+  );
 
   return {
     books,
     loading,
-    error,
-    initialized,
+    error: isError ? (error as Error)?.message : null,
+    initialized: !loading,
     createBook,
     updateBook,
     setMonthlyBudget,
     deleteBook,
-    refetch: fetchBooks,
+    refetch,
   };
 };
 

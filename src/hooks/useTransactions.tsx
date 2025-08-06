@@ -1,5 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
@@ -24,6 +31,7 @@ export interface TransactionFilters {
   startDate?: string;
   endDate?: string;
   search?: string;
+  userId?: string;
 }
 
 interface PaginationInfo {
@@ -34,207 +42,202 @@ interface PaginationInfo {
   hasPreviousPage: boolean;
 }
 
-const ITEMS_PER_PAGE = 50; // Adjust based on your needs
+const ITEMS_PER_PAGE = 50;
 
-const useTransactions = (filters?: TransactionFilters) => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    currentPage: 0,
-    totalPages: 0,
-    totalCount: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
+// Query Keys Factory
+const transactionKeys = {
+  all: ["transactions"] as const,
+  lists: () => [...transactionKeys.all, "list"] as const,
+  list: (filters: TransactionFilters) =>
+    [...transactionKeys.lists(), filters] as const,
+  infinite: (filters: TransactionFilters) =>
+    [
+      ...transactionKeys.all,
+      "infinite",
+      { ...filters, userId: filters.userId },
+    ] as const,
+  count: (filters: TransactionFilters) =>
+    [...transactionKeys.all, "count", filters] as const,
+};
 
-  // Track if we're fetching to prevent duplicate requests
-  const isFetchingRef = useRef(false);
-  const currentFiltersRef = useRef<TransactionFilters | undefined>(filters);
-  currentFiltersRef.current = filters;
+// Helper function to build query with filters
+const buildQuery = (baseQuery: any, filters: TransactionFilters) => {
+  let query = baseQuery;
 
-  // Helper function to build query with filters
-  const buildQuery = useCallback((baseQuery: any) => {
-    const currentFilters = currentFiltersRef.current;
-    let query = baseQuery;
+  if (filters.bookId) {
+    query = query.eq("book_id", filters.bookId);
+  }
+  if (filters.type) {
+    query = query.eq("type", filters.type);
+  }
+  if (filters.category) {
+    query = query.eq("category", filters.category);
+  }
+  if (filters.startDate) {
+    query = query.gte("date", filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte("date", filters.endDate);
+  }
+  if (filters.search && filters.search.trim()) {
+    const searchTerm = filters.search.trim();
+    query = query.or(
+      `note.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,amount::text.ilike.%${searchTerm}%`
+    );
+  }
 
-    if (currentFilters?.bookId) {
-      query = query.eq("book_id", currentFilters.bookId);
-    }
-    if (currentFilters?.type) {
-      query = query.eq("type", currentFilters.type);
-    }
-    if (currentFilters?.category) {
-      query = query.eq("category", currentFilters.category);
-    }
-    if (currentFilters?.startDate) {
-      query = query.gte("date", currentFilters.startDate);
-    }
-    if (currentFilters?.endDate) {
-      query = query.lte("date", currentFilters.endDate);
-    }
+  return query;
+};
 
-    // Server-side search for better performance with large datasets
-    if (currentFilters?.search && currentFilters.search.trim()) {
-      const searchTerm = currentFilters.search.trim();
-      query = query.or(
-        `note.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,amount::text.ilike.%${searchTerm}%`
-      );
-    }
-    console.log("currentFilters 1", currentFilters);
-    console.log("query 1", query);
-    return query;
-  }, []);
+// Fetch functions
+const fetchTransactions = async (
+  filters: TransactionFilters,
+  userId: string,
+  page = 0
+) => {
+  if (!userId || !filters.bookId) {
+    return { data: [], count: 0 };
+  }
 
-  // Get total count for pagination
-  const getTotalCount = useCallback(async () => {
-    if (!user || !currentFiltersRef.current?.bookId) return 0;
+  let query = supabase
+    .from("transactions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
 
-    try {
-      let countQuery = supabase
-        .from("transactions")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
+  query = buildQuery(query, filters);
 
-      countQuery = buildQuery(countQuery);
-      const { count, error } = await countQuery;
+  const { data, error } = await query;
+  if (error) throw error;
 
-      if (error) throw error;
-      return count || 0;
-    } catch (error) {
-      console.error("Error getting total count:", error);
-      return 0;
-    }
-  }, [user, buildQuery]);
+  return data || [];
+};
 
-  // Fetch transactions with pagination
-  const fetchTransactions = useCallback(
-    async (page: number = 0, append: boolean = false) => {
-      if (!user || !currentFiltersRef.current?.bookId || isFetchingRef.current)
-        return;
+const fetchTransactionCount = async (
+  filters: TransactionFilters,
+  userId: string
+) => {
+  if (!userId || !filters.bookId) return 0;
 
-      isFetchingRef.current = true;
+  let countQuery = supabase
+    .from("transactions")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId);
 
-      try {
-        // Show loading state
-        if (!append && !initialized) {
-          setLoading(true);
-        } else if (append) {
-          setLoadingMore(true);
-        }
+  countQuery = buildQuery(countQuery, filters);
 
-        // Get total count first
-        const totalCount = await getTotalCount();
-        const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const { count, error } = await countQuery;
+  if (error) throw error;
 
-        // Build the main query
-        let query = supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
+  return count || 0;
+};
 
-        query = buildQuery(query);
+const fetchTransactionsInfinite = async ({
+  pageParam = 0,
+  queryKey,
+}: {
+  pageParam: number;
+  queryKey: readonly any[];
+}) => {
+  const [, , filters] = queryKey;
+  const userId = filters.userId;
 
-        console.log("query", query);
+  if (!userId || !filters.bookId) {
+    return {
+      data: [],
+      nextPage: undefined,
+      totalCount: 0,
+    };
+  }
 
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        const newTransactions = data || [];
-
-        // Update transactions list
-        if (append) {
-          setTransactions((prev) => {
-            const existingIds = new Set(prev.map((t) => t.id));
-            const uniqueNew = newTransactions.filter(
-              (t) => !existingIds.has(t.id)
-            );
-            return [...prev, ...uniqueNew];
-          });
-        } else {
-          setTransactions(newTransactions);
-        }
-
-        // Update pagination info
-        setPagination({
-          currentPage: page,
-          totalPages,
-          totalCount,
-          hasNextPage: page < totalPages - 1,
-          hasPreviousPage: page > 0,
-        });
-
-        setError(null);
-      } catch (error: any) {
-        console.error("Error loading transactions:", error);
-        setError(error.message);
-        toast({
-          title: "Error loading transactions",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        setInitialized(true);
-        isFetchingRef.current = false;
-      }
-    },
-    [user, toast, initialized, buildQuery, getTotalCount]
-  );
-
-  // Load more transactions (for infinite scroll)
-  const loadMore = useCallback(async () => {
-    if (
-      loadingMore ||
-      !pagination.hasNextPage ||
-      !currentFiltersRef.current?.bookId
-    )
-      return;
-    await fetchTransactions(pagination.currentPage + 1, true);
-  }, [
-    fetchTransactions,
-    pagination.currentPage,
-    pagination.hasNextPage,
-    loadingMore,
+  // Fetch transactions and count in parallel
+  const [transactions, totalCount] = await Promise.all([
+    fetchTransactions(filters, userId, pageParam),
+    fetchTransactionCount(filters, userId),
   ]);
 
-  // Reset and fetch from beginning
-  const refresh = useCallback(async () => {
-    if (!currentFiltersRef.current?.bookId) return;
-    setTransactions([]);
-    setPagination({
-      currentPage: 0,
-      totalPages: 0,
-      totalCount: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    });
-    await fetchTransactions(0, false);
-  }, [fetchTransactions]);
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const hasNextPage = pageParam < totalPages - 1;
 
-  const createTransaction = async (
-    transaction: Omit<
-      Transaction,
-      "id" | "user_id" | "created_at" | "updated_at"
-    >,
-    filteredQuery: any = {}
-  ) => {
-    if (!user || !currentFiltersRef.current?.bookId)
-      return { error: "No book selected" };
-    try {
+  return {
+    data: transactions,
+    nextPage: hasNextPage ? pageParam + 1 : undefined,
+    totalCount,
+    currentPage: pageParam,
+    totalPages,
+  };
+};
+
+const useTransactions = (filters: TransactionFilters = {}) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Create combined filters for the query
+  const queryFilters = useMemo(
+    () => ({
+      ...filters,
+      userId: user?.id || "",
+    }),
+    [filters, user?.id]
+  );
+
+  // Get transaction count
+  const { data: totalCount = 0 } = useQuery({
+    queryKey: transactionKeys.count(queryFilters),
+    queryFn: () => fetchTransactionCount(queryFilters, user?.id || ""),
+    enabled: !!user && !!queryFilters.bookId,
+    staleTime: 30000, // 30 seconds
+    placeholderData: keepPreviousData,
+  });
+
+  // Infinite query for transactions
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage: loadingMore,
+    isLoading,
+    isError,
+    error,
+    refetch: refresh,
+  } = useInfiniteQuery({
+    queryKey: transactionKeys.infinite(queryFilters),
+    queryFn: fetchTransactionsInfinite,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    enabled: !!user && !!queryFilters.bookId,
+    staleTime: 30000, // 30 seconds
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+
+  // Flatten transactions from pages
+  const transactions = infiniteData?.pages.flatMap((page) => page.data) || [];
+  const pagination: PaginationInfo = {
+    currentPage: infiniteData?.pages.length ? infiniteData.pages.length - 1 : 0,
+    totalPages: Math.ceil(totalCount / ITEMS_PER_PAGE),
+    totalCount,
+    hasNextPage: !!hasNextPage,
+    hasPreviousPage: false, // Not needed for infinite scroll
+  };
+
+  // Mutations
+  const createTransactionMutation = useMutation({
+    mutationFn: async (
+      transaction: Omit<
+        Transaction,
+        "id" | "user_id" | "created_at" | "updated_at"
+      >
+    ) => {
+      if (!user || !queryFilters.bookId) throw new Error("No book selected");
+
       const transactionData = {
         ...transaction,
         user_id: user.id,
-        book_id: currentFiltersRef.current.bookId,
+        book_id: queryFilters.bookId,
         amount: Number(transaction.amount),
         date: transaction.date,
       };
@@ -246,38 +249,40 @@ const useTransactions = (filters?: TransactionFilters) => {
         .single();
 
       if (error) throw error;
-
-      await refresh();
+      return data;
+    },
+    onSuccess: (data) => {
+      // Invalidate and refetch relevant queries
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
 
       toast({
         title: "Transaction added",
-        description: `${
-          transaction.type === "income" ? "Income" : "Expense"
-        } of $${transaction.amount} recorded.`,
+        description: `${data.type === "income" ? "Income" : "Expense"} of ৳${
+          data.amount
+        } recorded.`,
       });
-
-      return { data, error: null };
-    } catch (error: any) {
-      console.error("Error creating transaction:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error creating transaction",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const updateTransaction = async (
-    id: string,
-    updates: Partial<
-      Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">
-    >
-  ) => {
-    if (!user || !currentFiltersRef.current?.bookId)
-      return { error: "No book selected" };
+  const updateTransactionMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<
+        Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">
+      >;
+    }) => {
+      if (!user || !queryFilters.bookId) throw new Error("No book selected");
 
-    try {
       const updateData = {
         ...updates,
         updated_at: new Date().toISOString(),
@@ -292,77 +297,63 @@ const useTransactions = (filters?: TransactionFilters) => {
         .update(updateData)
         .eq("id", id)
         .eq("user_id", user.id)
-        .eq("book_id", currentFiltersRef.current.bookId)
+        .eq("book_id", queryFilters.bookId)
         .select()
         .single();
 
       if (error) throw error;
-
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...data } : t))
-      );
-
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       toast({
         title: "Transaction updated",
         description: "Your changes have been saved.",
       });
-
-      return { data, error: null };
-    } catch (error: any) {
-      console.error("Error updating transaction:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error updating transaction",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const deleteTransaction = async (id: string) => {
-    if (!user || !currentFiltersRef.current?.bookId)
-      return { error: "No book selected" };
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user || !queryFilters.bookId) throw new Error("No book selected");
 
-    try {
       const { error } = await supabase
         .from("transactions")
         .delete()
         .eq("id", id)
         .eq("user_id", user.id)
-        .eq("book_id", currentFiltersRef.current.bookId);
+        .eq("book_id", queryFilters.bookId);
 
       if (error) throw error;
-
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
-      setPagination((prev) => ({
-        ...prev,
-        totalCount: Math.max(0, prev.totalCount - 1),
-        totalPages: Math.ceil(
-          Math.max(0, prev.totalCount - 1) / ITEMS_PER_PAGE
-        ),
-      }));
-
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       toast({
         title: "Transaction deleted",
         description: "The transaction has been removed.",
       });
-
-      return { error: null };
-    } catch (error: any) {
-      console.error("Error deleting transaction:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error deleting transaction",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const uploadReceipt = async (file: File, transactionId?: string) => {
-    if (!user) return { error: "User not authenticated" };
+  const uploadReceiptMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user) throw new Error("User not authenticated");
 
-    try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
@@ -379,33 +370,31 @@ const useTransactions = (filters?: TransactionFilters) => {
         data: { publicUrl },
       } = supabase.storage.from("receipts").getPublicUrl(fileName);
 
-      return { data: { path: fileName, url: publicUrl }, error: null };
-    } catch (error: any) {
-      console.error("Error uploading receipt:", error);
+      return { path: fileName, url: publicUrl };
+    },
+    onError: (error: any) => {
       toast({
         title: "Error uploading receipt",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
-    }
-  };
+    },
+  });
 
-  const importTransactions = async (
-    transactions: Omit<
-      Transaction,
-      "id" | "user_id" | "created_at" | "updated_at"
-    >[]
-  ) => {
-    if (!user || !currentFiltersRef.current?.bookId)
-      return { error: "No book selected" };
-    if (!transactions.length) return { error: "No transactions to import" };
+  const importTransactionsMutation = useMutation({
+    mutationFn: async (
+      transactions: Omit<
+        Transaction,
+        "id" | "user_id" | "created_at" | "updated_at"
+      >[]
+    ) => {
+      if (!user || !queryFilters.bookId) throw new Error("No book selected");
+      if (!transactions.length) throw new Error("No transactions to import");
 
-    try {
       const transactionData = transactions.map((transaction) => ({
         ...transaction,
         user_id: user.id,
-        book_id: currentFiltersRef.current.bookId,
+        book_id: queryFilters.bookId,
         amount: Number(transaction.amount),
         date: transaction.date || new Date().toISOString().split("T")[0],
       }));
@@ -416,127 +405,99 @@ const useTransactions = (filters?: TransactionFilters) => {
         .select();
 
       if (error) throw error;
-
-      await refresh();
-
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       toast({
         title: "Transactions imported",
         description: `Successfully imported ${data.length} transactions.`,
       });
-
-      return { data, error: null };
-    } catch (error: any) {
-      console.error("Error importing transactions:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Error importing transactions",
         description: error.message,
         variant: "destructive",
       });
-      return { error: error.message };
+    },
+  });
+
+  // Wrapper functions to match original API
+  const createTransaction = useCallback(
+    async (transaction: any) => {
+      try {
+        await createTransactionMutation.mutateAsync(transaction);
+        return { error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [createTransactionMutation]
+  );
+
+  const updateTransaction = useCallback(
+    async (id: string, updates: any) => {
+      try {
+        await updateTransactionMutation.mutateAsync({ id, updates });
+        return { error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [updateTransactionMutation]
+  );
+
+  const deleteTransaction = useCallback(
+    async (id: string) => {
+      try {
+        await deleteTransactionMutation.mutateAsync(id);
+        return { error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [deleteTransactionMutation]
+  );
+
+  const uploadReceipt = useCallback(
+    async (file: File) => {
+      try {
+        const result = await uploadReceiptMutation.mutateAsync(file);
+        return { data: result, error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [uploadReceiptMutation]
+  );
+
+  const importTransactions = useCallback(
+    async (transactions: any[]) => {
+      try {
+        const result = await importTransactionsMutation.mutateAsync(
+          transactions
+        );
+        return { data: result, error: null };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    [importTransactionsMutation]
+  );
+
+  const loadMore = useCallback(async () => {
+    if (hasNextPage && !loadingMore) {
+      await fetchNextPage();
     }
-  };
-
-  // Debounced effect for filter changes
-  const prevFiltersRef = useRef<string>("");
-
-  useEffect(() => {
-    if (!user || !filters?.bookId) {
-      setTransactions([]);
-      setInitialized(true);
-      setLoading(false);
-      return;
-    }
-
-    const currentFiltersStr = JSON.stringify({
-      bookId: filters?.bookId,
-      type: filters?.type,
-      category: filters?.category,
-      startDate: filters?.startDate,
-      endDate: filters?.endDate,
-      search: filters?.search,
-    });
-
-    if (currentFiltersStr !== prevFiltersRef.current) {
-      prevFiltersRef.current = currentFiltersStr;
-
-      const timeoutId = setTimeout(
-        () => {
-          refresh();
-        },
-        filters?.search ? 300 : 0
-      );
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [
-    user,
-    filters?.bookId,
-    filters?.type,
-    filters?.category,
-    filters?.startDate,
-    filters?.endDate,
-    filters?.search,
-    refresh,
-  ]);
-
-  // Set up realtime subscription
-  useEffect(() => {
-    if (!user || !filters?.bookId || !initialized) return;
-
-    console.log("Setting up realtime subscription for user:", user.id);
-
-    const channel = supabase
-      .channel(`transactions-changes-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "transactions",
-          filter: `user_id=eq.${user.id},book_id=eq.${filters.bookId}`,
-        },
-        (payload) => {
-          console.log("Transaction change received:", payload);
-
-          if (payload.eventType === "INSERT" && payload.new) {
-            refresh();
-          } else if (payload.eventType === "UPDATE" && payload.new) {
-            const updatedTransaction = payload.new as Transaction;
-            setTransactions((prev) =>
-              prev.map((t) =>
-                t.id === updatedTransaction.id ? updatedTransaction : t
-              )
-            );
-          } else if (payload.eventType === "DELETE" && payload.old) {
-            setTransactions((prev) =>
-              prev.filter((t) => t.id !== payload.old.id)
-            );
-            setPagination((prev) => ({
-              ...prev,
-              totalCount: Math.max(0, prev.totalCount - 1),
-              totalPages: Math.ceil(
-                Math.max(0, prev.totalCount - 1) / ITEMS_PER_PAGE
-              ),
-            }));
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log("Transactions subscription status:", status);
-      });
-
-    return () => {
-      console.log("Cleaning up realtime subscription");
-      supabase.removeChannel(channel);
-    };
-  }, [user, filters?.bookId, initialized, refresh]);
+  }, [fetchNextPage, hasNextPage, loadingMore]);
 
   return {
     transactions,
-    loading,
+    loading: isLoading,
     loadingMore,
-    error,
-    initialized,
+    error: isError ? (error as Error)?.message : null,
+    initialized: !isLoading,
     pagination,
     createTransaction,
     updateTransaction,
