@@ -38,6 +38,7 @@ const Index = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [transactionToDelete, setTransactionToDelete] =
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -64,6 +65,7 @@ const Index = () => {
     initialized: transactionsInitialized,
     pagination,
     createTransaction,
+    updateTransaction,
     deleteTransaction,
     loadMore,
     refresh,
@@ -124,6 +126,22 @@ const Index = () => {
     const { error } = await createTransaction(newTransaction);
     if (!error) {
       setShowAddForm(false);
+      toast({
+        title: "Transaction Added",
+        description: "Your transaction was successfully added.",
+      });
+    }
+  };
+
+  const handleEditTransaction = async (updatedTransaction: Transaction) => {
+    console.log("updatedTransaction", updatedTransaction);
+    const { error } = await updateTransaction(updatedTransaction.id, {
+      ...updatedTransaction,
+      amount: Number(updatedTransaction.amount),
+      date: updatedTransaction.date,
+    });
+    if (!error) {
+      setShowEditForm(false);
       toast({
         title: "Transaction Added",
         description: "Your transaction was successfully added.",
@@ -352,6 +370,9 @@ const Index = () => {
                 loadingMore={loadingMore}
                 loading={transactionsLoading}
                 onFilterChange={handleFilterChange}
+                onEditTransaction={handleEditTransaction}
+                showEditForm={showEditForm}
+                setShowEditForm={setShowEditForm}
               />
             )}
           </>

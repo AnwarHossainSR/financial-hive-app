@@ -29,6 +29,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { TransactionEditForm } from "./TransactionEditForm";
 
 interface Transaction {
   id: string;
@@ -70,6 +71,9 @@ interface TransactionsSectionProps {
   loadingMore: boolean;
   loading: boolean;
   onFilterChange: (filters: TransactionFilters) => void;
+  onEditTransaction: (transaction: Transaction) => void;
+  showEditForm?: boolean;
+  setShowEditForm?: (show: boolean) => void;
 }
 
 const ITEM_HEIGHT = 120;
@@ -111,6 +115,9 @@ export const TransactionsSection = ({
   loadingMore,
   loading,
   onFilterChange,
+  onEditTransaction,
+  showEditForm,
+  setShowEditForm,
 }: TransactionsSectionProps) => {
   const { containerRef, startIndex, endIndex, offsetY, handleScroll } =
     useVirtualScroll({
@@ -127,7 +134,7 @@ export const TransactionsSection = ({
   const visibleTransactions = useMemo(() => {
     return transactions.slice(startIndex, endIndex);
   }, [transactions, startIndex, endIndex]);
-
+  const [selectedTransaction, SetselectedTransaction] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
     type: undefined,
@@ -163,6 +170,11 @@ export const TransactionsSection = ({
       search: searchQuery, // Preserve search query
     });
     setIsFilterOpen(false);
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setShowEditForm(true);
+    SetselectedTransaction(transaction);
   };
 
   return (
@@ -260,6 +272,7 @@ export const TransactionsSection = ({
                   <TransactionCard
                     transaction={transaction}
                     onDelete={() => onDeleteTransaction(transaction)}
+                    onEdit={() => handleEditTransaction(transaction)}
                   />
                 </div>
               ))}
@@ -482,6 +495,23 @@ export const TransactionsSection = ({
             </Button>
             <Button onClick={handleApplyFilters}>Apply Filters</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+        <DialogContent className="max-w-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent">
+              Edit Transaction
+            </DialogTitle>
+          </DialogHeader>
+          {selectedTransaction && (
+            <TransactionEditForm
+              onSubmit={onEditTransaction}
+              onCancel={() => setShowEditForm(false)}
+              transaction={selectedTransaction}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </Card>
