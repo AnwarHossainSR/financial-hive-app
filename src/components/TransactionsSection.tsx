@@ -21,6 +21,7 @@ import {
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
 import { cn } from "@/lib/utils";
 import {
+  ChevronDown,
   Download,
   Filter,
   Loader2,
@@ -28,7 +29,7 @@ import {
   Search,
   TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TransactionEditForm } from "./TransactionEditForm";
 
 interface Transaction {
@@ -134,8 +135,10 @@ export const TransactionsSection = ({
   const visibleTransactions = useMemo(() => {
     return transactions.slice(startIndex, endIndex);
   }, [transactions, startIndex, endIndex]);
+
   const [selectedTransaction, SetselectedTransaction] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
     type: undefined,
     category: undefined,
@@ -148,6 +151,22 @@ export const TransactionsSection = ({
   const hasFiltersApplied = Object.values(filters).some(
     (value) => value !== undefined && value !== ""
   );
+
+  // Show scroll hint when there are more transactions to load or scroll
+  useEffect(() => {
+    const shouldShowHint =
+      (transactions.length > 5 && endIndex < transactions.length) ||
+      pagination.hasNextPage;
+    setShowScrollHint(shouldShowHint);
+  }, [transactions.length, endIndex, pagination.hasNextPage]);
+
+  // Hide scroll hint after user scrolls
+  const handleScrollWithHint = (e: React.UIEvent<HTMLDivElement>) => {
+    handleScroll(e);
+    if (showScrollHint && e.currentTarget.scrollTop > 50) {
+      setShowScrollHint(false);
+    }
+  };
 
   const handleApplyFilters = () => {
     onFilterChange(filters);
@@ -241,7 +260,7 @@ export const TransactionsSection = ({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-0 relative">
         {loading && transactions.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <div className="flex flex-col items-center gap-3">
@@ -252,53 +271,69 @@ export const TransactionsSection = ({
             </div>
           </div>
         ) : transactions.length > 0 ? (
-          <div
-            ref={containerRef}
-            className="relative overflow-auto"
-            style={{ height: CONTAINER_HEIGHT }}
-            onScroll={handleScroll}
-          >
-            <div style={{ height: startIndex * ITEM_HEIGHT }} />
-            <div className="px-6 space-y-3">
-              {visibleTransactions.map((transaction, index) => (
-                <div
-                  key={transaction.id}
-                  className="transform transition-all duration-200 hover:scale-[1.02] opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
-                  style={{
-                    animationDelay: `${(index % 10) * 50}ms`,
-                    minHeight: ITEM_HEIGHT,
-                  }}
-                >
-                  <TransactionCard
-                    transaction={transaction}
-                    onDelete={() => onDeleteTransaction(transaction)}
-                    onEdit={() => handleEditTransaction(transaction)}
-                  />
-                </div>
-              ))}
-            </div>
+          <div className="relative">
             <div
-              style={{ height: (transactions.length - endIndex) * ITEM_HEIGHT }}
-            />
-            {loadingMore && (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Loading more transactions...
+              ref={containerRef}
+              className="relative overflow-auto scrollbar-hide"
+              style={{ height: CONTAINER_HEIGHT }}
+              onScroll={handleScrollWithHint}
+            >
+              <div style={{ height: startIndex * ITEM_HEIGHT }} />
+              <div className="px-6 space-y-3">
+                {visibleTransactions.map((transaction, index) => (
+                  <div
+                    key={transaction.id}
+                    className="transform transition-all duration-200 hover:scale-[1.02] opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
+                    style={{
+                      animationDelay: `${(index % 10) * 50}ms`,
+                      minHeight: ITEM_HEIGHT,
+                    }}
+                  >
+                    <TransactionCard
+                      transaction={transaction}
+                      onDelete={() => onDeleteTransaction(transaction)}
+                      onEdit={() => handleEditTransaction(transaction)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div
+                style={{
+                  height: (transactions.length - endIndex) * ITEM_HEIGHT,
+                }}
+              />
+              {loadingMore && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Loading more transactions...
+                    </span>
+                  </div>
+                </div>
+              )}
+              {!pagination.hasNextPage &&
+                transactions.length > 0 &&
+                !loadingMore && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      You've reached the end of your transactions
+                    </p>
+                  </div>
+                )}
+            </div>
+
+            {/* Scroll Hint */}
+            {showScrollHint && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+                <div className="bg-blue-500/90 text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-sm flex items-center gap-2 animate-bounce">
+                  <span className="text-sm font-medium">
+                    Scroll to see more
                   </span>
+                  <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             )}
-            {!pagination.hasNextPage &&
-              transactions.length > 0 &&
-              !loadingMore && (
-                <div className="text-center py-8">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    You've reached the end of your transactions
-                  </p>
-                </div>
-              )}
           </div>
         ) : (
           <div className="text-center py-16 px-6 opacity-0 animate-[fadeInUp_0.5s_ease-out_0.2s_forwards]">
@@ -337,7 +372,7 @@ export const TransactionsSection = ({
             </span>
             {pagination.hasNextPage && (
               <span className="flex items-center gap-1">
-                <span>Scroll down to load more</span>
+                <span>More available</span>
               </span>
             )}
           </div>
