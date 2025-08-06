@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 interface AuthContextType {
   user: User | null;
@@ -12,10 +18,10 @@ interface AuthContextType {
     displayName?: string
   ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (password: string) => Promise<{ error: any }>;
+  checkSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,79 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
-    let authStateSubscription: any = null;
-
-    const initializeAuth = async () => {
-      try {
-        // Get initial session
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("Error getting session:", error);
-        }
-
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-
-          // Create or update profile for existing session
-          if (session?.user) {
-            await createOrUpdateProfile(session.user);
-          }
-
-          setLoading(false);
-        }
-
-        // Set up auth state listener after initial session is loaded
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log("Auth state changed:", event, session?.user?.id);
-
-          if (!mounted) return;
-
-          setSession(session);
-          setUser(session?.user ?? null);
-
-          // Handle profile creation/update for sign in events
-          if (
-            session?.user &&
-            (event === "SIGNED_IN" ||
-              event === "TOKEN_REFRESHED" ||
-              event === "PASSWORD_RECOVERY")
-          ) {
-            await createOrUpdateProfile(session.user);
-          }
-
-          // Ensure loading is false after any auth state change
-          setLoading(false);
-        });
-
-        authStateSubscription = subscription;
-      } catch (error) {
-        console.error("Error initializing auth:", error);
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
-
-    return () => {
-      mounted = false;
-      if (authStateSubscription) {
-        authStateSubscription.unsubscribe();
-      }
-    };
-  }, []);
-
-  const createOrUpdateProfile = async (user: User) => {
+  const createOrUpdateProfile = useCallback(async (user: User) => {
     try {
       const profileData = {
         user_id: user.id,
@@ -105,7 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         display_name:
           user.user_metadata?.display_name ||
           user.user_metadata?.full_name ||
-          user.user_metadata?.name || // GitHub uses 'name'
+          user.user_metadata?.name ||
           user.email?.split("@")[0],
         avatar_url: user.user_metadata?.avatar_url,
         updated_at: new Date().toISOString(),
@@ -117,119 +51,217 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error("Error updating profile:", error);
-      } else {
-        console.log("Profile updated successfully for user:", user.id);
+        return { error };
       }
+      console.log("Profile updated successfully for user:", user.id);
+      return { error: null };
     } catch (error) {
       console.error("Error in createOrUpdateProfile:", error);
+      return { error };
     }
-  };
+  }, []);
 
-  const signUp = async (
-    email: string,
-    password: string,
-    displayName?: string
-  ) => {
+  const checkSession = useCallback(async () => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      setLoading(true);
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            display_name: displayName,
+      if (error) {
+        console.error("Error checking session:", error);
+        throw error;
+      }
+
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        await createOrUpdateProfile(session.user);
+      } else {
+        setSession(null);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Session check failed:", error);
+      setSession(null);
+      setUser(null);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [createOrUpdateProfile]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      await checkSession();
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (!mounted) return;
+
+        console.log("Auth state changed:", event, session?.user?.id);
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (
+          session?.user &&
+          (event === "SIGNED_IN" ||
+            event === "TOKEN_REFRESHED" ||
+            event === "PASSWORD_RECOVERY")
+        ) {
+          await createOrUpdateProfile(session.user);
+        }
+
+        setLoading(false);
+      });
+
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+      };
+    };
+
+    initializeAuth().catch((error) => {
+      console.error("Error initializing auth:", error);
+      if (mounted) {
+        setLoading(false);
+      }
+    });
+
+    // Periodic session refresh (every 5 minutes)
+    const refreshInterval = setInterval(() => {
+      if (mounted) {
+        checkSession().catch((error) => {
+          console.error("Periodic session check failed:", error);
+        });
+      }
+    }, 5 * 60 * 1000);
+
+    return () => {
+      mounted = false;
+      clearInterval(refreshInterval);
+    };
+  }, [checkSession, createOrUpdateProfile]);
+
+  const signUp = useCallback(
+    async (email: string, password: string, displayName?: string) => {
+      try {
+        setLoading(true);
+        const redirectUrl = `${window.location.origin}/`;
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectUrl,
+            data: {
+              display_name: displayName,
+            },
           },
-        },
-      });
+        });
 
-      return { error };
-    } catch (error) {
-      console.error("Sign up error:", error);
-      return { error };
-    }
-  };
+        if (error) {
+          console.error("Sign up error:", error);
+          return { error };
+        }
 
-  const signIn = async (email: string, password: string) => {
+        if (data.user) {
+          await createOrUpdateProfile(data.user);
+        }
+
+        return { error: null };
+      } catch (error) {
+        console.error("Sign up error:", error);
+        return { error };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [createOrUpdateProfile]
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          console.error("Sign in error:", error);
+          return { error };
+        }
+
+        if (data.user) {
+          await createOrUpdateProfile(data.user);
+        }
+
+        return { error: null };
+      } catch (error) {
+        console.error("Sign in error:", error);
+        return { error };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [createOrUpdateProfile]
+  );
+
+  const resetPassword = useCallback(async (email: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      return { error };
-    } catch (error) {
-      console.error("Sign in error:", error);
-      return { error };
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      });
-
-      return { error };
-    } catch (error) {
-      console.error("Google sign in error:", error);
-      return { error };
-    }
-  };
-
-  const resetPassword = async (email: string) => {
-    try {
+      setLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-
-      console.log("error", error);
 
       return { error };
     } catch (error) {
       console.error("Reset password error:", error);
       return { error };
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const updatePassword = async (password: string) => {
+  const updatePassword = useCallback(async (password: string) => {
     try {
+      setLoading(true);
       const { error } = await supabase.auth.updateUser({
-        password: password,
+        password,
       });
 
       return { error };
     } catch (error) {
       console.error("Update password error:", error);
       return { error };
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
-      setLoading(true); // Show loading during sign out
+      setLoading(true);
       const { error } = await supabase.auth.signOut();
 
       if (error) {
         console.error("Sign out error:", error);
-        setLoading(false);
+        throw error;
       }
-      setUser(null);
-      setSession(null); // Clear session on sign out
-      // Loading will be set to false by the auth state change listener
     } catch (error) {
       console.error("Sign out error:", error);
+      throw error;
+    } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -239,10 +271,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loading,
         signUp,
         signIn,
-        signInWithGoogle,
         signOut,
         resetPassword,
         updatePassword,
+        checkSession,
       }}
     >
       {children}

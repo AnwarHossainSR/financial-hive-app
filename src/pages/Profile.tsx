@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export const Profile = () => {
+const Profile = () => {
   const { user } = useAuth();
   const { books, setMonthlyBudget } = useBooks();
   const { toast } = useToast();
@@ -639,3 +639,5 @@ export const Profile = () => {
     </div>
   );
 };
+
+export default Profile;

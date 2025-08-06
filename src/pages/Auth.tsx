@@ -4,15 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { useForm } from "react-hook-form";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 // Validation schemas
@@ -41,20 +41,38 @@ type SignInData = z.infer<typeof signInSchema>;
 type SignUpData = z.infer<typeof signUpSchema>;
 type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 
+// Submit button component using useFormStatus
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
+      disabled={pending}
+      aria-label={label}
+    >
+      {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+      {label}
+    </Button>
+  );
+}
+
 const Auth = () => {
-  const { user, loading, signIn, signUp, signInWithGoogle, resetPassword } =
-    useAuth();
+  const { user, loading, signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation();
   const [view, setView] = useState<"auth" | "forgot-password" | "reset-sent">(
     "auth"
   );
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Form instances
+  // Extract redirect URL from query params
+  const query = new URLSearchParams(location.search);
+  const redirectTo = query.get("redirect") || "/";
+
+  // Form instances with react-hook-form
   const signInForm = useForm<SignInData>({
     resolver: zodResolver(signInSchema),
     defaultValues: {
@@ -80,6 +98,135 @@ const Auth = () => {
     },
   });
 
+  // Auto-fill email from query params if available
+  useEffect(() => {
+    const email = query.get("email");
+    if (email) {
+      signInForm.setValue("email", email);
+      signUpForm.setValue("email", email);
+      forgotPasswordForm.setValue("email", email);
+    }
+  }, [query, signInForm, signUpForm, forgotPasswordForm]);
+
+  // React 19 useActionState for sign-in
+  const [signInState, signInAction] = useActionState(
+    async (_: any, formData: FormData) => {
+      try {
+        const data = signInSchema.parse({
+          email: formData.get("email"),
+          password: formData.get("password"),
+        });
+        const { error } = await signIn(data.email, data.password);
+        if (error) {
+          signInForm.setError("root", { message: error.message });
+          toast({
+            title: "Sign-in failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return { error: error.message };
+        }
+        toast({
+          title: "Welcome back!",
+          description: "You have been signed in successfully.",
+        });
+        navigate(redirectTo);
+        return { success: true };
+      } catch (err: any) {
+        const message = err.message || "An unexpected error occurred";
+        signInForm.setError("root", { message });
+        toast({
+          title: "Sign-in error",
+          description: message,
+          variant: "destructive",
+        });
+        return { error: message };
+      }
+    },
+    null
+  );
+
+  // React 19 useActionState for sign-up
+  const [signUpState, signUpAction] = useActionState(
+    async (_: any, formData: FormData) => {
+      try {
+        const data = signUpSchema.parse({
+          displayName: formData.get("displayName"),
+          email: formData.get("email"),
+          password: formData.get("password"),
+          confirmPassword: formData.get("confirmPassword"),
+        });
+        const { error } = await signUp(
+          data.email,
+          data.password,
+          data.displayName
+        );
+        if (error) {
+          signUpForm.setError("root", { message: error.message });
+          toast({
+            title: "Sign-up failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return { error: error.message };
+        }
+        toast({
+          title: "Account created!",
+          description: "Please check your email to verify your account.",
+        });
+        navigate(`/auth?redirect=${encodeURIComponent(redirectTo)}`);
+        return { success: true };
+      } catch (err: any) {
+        const message = err.message || "An unexpected error occurred";
+        signUpForm.setError("root", { message });
+        toast({
+          title: "Sign-up error",
+          description: message,
+          variant: "destructive",
+        });
+        return { error: message };
+      }
+    },
+    null
+  );
+
+  // React 19 useActionState for forgot password
+  const [forgotPasswordState, forgotPasswordAction] = useActionState(
+    async (_: any, formData: FormData) => {
+      try {
+        const data = forgotPasswordSchema.parse({
+          email: formData.get("email"),
+        });
+        const { error } = await resetPassword(data.email);
+        if (error) {
+          forgotPasswordForm.setError("root", { message: error.message });
+          toast({
+            title: "Password reset failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return { error: error.message };
+        }
+        setView("reset-sent");
+        toast({
+          title: "Reset link sent!",
+          description: "Check your email for password reset instructions.",
+        });
+        return { success: true };
+      } catch (err: any) {
+        const message = err.message || "An unexpected error occurred";
+        forgotPasswordForm.setError("root", { message });
+        toast({
+          title: "Password reset error",
+          description: message,
+          variant: "destructive",
+        });
+        return { error: message };
+      }
+    },
+    null
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -89,103 +236,13 @@ const Auth = () => {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
-
-  const handleSignIn = async (data: SignInData) => {
-    setIsLoading(true);
-
-    try {
-      const { error } = await signIn(data.email, data.password);
-
-      if (error) {
-        signInForm.setError("root", { message: error.message });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "You have been signed in successfully.",
-        });
-        navigate("/");
-      }
-    } catch (err) {
-      signInForm.setError("root", { message: "An unexpected error occurred" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignUp = async (data: SignUpData) => {
-    setIsLoading(true);
-
-    try {
-      const { error } = await signUp(
-        data.email,
-        data.password,
-        data.displayName
-      );
-
-      if (error) {
-        signUpForm.setError("root", { message: error.message });
-      } else {
-        toast({
-          title: "Account created!",
-          description: "Please check your email to verify your account.",
-        });
-      }
-    } catch (err) {
-      signUpForm.setError("root", { message: "An unexpected error occurred" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async (data: ForgotPasswordData) => {
-    setIsLoading(true);
-
-    try {
-      const { error } = await resetPassword(data.email);
-
-      if (error) {
-        forgotPasswordForm.setError("root", { message: error.message });
-      } else {
-        setView("reset-sent");
-        toast({
-          title: "Reset link sent!",
-          description: "Check your email for password reset instructions.",
-        });
-      }
-    } catch (err) {
-      forgotPasswordForm.setError("root", {
-        message: "An unexpected error occurred",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSocialLogin = async (provider: "google") => {
-    setIsLoading(true);
-
-    try {
-      toast({
-        title: "Google login not implemented yet",
-        description: "Please try again later",
-        variant: "destructive",
-      });
-    } catch (err) {
-      toast({
-        title: "Login failed",
-        description: "An unexpected error occurred during social login",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   if (view === "forgot-password") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <title>Reset Password - CashBook</title>
         <div className="w-full max-w-md">
           <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
@@ -194,6 +251,7 @@ const Auth = () => {
                 size="sm"
                 onClick={() => setView("auth")}
                 className="absolute left-4 top-4 p-2"
+                aria-label="Back to authentication"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
@@ -211,7 +269,7 @@ const Auth = () => {
               </p>
             </CardHeader>
             <CardContent className="px-6 pb-6">
-              <div className="space-y-4">
+              <form action={forgotPasswordAction} className="space-y-4">
                 <div className="space-y-2">
                   <Label
                     htmlFor="reset-email"
@@ -221,6 +279,7 @@ const Auth = () => {
                   </Label>
                   <Input
                     id="reset-email"
+                    name="email"
                     type="email"
                     placeholder="Enter your email"
                     {...forgotPasswordForm.register("email")}
@@ -229,9 +288,11 @@ const Auth = () => {
                         ? "border-red-300 focus:ring-red-500"
                         : ""
                     }`}
+                    aria-invalid={!!forgotPasswordForm.formState.errors.email}
+                    aria-describedby="reset-email-error"
                   />
                   {forgotPasswordForm.formState.errors.email && (
-                    <p className="text-sm text-red-600">
+                    <p id="reset-email-error" className="text-sm text-red-600">
                       {forgotPasswordForm.formState.errors.email.message}
                     </p>
                   )}
@@ -244,20 +305,16 @@ const Auth = () => {
                     </AlertDescription>
                   </Alert>
                 )}
+                {forgotPasswordState?.error && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertDescription className="text-sm">
+                      {forgotPasswordState.error}
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-                <Button
-                  onClick={forgotPasswordForm.handleSubmit(
-                    handleForgotPassword
-                  )}
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
-                  disabled={isLoading}
-                >
-                  {isLoading && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  )}
-                  Send Reset Link
-                </Button>
-              </div>
+                <SubmitButton label="Send Reset Link" />
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -267,7 +324,8 @@ const Auth = () => {
 
   if (view === "reset-sent") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <title>Password Reset Sent - CashBook</title>
         <div className="w-full max-w-md">
           <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
@@ -298,10 +356,15 @@ const Auth = () => {
                     variant="outline"
                     onClick={() => setView("forgot-password")}
                     className="flex-1"
+                    aria-label="Try again"
                   >
                     Try Again
                   </Button>
-                  <Button onClick={() => setView("auth")} className="flex-1">
+                  <Button
+                    onClick={() => setView("auth")}
+                    className="flex-1"
+                    aria-label="Back to sign in"
+                  >
                     Back to Sign In
                   </Button>
                 </div>
@@ -314,7 +377,8 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
+      <title>Sign In or Sign Up - CashBook</title>
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -322,7 +386,7 @@ const Auth = () => {
               <img
                 src="/cheque.png"
                 className="w-6 h-6 text-white"
-                alt="CashBook"
+                alt="CashBook Logo"
               />
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900">CashBook</h1>
@@ -331,67 +395,26 @@ const Auth = () => {
 
         <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
           <CardContent className="p-6">
-            {/* Social Login Buttons */}
-            <div className="flex gap-4 mb-6">
-              <Button
-                variant="outline"
-                className="flex-1 h-12 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg"
-                onClick={() => handleSocialLogin("google")}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                )}
-                Continue with Google
-              </Button>
-            </div>
-
-            <div className="relative mb-6">
-              <Separator className="w-full bg-gray-200" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="bg-white px-4 text-sm text-gray-500">
-                  Or continue with email
-                </span>
-              </div>
-            </div>
-
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-lg p-1">
                 <TabsTrigger
                   value="signin"
                   className="py-2 text-sm font-medium"
+                  aria-label="Sign in tab"
                 >
                   Sign In
                 </TabsTrigger>
                 <TabsTrigger
                   value="signup"
                   className="py-2 text-sm font-medium"
+                  aria-label="Sign up tab"
                 >
                   Sign Up
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
-                <div className="space-y-5">
+                <form action={signInAction} className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signin-email"
@@ -401,6 +424,7 @@ const Auth = () => {
                     </Label>
                     <Input
                       id="signin-email"
+                      name="email"
                       type="email"
                       placeholder="Enter your email"
                       {...signInForm.register("email")}
@@ -409,9 +433,14 @@ const Auth = () => {
                           ? "border-red-300 focus:ring-red-500"
                           : ""
                       }`}
+                      aria-invalid={!!signInForm.formState.errors.email}
+                      aria-describedby="signin-email-error"
                     />
                     {signInForm.formState.errors.email && (
-                      <p className="text-sm text-red-600">
+                      <p
+                        id="signin-email-error"
+                        className="text-sm text-red-600"
+                      >
                         {signInForm.formState.errors.email.message}
                       </p>
                     )}
@@ -430,20 +459,26 @@ const Auth = () => {
                         variant="link"
                         onClick={() => setView("forgot-password")}
                         className="text-xs text-primary hover:text-primary/80 p-0 h-auto"
+                        aria-label="Forgot password"
                       >
                         Forgot password?
                       </Button>
                     </div>
                     <PasswordInput
                       id="signin-password"
+                      name="password"
                       placeholder="Enter your password"
                       {...signInForm.register("password")}
                       showPassword={showPassword}
                       onTogglePassword={() => setShowPassword(!showPassword)}
                       error={signInForm.formState.errors.password?.message}
+                      aria-describedby="signin-password-error"
                     />
                     {signInForm.formState.errors.password && (
-                      <p className="text-sm text-red-600">
+                      <p
+                        id="signin-password-error"
+                        className="text-sm text-red-600"
+                      >
                         {signInForm.formState.errors.password.message}
                       </p>
                     )}
@@ -456,22 +491,20 @@ const Auth = () => {
                       </AlertDescription>
                     </Alert>
                   )}
+                  {signInState?.error && (
+                    <Alert variant="destructive" className="py-2">
+                      <AlertDescription className="text-sm">
+                        {signInState.error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                  <Button
-                    onClick={signInForm.handleSubmit(handleSignIn)}
-                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
-                    disabled={isLoading}
-                  >
-                    {isLoading && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    Sign In
-                  </Button>
-                </div>
+                  <SubmitButton label="Sign In" />
+                </form>
               </TabsContent>
 
               <TabsContent value="signup">
-                <div className="space-y-5">
+                <form action={signUpAction} className="space-y-5">
                   <div className="space-y-2">
                     <Label
                       htmlFor="signup-name"
@@ -481,6 +514,7 @@ const Auth = () => {
                     </Label>
                     <Input
                       id="signup-name"
+                      name="displayName"
                       type="text"
                       placeholder="Enter your name"
                       {...signUpForm.register("displayName")}
@@ -489,9 +523,14 @@ const Auth = () => {
                           ? "border-red-300 focus:ring-red-500"
                           : ""
                       }`}
+                      aria-invalid={!!signUpForm.formState.errors.displayName}
+                      aria-describedby="signup-name-error"
                     />
                     {signUpForm.formState.errors.displayName && (
-                      <p className="text-sm text-red-600">
+                      <p
+                        id="signup-name-error"
+                        className="text-sm text-red-600"
+                      >
                         {signUpForm.formState.errors.displayName.message}
                       </p>
                     )}
@@ -506,6 +545,7 @@ const Auth = () => {
                     </Label>
                     <Input
                       id="signup-email"
+                      name="email"
                       type="email"
                       placeholder="Enter your email"
                       {...signUpForm.register("email")}
@@ -514,9 +554,14 @@ const Auth = () => {
                           ? "border-red-300 focus:ring-red-500"
                           : ""
                       }`}
+                      aria-invalid={!!signUpForm.formState.errors.email}
+                      aria-describedby="signup-email-error"
                     />
                     {signUpForm.formState.errors.email && (
-                      <p className="text-sm text-red-600">
+                      <p
+                        id="signup-email-error"
+                        className="text-sm text-red-600"
+                      >
                         {signUpForm.formState.errors.email.message}
                       </p>
                     )}
@@ -531,14 +576,19 @@ const Auth = () => {
                     </Label>
                     <PasswordInput
                       id="signup-password"
+                      name="password"
                       placeholder="Choose a password (min. 6 characters)"
                       {...signUpForm.register("password")}
                       showPassword={showPassword}
                       onTogglePassword={() => setShowPassword(!showPassword)}
                       error={signUpForm.formState.errors.password?.message}
+                      aria-describedby="signup-password-error"
                     />
                     {signUpForm.formState.errors.password && (
-                      <p className="text-sm text-red-600">
+                      <p
+                        id="signup-password-error"
+                        className="text-sm text-red-600"
+                      >
                         {signUpForm.formState.errors.password.message}
                       </p>
                     )}
@@ -553,6 +603,7 @@ const Auth = () => {
                     </Label>
                     <PasswordInput
                       id="signup-confirm"
+                      name="confirmPassword"
                       placeholder="Confirm your password"
                       {...signUpForm.register("confirmPassword")}
                       showPassword={showConfirmPassword}
@@ -562,9 +613,13 @@ const Auth = () => {
                       error={
                         signUpForm.formState.errors.confirmPassword?.message
                       }
+                      aria-describedby="signup-confirm-error"
                     />
                     {signUpForm.formState.errors.confirmPassword && (
-                      <p className="text-sm text-red-600">
+                      <p
+                        id="signup-confirm-error"
+                        className="text-sm text-red-600"
+                      >
                         {signUpForm.formState.errors.confirmPassword.message}
                       </p>
                     )}
@@ -577,18 +632,16 @@ const Auth = () => {
                       </AlertDescription>
                     </Alert>
                   )}
+                  {signUpState?.error && (
+                    <Alert variant="destructive" className="py-2">
+                      <AlertDescription className="text-sm">
+                        {signUpState.error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                  <Button
-                    onClick={signUpForm.handleSubmit(handleSignUp)}
-                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
-                    disabled={isLoading}
-                  >
-                    {isLoading && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    Create Account
-                  </Button>
-                </div>
+                  <SubmitButton label="Create Account" />
+                </form>
               </TabsContent>
             </Tabs>
           </CardContent>

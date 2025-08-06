@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { useCallback } from "react";
 
-export const Settings = () => {
+const Settings = () => {
   const { user } = useAuth();
   const { books } = useBooks();
   const { toast } = useToast();
@@ -545,3 +545,5 @@ export const Settings = () => {
     </div>
   );
 };
+
+export default Settings;
