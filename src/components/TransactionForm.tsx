@@ -58,9 +58,9 @@ export function TransactionForm({ bookId, onSubmit }: TransactionFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-lg mx-auto animate-scale-in">
-      <CardContent className="space-y-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <Card className="w-full max-w-lg mx-auto animate-scale-in mt-4">
+      <CardContent className="space-y-4 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <Label className="text-sm font-medium">Type</Label>
             <div className="flex space-x-2 mt-1">
