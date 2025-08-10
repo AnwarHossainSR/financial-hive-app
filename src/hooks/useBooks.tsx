@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { Book } from "@/types/book";
 import {
   keepPreviousData,
   useMutation,
@@ -8,27 +9,6 @@ import {
 import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
-
-export interface MonthlyBudget {
-  id: string;
-  book_id: string;
-  month: string; // YYYY-MM
-  amount: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Book {
-  id: string;
-  name: string;
-  type: "personal" | "business";
-  owner_id: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-  is_default: boolean;
-  monthly_budgets?: MonthlyBudget[];
-}
 
 // Query Keys Factory
 const bookKeys = {

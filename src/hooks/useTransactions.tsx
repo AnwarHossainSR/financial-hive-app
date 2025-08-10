@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
+  PaginationInfo,
+  Transaction,
+  TransactionFilters,
+} from "@/types/transaction";
+import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
@@ -9,38 +14,6 @@ import {
 import { useCallback, useMemo } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
-
-export interface Transaction {
-  id: string;
-  book_id: string;
-  user_id: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  note?: string;
-  date: string;
-  image_url?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TransactionFilters {
-  bookId?: string;
-  type?: "income" | "expense";
-  category?: string;
-  startDate?: string;
-  endDate?: string;
-  search?: string;
-  userId?: string;
-}
-
-interface PaginationInfo {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
 
 const ITEMS_PER_PAGE = 50;
 

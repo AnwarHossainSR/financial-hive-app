@@ -21,6 +21,11 @@ import {
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
 import { cn, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/utils";
 import {
+  Transaction,
+  TransactionFilters,
+  TransactionsSectionProps,
+} from "@/types/transaction";
+import {
   ChevronDown,
   Download,
   Filter,
@@ -31,51 +36,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { TransactionEditForm } from "./TransactionEditForm";
-
-interface Transaction {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  note?: string;
-  date: string;
-  image_url?: string;
-}
-
-interface TransactionFilters {
-  bookId?: string;
-  type?: "income" | "expense";
-  category?: string;
-  startDate?: string;
-  endDate?: string;
-  search?: string;
-}
-
-interface PaginationInfo {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
-
-interface TransactionsSectionProps {
-  transactions: Transaction[];
-  searchQuery: string;
-  onSearchQueryChange: (query: string) => void;
-  onDeleteTransaction: (transaction: Transaction) => void;
-  onAddTransaction: () => void;
-  onImportCSV: () => void;
-  canAddTransaction: boolean;
-  pagination: PaginationInfo;
-  onLoadMore: () => void;
-  loadingMore: boolean;
-  loading: boolean;
-  onFilterChange: (filters: TransactionFilters) => void;
-  onEditTransaction: (transaction: Transaction) => void;
-  showEditForm?: boolean;
-  setShowEditForm?: (show: boolean) => void;
-}
 
 const ITEM_HEIGHT = 120;
 const CONTAINER_HEIGHT = 600;
@@ -122,6 +82,7 @@ export const TransactionsSection = ({
     category: undefined,
     startDate: undefined,
     endDate: undefined,
+    note: undefined,
     search: undefined,
   });
 
