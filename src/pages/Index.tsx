@@ -15,20 +15,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Book, useBooks } from "@/hooks/useBooks";
-import { TransactionFilters, useTransactions } from "@/hooks/useTransactions";
+import { useBooks } from "@/hooks/useBooks";
+import { useTransactions } from "@/hooks/useTransactions";
+import { Book } from "@/types/book";
+import { Transaction, TransactionFilters } from "@/types/transaction";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-
-interface Transaction {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  note?: string;
-  date: string;
-  image_url?: string;
-}
 
 const Index = () => {
   const { toast } = useToast();
@@ -57,6 +49,7 @@ const Index = () => {
     startDate: undefined,
     endDate: undefined,
     search: undefined,
+    note: undefined,
   });
 
   // Create combined filters for the hook
