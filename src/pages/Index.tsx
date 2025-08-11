@@ -292,13 +292,18 @@ const Index = () => {
       return;
     }
 
-    const headers = ["Date", "Type", "Amount", "Category", "Note"];
+    const headers = ["Date", "Type", "Amount", "Category", "Note", "Image"];
     const csvContent = [
       headers.join(","),
       ...transactions.map((t) =>
-        [t.date, t.type, t.amount, `"${t.category}"`, `"${t.note || ""}"`].join(
-          ","
-        )
+        [
+          t.date,
+          t.type,
+          t.amount,
+          `"${t.category}"`,
+          `"${t.note || ""}"`,
+          `"${t.image_url || ""}"`,
+        ].join(",")
       ),
     ].join("\n");
 
