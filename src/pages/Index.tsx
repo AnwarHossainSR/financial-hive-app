@@ -324,6 +324,7 @@ const Index = () => {
   const canAddTransaction = selectedBook !== null;
 
   const handleFilterChange = (newFilters: TransactionFilters) => {
+    console.log("newFilters", newFilters);
     setFilters(newFilters);
   };
 

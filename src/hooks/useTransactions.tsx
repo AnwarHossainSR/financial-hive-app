@@ -36,7 +36,7 @@ const transactionKeys = {
 // Helper function to build query with filters
 const buildQuery = (baseQuery: any, filters: TransactionFilters) => {
   let query = baseQuery;
-
+  console.log("filters", filters);
   if (filters.bookId) {
     query = query.eq("book_id", filters.bookId);
   }
@@ -52,11 +52,12 @@ const buildQuery = (baseQuery: any, filters: TransactionFilters) => {
   if (filters.endDate) {
     query = query.lte("date", filters.endDate);
   }
+  if (filters.note) {
+    query = query.ilike("note", `%${filters.note}%`);
+  }
   if (filters.search && filters.search.trim()) {
     const searchTerm = filters.search.trim();
-    query = query.or(
-      `note.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,amount::text.ilike.%${searchTerm}%`
-    );
+    query = query.ilike("note", `%${searchTerm}%`);
   }
 
   return query;
