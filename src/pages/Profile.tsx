@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
 import { supabase } from "@/integrations/supabase/client";
+import { TransactionFilters } from "@/types/transaction";
 import {
   BookOpen,
   Calendar,
@@ -29,7 +30,7 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -48,9 +49,7 @@ const Profile = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
-    const initialMonth = `${year}-${month}`; // e.g., "2025-07"
-    console.log("Initial budgetMonth:", initialMonth); // Debug
-    return initialMonth;
+    return `${year}-${month}`;
   });
   const [newBudget, setNewBudget] = useState("");
 
@@ -60,43 +59,61 @@ const Profile = () => {
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
-      const currentMonth = `${year}-${month}`; // e.g., "2025-07"
-      console.log("Reset budgetMonth on book change:", currentMonth); // Debug
+      const currentMonth = `${year}-${month}`;
       setBudgetMonth(currentMonth);
     }
   }, [selectedBookId]);
 
-  // Dynamic transaction filters based on book and time period
-  const getDateRange = () => {
+  // Create transaction filters based on selections
+  const transactionFilters: TransactionFilters = useMemo(() => {
+    const filters: TransactionFilters = {};
+
+    // Set book filter
+    if (selectedBookId !== "all") {
+      filters.bookId = selectedBookId;
+    }
+
+    // Set date range based on time period
     const now = new Date();
     if (selectedTimePeriod === "month") {
-      return {
-        startDate: new Date(now.getFullYear(), now.getMonth(), 1)
-          .toISOString()
-          .split("T")[0],
-        endDate: new Date(now.getFullYear(), now.getMonth() + 1, 0)
-          .toISOString()
-          .split("T")[0],
-      };
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      filters.startDate = startOfMonth.toISOString().split("T")[0];
+      filters.endDate = endOfMonth.toISOString().split("T")[0];
     } else if (selectedTimePeriod === "year") {
-      return {
-        startDate: new Date(now.getFullYear(), 0, 1)
-          .toISOString()
-          .split("T")[0],
-        endDate: new Date(now.getFullYear(), 11, 31)
-          .toISOString()
-          .split("T")[0],
-      };
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const endOfYear = new Date(now.getFullYear(), 11, 31);
+      filters.startDate = startOfYear.toISOString().split("T")[0];
+      filters.endDate = endOfYear.toISOString().split("T")[0];
     }
-    return {};
-  };
+    // For "all", we don't set date filters
 
-  const { transactions, loading: transactionsLoading } = useTransactions({
-    bookId: selectedBookId !== "all" ? selectedBookId : undefined,
-    ...getDateRange(),
-  });
+    return filters;
+  }, [selectedBookId, selectedTimePeriod]);
 
-  // Calculate statistics
+  // Fetch transactions with filters
+  const { transactions, loading: transactionsLoading } =
+    useTransactions(transactionFilters);
+
+  // Separate filters for current month expenses (for budget calculation)
+  const currentMonthFilters: TransactionFilters = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return {
+      bookId: selectedBookId !== "all" ? selectedBookId : undefined,
+      type: "expense",
+      startDate: startOfMonth.toISOString().split("T")[0],
+      endDate: endOfMonth.toISOString().split("T")[0],
+    };
+  }, [selectedBookId]);
+
+  // Fetch current month expenses for budget calculation
+  const { transactions: currentMonthTransactions } =
+    useTransactions(currentMonthFilters);
+
+  // Calculate statistics from filtered transactions
   const totalTransactions = transactions.length;
   const totalIncome = transactions
     .filter((t) => t.type === "income")
@@ -106,16 +123,35 @@ const Profile = () => {
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const netWorth = totalIncome - totalExpenses;
 
+  // Calculate current month expenses for budget progress
+  const currentMonthExpenses = currentMonthTransactions.reduce(
+    (sum, t) => sum + Number(t.amount),
+    0
+  );
+
   // Get monthly budget for selected book and month
   const selectedBook = books.find((b) => b.id === selectedBookId);
-  const monthlyBudget =
-    selectedBookId === "all"
-      ? 5000 // Default for all books
-      : selectedBook?.monthly_budgets?.find((b) => b.month === budgetMonth)
-          ?.amount || 5000;
-  const currentMonthExpenses =
-    selectedTimePeriod === "month" ? totalExpenses : 3200;
-  const budgetProgress = (currentMonthExpenses / monthlyBudget) * 100;
+  const monthlyBudget = useMemo(() => {
+    if (selectedBookId === "all") {
+      // For "all books", sum up all budgets for the current month or use default
+      const totalBudget = books.reduce((sum, book) => {
+        const budget = book.monthly_budgets?.find(
+          (b) => b.month === budgetMonth
+        );
+        return sum + (budget?.amount || 5000); // Default 5000 per book if no budget set
+      }, 0);
+      return totalBudget || 5000;
+    } else {
+      // For specific book
+      const budget = selectedBook?.monthly_budgets?.find(
+        (b) => b.month === budgetMonth
+      );
+      return budget?.amount || 5000;
+    }
+  }, [selectedBookId, selectedBook, budgetMonth, books]);
+
+  const budgetProgress =
+    monthlyBudget > 0 ? (currentMonthExpenses / monthlyBudget) * 100 : 0;
 
   // Activity stats
   const joinDate = new Date(user?.created_at || Date.now());
@@ -123,7 +159,7 @@ const Profile = () => {
     (Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  // Recent activity
+  // Recent activity (limit to 5 most recent)
   const recentTransactions = transactions.slice(0, 5);
   const categoriesUsed = [...new Set(transactions.map((t) => t.category))]
     .length;
@@ -167,12 +203,22 @@ const Profile = () => {
   };
 
   const handleSetBudget = async () => {
-    if (!selectedBookId || selectedBookId === "all" || !newBudget) return;
+    if (!selectedBookId || selectedBookId === "all" || !newBudget) {
+      toast({
+        title: "Invalid selection",
+        description: "Please select a specific book and enter a budget amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await setMonthlyBudget(selectedBookId, budgetMonth, Number(newBudget));
       toast({
         title: "Budget set",
-        description: `Budget of ৳${newBudget} set for ${budgetMonth}.`,
+        description: `Budget of ৳${Number(
+          newBudget
+        ).toLocaleString()} set for ${budgetMonth}.`,
       });
       setNewBudget("");
     } catch (error: any) {
@@ -199,15 +245,31 @@ const Profile = () => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       months.push({
-        value: `${year}-${month}`, // e.g., "2025-07"
+        value: `${year}-${month}`,
         label: date.toLocaleString("default", {
           month: "long",
           year: "numeric",
-        }), // e.g., "July 2025"
+        }),
       });
     }
-    console.log("Profile month options:", months); // Debug
     return months;
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return `৳${amount.toLocaleString()}`;
+  };
+
+  // Get display text for selected filters
+  const getFilterDisplayText = () => {
+    const bookText =
+      selectedBookId === "all"
+        ? "All Books"
+        : books.find((b) => b.id === selectedBookId)?.name || "Unknown Book";
+    const periodText =
+      timePeriods.find((p) => p.value === selectedTimePeriod)?.label ||
+      "All Time";
+    return `${bookText} • ${periodText}`;
   };
 
   return (
@@ -296,6 +358,27 @@ const Profile = () => {
             </CardContent>
           </Card>
 
+          {/* Current Filter Display */}
+          <Card className="border-none shadow-card rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    Currently showing data for:
+                  </p>
+                  <p className="text-lg font-semibold text-blue-800 dark:text-blue-300">
+                    {getFilterDisplayText()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">
+                    {totalTransactions} transactions found
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Filters and Budget Setting */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -338,23 +421,12 @@ const Profile = () => {
               </CardHeader>
               <CardContent className="flex flex-col sm:flex-row gap-4">
                 <Select
-                  key={selectedBookId} // Force re-render when book changes
                   value={budgetMonth}
-                  onValueChange={(value) => {
-                    console.log("Budget month changed to:", value); // Debug
-                    setBudgetMonth(value);
-                  }}
+                  onValueChange={setBudgetMonth}
                   disabled={selectedBookId === "all"}
                 >
                   <SelectTrigger className="w-full sm:w-[200px]">
-                    <SelectValue
-                      placeholder="Select Month"
-                      children={
-                        getMonthOptions().find(
-                          (month) => month.value === budgetMonth
-                        )?.label || "Select Month"
-                      }
-                    />
+                    <SelectValue placeholder="Select Month" />
                   </SelectTrigger>
                   <SelectContent>
                     {getMonthOptions().map((month) => (
@@ -415,7 +487,12 @@ const Profile = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{totalTransactions}</div>
                 <p className="text-xs text-muted-foreground">
-                  Total recorded transactions
+                  {selectedTimePeriod === "all"
+                    ? "Total"
+                    : selectedTimePeriod === "month"
+                    ? "This month"
+                    : "This year"}{" "}
+                  transactions
                 </p>
               </CardContent>
             </Card>
@@ -445,7 +522,7 @@ const Profile = () => {
                     netWorth >= 0 ? "text-green-600" : "text-red-600"
                   }`}
                 >
-                  ৳{netWorth.toLocaleString()}
+                  {formatCurrency(netWorth)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Income minus expenses
@@ -488,12 +565,15 @@ const Profile = () => {
                     This Month's Spending
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    ৳{currentMonthExpenses.toLocaleString()} / ৳
-                    {monthlyBudget.toLocaleString()}
+                    {formatCurrency(currentMonthExpenses)} /{" "}
+                    {formatCurrency(monthlyBudget)}
                   </span>
                 </div>
 
-                <Progress value={budgetProgress} className="h-3" />
+                <Progress
+                  value={Math.min(budgetProgress, 100)}
+                  className="h-3"
+                />
 
                 <div className="flex justify-between text-sm">
                   <span
@@ -501,10 +581,16 @@ const Profile = () => {
                       budgetProgress > 100 ? "text-red-600" : "text-green-600"
                     }
                   >
-                    {budgetProgress > 100 ? "Over budget" : "On track"}
+                    {budgetProgress > 100
+                      ? `Over budget by ${formatCurrency(
+                          currentMonthExpenses - monthlyBudget
+                        )}`
+                      : "On track"}
                   </span>
                   <span className="text-muted-foreground">
-                    ৳{(monthlyBudget - currentMonthExpenses).toLocaleString()}{" "}
+                    {formatCurrency(
+                      Math.max(0, monthlyBudget - currentMonthExpenses)
+                    )}{" "}
                     remaining
                   </span>
                 </div>
@@ -528,7 +614,7 @@ const Profile = () => {
                       Total Income
                     </span>
                     <span className="text-sm font-bold text-green-600">
-                      +৳{totalIncome.toLocaleString()}
+                      +{formatCurrency(totalIncome)}
                     </span>
                   </div>
 
@@ -537,7 +623,7 @@ const Profile = () => {
                       Total Expenses
                     </span>
                     <span className="text-sm font-bold text-red-600">
-                      -৳{totalExpenses.toLocaleString()}
+                      -{formatCurrency(totalExpenses)}
                     </span>
                   </div>
 
@@ -550,7 +636,8 @@ const Profile = () => {
                         netWorth >= 0 ? "text-green-600" : "text-red-600"
                       }`}
                     >
-                      {netWorth >= 0 ? "+" : ""}৳{netWorth.toLocaleString()}
+                      {netWorth >= 0 ? "+" : ""}
+                      {formatCurrency(netWorth)}
                     </span>
                   </div>
                 </div>
@@ -570,6 +657,7 @@ const Profile = () => {
               <CardContent>
                 {transactionsLoading ? (
                   <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                     <p className="text-muted-foreground font-medium">
                       Loading transactions...
                     </p>
@@ -596,7 +684,7 @@ const Profile = () => {
                               {transaction.note || transaction.category}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {transaction.date}
+                              {new Date(transaction.date).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
@@ -608,8 +696,8 @@ const Profile = () => {
                                 : "text-red-600"
                             }`}
                           >
-                            {transaction.type === "income" ? "+" : "-"}৳
-                            {Number(transaction.amount).toLocaleString()}
+                            {transaction.type === "income" ? "+" : "-"}
+                            {formatCurrency(Number(transaction.amount))}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {transaction.category}
@@ -624,10 +712,14 @@ const Profile = () => {
                       <CreditCard className="w-8 h-8 text-muted-foreground" />
                     </div>
                     <p className="text-muted-foreground font-medium">
-                      No transactions yet
+                      No transactions found
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Start tracking your expenses to see activity here
+                      {selectedTimePeriod === "all"
+                        ? "Start tracking your expenses to see activity here"
+                        : `No transactions found for the selected ${
+                            selectedTimePeriod === "month" ? "month" : "year"
+                          }`}
                     </p>
                   </div>
                 )}

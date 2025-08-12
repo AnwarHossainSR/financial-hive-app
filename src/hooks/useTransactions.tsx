@@ -36,7 +36,13 @@ const transactionKeys = {
 // Helper function to build query with filters
 const buildQuery = (baseQuery: any, filters: TransactionFilters) => {
   let query = baseQuery;
-  console.log("filters", filters);
+  console.log("Building query with filters:", filters);
+
+  // Always filter by user_id first
+  if (filters.userId) {
+    query = query.eq("user_id", filters.userId);
+  }
+
   if (filters.bookId) {
     query = query.eq("book_id", filters.bookId);
   }
@@ -69,22 +75,26 @@ const fetchTransactions = async (
   userId: string,
   page = 0
 ) => {
-  if (!userId || !filters.bookId) {
-    return { data: [], count: 0 };
+  if (!userId) {
+    return [];
   }
 
   let query = supabase
     .from("transactions")
     .select("*")
-    .eq("user_id", userId)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
     .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
 
-  query = buildQuery(query, filters);
+  // Include userId in filters for building the query
+  const filtersWithUserId = { ...filters, userId };
+  query = buildQuery(query, filtersWithUserId);
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching transactions:", error);
+    throw error;
+  }
 
   return data || [];
 };
@@ -93,17 +103,21 @@ const fetchTransactionCount = async (
   filters: TransactionFilters,
   userId: string
 ) => {
-  if (!userId || !filters.bookId) return 0;
+  if (!userId) return 0;
 
   let countQuery = supabase
     .from("transactions")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId);
+    .select("*", { count: "exact", head: true });
 
-  countQuery = buildQuery(countQuery, filters);
+  // Include userId in filters for building the query
+  const filtersWithUserId = { ...filters, userId };
+  countQuery = buildQuery(countQuery, filtersWithUserId);
 
   const { count, error } = await countQuery;
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching transaction count:", error);
+    throw error;
+  }
 
   return count || 0;
 };
@@ -118,7 +132,7 @@ const fetchTransactionsInfinite = async ({
   const [, , filters] = queryKey;
   const userId = filters.userId;
 
-  if (!userId || !filters.bookId) {
+  if (!userId) {
     return {
       data: [],
       nextPage: undefined,
@@ -162,7 +176,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
   const { data: totalCount = 0 } = useQuery({
     queryKey: transactionKeys.count(queryFilters),
     queryFn: () => fetchTransactionCount(queryFilters, user?.id || ""),
-    enabled: !!user && !!queryFilters.bookId,
+    enabled: !!user,
     staleTime: 30000, // 30 seconds
     placeholderData: keepPreviousData,
   });
@@ -182,7 +196,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
     queryFn: fetchTransactionsInfinite,
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextPage,
-    enabled: !!user && !!queryFilters.bookId,
+    enabled: !!user,
     staleTime: 30000, // 30 seconds
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -206,12 +220,12 @@ const useTransactions = (filters: TransactionFilters = {}) => {
         "id" | "user_id" | "created_at" | "updated_at"
       >
     ) => {
-      if (!user || !queryFilters.bookId) throw new Error("No book selected");
+      if (!user) throw new Error("User not authenticated");
+      if (!transaction.book_id) throw new Error("No book selected");
 
       const transactionData = {
         ...transaction,
         user_id: user.id,
-        book_id: queryFilters.bookId,
         amount: Number(transaction.amount),
         date: transaction.date,
       };
@@ -255,7 +269,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
         Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">
       >;
     }) => {
-      if (!user || !queryFilters.bookId) throw new Error("No book selected");
+      if (!user) throw new Error("User not authenticated");
 
       const updateData = {
         ...updates,
@@ -271,7 +285,6 @@ const useTransactions = (filters: TransactionFilters = {}) => {
         .update(updateData)
         .eq("id", id)
         .eq("user_id", user.id)
-        .eq("book_id", queryFilters.bookId)
         .select()
         .single();
 
@@ -296,14 +309,13 @@ const useTransactions = (filters: TransactionFilters = {}) => {
 
   const deleteTransactionMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (!user || !queryFilters.bookId) throw new Error("No book selected");
+      if (!user) throw new Error("User not authenticated");
 
       const { error } = await supabase
         .from("transactions")
         .delete()
         .eq("id", id)
-        .eq("user_id", user.id)
-        .eq("book_id", queryFilters.bookId);
+        .eq("user_id", user.id);
 
       if (error) throw error;
       return id;
@@ -362,13 +374,12 @@ const useTransactions = (filters: TransactionFilters = {}) => {
         "id" | "user_id" | "created_at" | "updated_at"
       >[]
     ) => {
-      if (!user || !queryFilters.bookId) throw new Error("No book selected");
+      if (!user) throw new Error("User not authenticated");
       if (!transactions.length) throw new Error("No transactions to import");
 
       const transactionData = transactions.map((transaction) => ({
         ...transaction,
         user_id: user.id,
-        book_id: queryFilters.bookId,
         amount: Number(transaction.amount),
         date: transaction.date || new Date().toISOString().split("T")[0],
       }));

@@ -164,6 +164,10 @@ export function Header({
                 )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/users")}>
+                <User className="w-4 h-4 mr-2" />
+                Users
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/profile")}>
                 <User className="w-4 h-4 mr-2" />
                 Profile
