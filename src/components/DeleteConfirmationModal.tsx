@@ -8,27 +8,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Transaction } from "@/types/transaction";
 import { AlertTriangle } from "lucide-react";
+import { ReactNode } from "react";
 
 interface DeleteConfirmationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  transaction: Transaction | null;
   onConfirmDelete: (id: string) => void;
   isDeleting?: boolean;
+  title?: string;
+  description?: string;
+  deleteButtonText?: string;
+  itemId: string;
+  previewContent?: ReactNode;
 }
 
 export function DeleteConfirmationModal({
   open,
   onOpenChange,
-  transaction,
   onConfirmDelete,
   isDeleting = false,
+  title = "Delete Item",
+  description = "Are you sure you want to delete this item? This action cannot be undone.",
+  deleteButtonText = "Delete",
+  itemId,
+  previewContent,
 }: DeleteConfirmationModalProps) {
-  if (!transaction) return null;
-
-  const isIncome = transaction.type === "income";
+  if (!itemId) return null;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -38,59 +44,32 @@ export function DeleteConfirmationModal({
             <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
           <AlertDialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Delete Transaction
+            {title}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-gray-600 dark:text-gray-300 mt-2">
-            Are you sure you want to delete this transaction? This action cannot
-            be undone.
+            {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        {/* Transaction Preview */}
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 my-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-1">
-                <span
-                  className={`text-lg font-bold ${
-                    isIncome
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {isIncome ? "+" : "-"}৳
-                  {Math.abs(transaction.amount).toLocaleString()}
-                </span>
-                <span className="text-sm bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-full text-gray-700 dark:text-gray-300">
-                  {transaction.category}
-                </span>
-              </div>
-              {transaction.note && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
-                  {transaction.note}
-                </p>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                {new Date(transaction.date).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
+        {/* Optional Preview Content */}
+        {previewContent && (
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 my-4">
+            {previewContent}
           </div>
-        </div>
+        )}
 
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialogCancel className="w-full sm:w-auto bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border-0 rounded-lg font-medium">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => onConfirmDelete(transaction.id)}
+            onClick={() => onConfirmDelete(itemId)}
             disabled={isDeleting}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white border-0 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isDeleting ? "Deleting..." : "Delete Transaction"}
+            {isDeleting
+              ? `${deleteButtonText.replace("Delete", "Deleting")}...`
+              : deleteButtonText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
