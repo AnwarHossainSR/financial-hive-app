@@ -8,6 +8,7 @@ import { Suspense, lazy } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { queryClient } from "./lib/query";
+import Users from "./pages/Users";
 
 const Auth = lazy(() => import("./pages/Auth"));
 const Index = lazy(() => import("./pages/Index"));
@@ -73,6 +74,16 @@ const App = () => (
                     <ProtectedRoute>
                       <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
                         <Settings />
+                      </div>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/users"
+                  element={
+                    <ProtectedRoute>
+                      <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
+                        <Users />
                       </div>
                     </ProtectedRoute>
                   }

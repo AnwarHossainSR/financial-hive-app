@@ -5,6 +5,7 @@ import { EmptyBookState } from "@/components/EmptyBookState";
 import { Header } from "@/components/Header";
 import { QuickStats } from "@/components/QuickStats";
 import { TransactionForm } from "@/components/TransactionForm";
+import { TransactionPreview } from "@/components/TransactionPreview";
 import { TransactionsSection } from "@/components/TransactionsSection";
 import { QuickStatsSkeleton } from "@/components/skeleton/QuickStatsSkeleton";
 import { TransactionsSkeleton } from "@/components/skeleton/TransactionsSkeleton";
@@ -292,13 +293,18 @@ const Index = () => {
       return;
     }
 
-    const headers = ["Date", "Type", "Amount", "Category", "Note"];
+    const headers = ["Date", "Type", "Amount", "Category", "Note", "Image"];
     const csvContent = [
       headers.join(","),
       ...transactions.map((t) =>
-        [t.date, t.type, t.amount, `"${t.category}"`, `"${t.note || ""}"`].join(
-          ","
-        )
+        [
+          t.date,
+          t.type,
+          t.amount,
+          `"${t.category}"`,
+          `"${t.note || ""}"`,
+          `"${t.image_url || ""}"`,
+        ].join(",")
       ),
     ].join("\n");
 
@@ -324,6 +330,7 @@ const Index = () => {
   const canAddTransaction = selectedBook !== null;
 
   const handleFilterChange = (newFilters: TransactionFilters) => {
+    console.log("newFilters", newFilters);
     setFilters(newFilters);
   };
 
@@ -418,9 +425,17 @@ const Index = () => {
       <DeleteConfirmationModal
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        transaction={transactionToDelete}
         onConfirmDelete={handleConfirmDelete}
         isDeleting={isDeleting}
+        itemId={transactionToDelete?.id || ""}
+        title="Delete Transaction"
+        description="Are you sure you want to delete this transaction? This action cannot be undone."
+        deleteButtonText="Delete Transaction"
+        previewContent={
+          transactionToDelete ? (
+            <TransactionPreview transaction={transactionToDelete} />
+          ) : null
+        }
       />
     </div>
   );

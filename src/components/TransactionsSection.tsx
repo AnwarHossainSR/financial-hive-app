@@ -118,6 +118,7 @@ export const TransactionsSection = ({
       category: undefined,
       startDate: undefined,
       endDate: undefined,
+      note: undefined,
       search: undefined,
     });
     onFilterChange({
@@ -125,6 +126,7 @@ export const TransactionsSection = ({
       category: undefined,
       startDate: undefined,
       endDate: undefined,
+      note: undefined,
       search: searchQuery, // Preserve search query
     });
     setIsFilterOpen(false);
@@ -447,11 +449,11 @@ export const TransactionsSection = ({
               </Label>
               <Input
                 id="noteSearch"
-                value={filters.search || ""}
+                value={filters.note || ""}
                 onChange={(e) =>
                   setFilters((prev) => ({
                     ...prev,
-                    search: e.target.value || undefined,
+                    note: e.target.value || undefined,
                   }))
                 }
                 placeholder="Search in notes..."
