@@ -8,17 +8,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Transaction } from "@/types/transaction";
 import { AlertTriangle } from "lucide-react";
-
-interface Transaction {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  note?: string;
-  date: string;
-  image_url?: string;
-}
 
 interface DeleteConfirmationModalProps {
   open: boolean;

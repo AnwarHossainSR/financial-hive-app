@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Error updating profile:", error);
         return { error };
       }
-      console.log("Profile updated successfully for user:", user.id);
       return { error: null };
     } catch (error) {
       console.error("Error in createOrUpdateProfile:", error);
@@ -102,9 +101,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (!mounted) return;
-
-        console.log("Auth state changed:", event, session?.user?.id);
-
         setSession(session);
         setUser(session?.user ?? null);
 

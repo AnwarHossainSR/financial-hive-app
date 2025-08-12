@@ -122,13 +122,6 @@ export const useUsers = (config: UseUsersConfig = {}) => {
           throw new Error("No data returned");
         }
 
-        console.log(
-          "Fetched profiles:",
-          profilesData.length,
-          "Total count:",
-          count
-        );
-
         // Get additional user data from auth.users if needed
         // For now, we'll work with profiles data and simulate auth user structure
         const formattedUsers: UserWithProfile[] = profilesData.map(

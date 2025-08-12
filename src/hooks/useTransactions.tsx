@@ -36,7 +36,6 @@ const transactionKeys = {
 // Helper function to build query with filters
 const buildQuery = (baseQuery: any, filters: TransactionFilters) => {
   let query = baseQuery;
-  console.log("Building query with filters:", filters);
 
   // Always filter by user_id first
   if (filters.userId) {
