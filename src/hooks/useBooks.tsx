@@ -1,4 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
+import {
+  createBookNotification,
+  setBudgetNotification,
+  updateBookNotification,
+  welcomeNotification,
+} from "@/lib/notificationHelpers";
 import { Book } from "@/types/book";
 import {
   keepPreviousData,
@@ -9,7 +15,6 @@ import {
 import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
-
 // Query Keys Factory
 const bookKeys = {
   all: ["books"] as const,
@@ -119,7 +124,7 @@ const useBooks = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Optimistically update the cache
       queryClient.setQueryData(
         bookKeys.list(user?.id || ""),
@@ -135,6 +140,18 @@ const useBooks = () => {
           return [data, ...old];
         }
       );
+
+      // Create notification instead of toast
+      await createBookNotification(user!.id, {
+        id: data.id,
+        name: data.name,
+        type: data.type,
+      });
+
+      // If this is the user's first book, send a welcome notification
+      if (books.length === 0) {
+        await welcomeNotification(user!.id, user!.user_metadata?.display_name);
+      }
 
       toast({
         title: "Book created",
@@ -195,7 +212,7 @@ const useBooks = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Optimistically update the cache
       queryClient.setQueryData(
         bookKeys.list(user?.id || ""),
@@ -212,6 +229,12 @@ const useBooks = () => {
           });
         }
       );
+
+      // Create notification instead of toast
+      await updateBookNotification(user!.id, {
+        id: data.id,
+        name: data.name,
+      });
 
       toast({
         title: "Book updated",
@@ -257,7 +280,7 @@ const useBooks = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Optimistically update the cache
       queryClient.setQueryData(
         bookKeys.list(user?.id || ""),
@@ -279,6 +302,17 @@ const useBooks = () => {
           });
         }
       );
+
+      // Find the book name for the notification
+      const book = books.find((b) => b.id === data.book_id);
+      if (book) {
+        // Create notification instead of toast
+        await setBudgetNotification(user!.id, {
+          bookName: book.name,
+          month: data.month,
+          amount: data.amount,
+        });
+      }
 
       toast({
         title: "Budget updated",

@@ -117,6 +117,42 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          metadata: Json | null
+          read: boolean
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          read?: boolean
+          title: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          read?: boolean
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -246,9 +282,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_notifications: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       complete_database_reset: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      create_notification: {
+        Args: {
+          p_message: string
+          p_metadata?: Json
+          p_title: string
+          p_type?: Database["public"]["Enums"]["notification_type"]
+          p_user_id: string
+        }
+        Returns: string
       }
       debug_auth_uid: {
         Args: Record<PropertyKey, never>
@@ -258,6 +308,7 @@ export type Database = {
     Enums: {
       app_role: "owner" | "member" | "viewer"
       book_type: "personal" | "business"
+      notification_type: "info" | "success" | "warning" | "error"
       transaction_type: "income" | "expense"
     }
     CompositeTypes: {
@@ -388,6 +439,7 @@ export const Constants = {
     Enums: {
       app_role: ["owner", "member", "viewer"],
       book_type: ["personal", "business"],
+      notification_type: ["info", "success", "warning", "error"],
       transaction_type: ["income", "expense"],
     },
   },
