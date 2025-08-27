@@ -36,6 +36,7 @@ const Index = () => {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [showAllData, setShowAllData] = useState(false); // New state for all data toggle
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -53,15 +54,33 @@ const Index = () => {
     note: undefined,
   });
 
+  // Helper function to get month date range
+  const getMonthDateRange = (monthString: string) => {
+    const [year, month] = monthString.split("-");
+    const startDate = `${year}-${month}-01`;
+    const endDate = new Date(parseInt(year), parseInt(month), 0)
+      .toISOString()
+      .split("T")[0];
+    return { startDate, endDate };
+  };
+
   // Create combined filters for the hook
-  const combinedFilters = useMemo(
-    () => ({
+  const combinedFilters = useMemo(() => {
+    let dateFilters = {};
+
+    // If not showing all data and no custom date filters, use selected month
+    if (!showAllData && !filters.startDate && !filters.endDate) {
+      const { startDate, endDate } = getMonthDateRange(selectedMonth);
+      dateFilters = { startDate, endDate };
+    }
+
+    return {
       ...filters,
+      ...dateFilters,
       bookId: selectedBook?.id || "",
-      search: searchQuery, // Override search from filters with the local searchQuery
-    }),
-    [filters, selectedBook?.id, searchQuery]
-  );
+      search: searchQuery,
+    };
+  }, [filters, selectedBook?.id, searchQuery, selectedMonth, showAllData]);
 
   const {
     transactions,
@@ -83,6 +102,7 @@ const Index = () => {
       const month = String(now.getMonth() + 1).padStart(2, "0");
       const currentMonth = `${year}-${month}`;
       setSelectedMonth(currentMonth);
+      setShowAllData(false); // Reset to current month when book changes
     }
   }, [selectedBook]);
 
@@ -224,7 +244,11 @@ const Index = () => {
       doc.text(`${selectedBook.name} - Transaction Report`, 20, 20);
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
-      doc.text(`Month: ${selectedMonth}`, 20, 45);
+      doc.text(
+        `${showAllData ? "All Data" : `Month: ${selectedMonth}`}`,
+        20,
+        45
+      );
       doc.text(`Total Transactions: ${pagination.totalCount}`, 20, 55);
       doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 65);
       doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 75);
@@ -259,7 +283,11 @@ const Index = () => {
         },
       });
 
-      doc.save(`${selectedBook.name}-${selectedMonth}-transactions.pdf`);
+      const filename = showAllData
+        ? `${selectedBook.name}-all-transactions.pdf`
+        : `${selectedBook.name}-${selectedMonth}-transactions.pdf`;
+      doc.save(filename);
+
       toast({
         title: "Export Successful",
         description: `Exported ${transactions.length} transactions to PDF.`,
@@ -312,10 +340,12 @@ const Index = () => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `${selectedBook.name}-${selectedMonth}-transactions.csv`
-    );
+
+    const filename = showAllData
+      ? `${selectedBook.name}-all-transactions.csv`
+      : `${selectedBook.name}-${selectedMonth}-transactions.csv`;
+    link.setAttribute("download", filename);
+
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -334,6 +364,16 @@ const Index = () => {
     setFilters(newFilters);
   };
 
+  // New handler for month selector
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    if (month === "all") {
+      setShowAllData(true);
+    } else {
+      setShowAllData(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
       <Header
@@ -350,7 +390,7 @@ const Index = () => {
           selectedBook={selectedBook}
           onSelectBook={setSelectedBook}
           selectedMonth={selectedMonth}
-          onSelectMonth={setSelectedMonth}
+          onSelectMonth={handleMonthChange}
           booksInitialized={booksInitialized}
         />
 

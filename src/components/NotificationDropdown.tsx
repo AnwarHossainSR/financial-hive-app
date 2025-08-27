@@ -9,67 +9,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Bell, Check, Info, X } from "lucide-react";
+import { useNotifications } from "@/hooks/useNotifications";
+import { AlertTriangle, Bell, Check, Info, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  timestamp: Date;
-  read: boolean;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Transaction Added",
-    message: "Successfully added ৳250 expense for groceries",
-    type: "success",
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Book Created",
-    message: "New book 'Business Expenses' has been created",
-    type: "info",
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Monthly Report",
-    message: "Your monthly expense report is now available",
-    type: "info",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    read: true,
-  },
-];
-
 export const NotificationDropdown = () => {
-  const [notifications, setNotifications] =
-    useState<Notification[]>(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const getIcon = (type: Notification["type"]) => {
+  const getIcon = (type: "info" | "success" | "warning" | "error") => {
     switch (type) {
       case "success":
         return <Check className="w-4 h-4 text-green-600" />;
@@ -82,9 +37,10 @@ export const NotificationDropdown = () => {
     }
   };
 
-  const formatTimestamp = (timestamp: Date) => {
+  const formatTimestamp = (timestamp: string) => {
     const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
+    const notificationDate = new Date(timestamp);
+    const diff = now.getTime() - notificationDate.getTime();
     const minutes = Math.floor(diff / (1000 * 60));
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -93,6 +49,18 @@ export const NotificationDropdown = () => {
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
+  };
+
+  const handleMarkAsRead = async (id: string) => {
+    await markAsRead(id);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
+  };
+
+  const handleRemoveNotification = async (id: string) => {
+    await deleteNotification(id);
   };
 
   return (
@@ -120,17 +88,27 @@ export const NotificationDropdown = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={markAllAsRead}
+              onClick={handleMarkAllAsRead}
               className="text-xs h-6 px-2"
+              disabled={loading}
             >
-              Mark all read
+              {loading ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                "Mark all read"
+              )}
             </Button>
           )}
         </div>
 
         <DropdownMenuSeparator />
 
-        {notifications.length === 0 ? (
+        {loading && notifications.length === 0 ? (
+          <div className="p-4 text-center text-muted-foreground text-sm">
+            <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+            Loading notifications...
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground text-sm">
             No notifications yet
           </div>
@@ -148,7 +126,7 @@ export const NotificationDropdown = () => {
                       ? "bg-primary/5 border-l-2 border-l-primary"
                       : ""
                   }`}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => handleMarkAsRead(notification.id)}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">
@@ -165,7 +143,7 @@ export const NotificationDropdown = () => {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeNotification(notification.id);
+                            handleRemoveNotification(notification.id);
                           }}
                           className="w-4 h-4 p-0 opacity-50 hover:opacity-100"
                         >
@@ -178,7 +156,7 @@ export const NotificationDropdown = () => {
                       </p>
 
                       <p className="text-xs text-muted-foreground mt-1">
-                        {formatTimestamp(notification.timestamp)}
+                        {formatTimestamp(notification.created_at)}
                       </p>
                     </div>
                   </div>

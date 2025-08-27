@@ -3,10 +3,11 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Book } from "@/hooks/useBooks";
+import { Book } from "@/types/book";
 import { Calendar } from "lucide-react";
 
 interface BookAndMonthSelectorProps {
@@ -42,6 +43,17 @@ export const BookAndMonthSelector = ({
     return months;
   };
 
+  // Helper function to get display text for selected value
+  const getSelectedDisplay = () => {
+    if (selectedMonth === "all") {
+      return "All Data";
+    }
+    return (
+      getMonthOptions().find((month) => month.value === selectedMonth)?.label ||
+      "Select Month"
+    );
+  };
+
   return (
     <div className="relative flex flex-row gap-4 items-center w-full flex-wrap">
       {!booksInitialized ? (
@@ -68,14 +80,17 @@ export const BookAndMonthSelector = ({
             <SelectTrigger className="w-[160px] border-none bg-transparent focus:ring-0 focus:ring-offset-0">
               <SelectValue
                 placeholder="Select Month"
-                children={
-                  getMonthOptions().find(
-                    (month) => month.value === selectedMonth
-                  )?.label || "Select Month"
-                }
+                children={getSelectedDisplay()}
               />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem
+                value="all"
+                className="font-medium text-blue-600 dark:text-blue-400"
+              >
+                All Data
+              </SelectItem>
+              <SelectSeparator />
               {getMonthOptions().map((month) => (
                 <SelectItem key={month.value} value={month.value}>
                   {month.label}

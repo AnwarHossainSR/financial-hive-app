@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
+  createTransactionNotification,
+  importTransactionsNotification,
+  updateTransactionNotification,
+} from "@/lib/notificationHelpers";
+import {
   PaginationInfo,
   Transaction,
   TransactionFilters,
@@ -238,9 +243,17 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Invalidate and refetch relevant queries
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      // Create notification instead of toast
+      await createTransactionNotification(user!.id, {
+        id: data.id,
+        type: data.type,
+        amount: data.amount,
+        category: data.category,
+        note: data.note,
+      });
 
       toast({
         title: "Transaction added",
@@ -290,8 +303,15 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      // Create notification instead of toast
+      await updateTransactionNotification(user!.id, {
+        id: data.id,
+        type: data.type,
+        amount: data.amount,
+        category: data.category,
+      });
       toast({
         title: "Transaction updated",
         description: "Your changes have been saved.",
@@ -319,7 +339,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (error) throw error;
       return id;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       toast({
         title: "Transaction deleted",
@@ -391,8 +411,9 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      await importTransactionsNotification(user!.id, data.length);
       toast({
         title: "Transactions imported",
         description: `Successfully imported ${data.length} transactions.`,
