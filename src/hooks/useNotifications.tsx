@@ -105,8 +105,6 @@ export const useNotifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log("Notification change:", payload);
-
           // Invalidate queries to trigger refetch
           queryClient.invalidateQueries({
             queryKey: notificationKeys.list(user.id),

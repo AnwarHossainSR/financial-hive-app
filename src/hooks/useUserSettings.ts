@@ -215,7 +215,6 @@ export const useUserSettings = () => {
           });
           throw new Error(`Failed to delete ${table}: ${error.message}`);
         }
-        console.log(`Deleted ${count || 0} rows from ${table}`);
       }
 
       // Delete Auth all users
