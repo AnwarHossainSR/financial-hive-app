@@ -22,20 +22,25 @@ import { TransactionFilters } from "@/types/transaction";
 import {
   BookOpen,
   Calendar,
+  Camera,
   CreditCard,
   DollarSign,
+  Loader2,
   PlusCircle,
   Save,
   Target,
   TrendingUp,
+  Upload,
   User,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const Profile = () => {
   const { user } = useAuth();
   const { books, setMonthlyBudget } = useBooks();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [selectedBookId, setSelectedBookId] = useState<string | "all">("all");
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>("all");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -45,6 +50,7 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState(
     user?.user_metadata?.avatar_url || ""
   );
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [budgetMonth, setBudgetMonth] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -63,7 +69,7 @@ const Profile = () => {
       setBudgetMonth(currentMonth);
     }
   }, [selectedBookId]);
-
+  console.log("avatarUrl", avatarUrl);
   // Create transaction filters based on selections
   const transactionFilters: TransactionFilters = useMemo(() => {
     const filters: TransactionFilters = {};
@@ -166,6 +172,98 @@ const Profile = () => {
 
   const getInitials = (email: string) => {
     return email.charAt(0).toUpperCase();
+  };
+
+  // Handle image file selection and upload
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) {
+      console.log("No file or user:", { file, user: !!user });
+      return;
+    }
+
+    console.log("Starting upload for file:", file.name, file.type, file.size);
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      // Create unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = fileName; // Remove avatars/ folder, just use filename
+
+      console.log("Uploading to path:", filePath);
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("profile-images") // Match your bucket name
+        .upload(`${user.id}/${filePath}`, file, {
+          // Add user.id folder structure
+          upsert: true, // Allow overwriting
+        });
+
+      console.log("Upload response:", { uploadData, uploadError });
+
+      if (uploadError) {
+        // If bucket doesn't exist, try creating it or use different bucket
+        console.error("Upload error:", uploadError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage
+        .from("profile-images")
+        .getPublicUrl(`${user.id}/${filePath}`);
+
+      console.log("Public URL:", publicUrl);
+
+      // Update local state
+      setAvatarUrl(publicUrl);
+
+      toast({
+        title: "Image uploaded successfully",
+        description:
+          "Your profile image has been uploaded. Don't forget to save your profile.",
+      });
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Upload failed",
+        description:
+          error.message || "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const handleProfileUpdate = async () => {
@@ -286,12 +384,38 @@ const Profile = () => {
           <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                <Avatar className="w-24 h-24 ring-4 ring-primary/10">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback className="text-2xl bg-gradient-primary text-primary-foreground">
-                    {user?.email ? getInitials(user.email) : "U"}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="w-24 h-24 ring-4 ring-primary/10">
+                    <AvatarImage src={avatarUrl} />
+                    <AvatarFallback className="text-2xl bg-gradient-primary text-primary-foreground">
+                      {user?.email ? getInitials(user.email) : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {isEditingProfile && (
+                    <div className="absolute -bottom-2 -right-2">
+                      <Button
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 p-0"
+                      >
+                        {isUploadingImage ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Camera className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex-1">
                   {isEditingProfile ? (
@@ -302,12 +426,35 @@ const Profile = () => {
                         placeholder="Display Name"
                         className="max-w-md"
                       />
-                      <Input
-                        value={avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        placeholder="Avatar URL"
-                        className="max-w-md"
-                      />
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Profile Image
+                        </label>
+                        <div className="flex gap-2 max-w-md">
+                          <Input
+                            value={avatarUrl}
+                            onChange={(e) => setAvatarUrl(e.target.value)}
+                            placeholder="Avatar URL (or upload image above)"
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploadingImage}
+                          >
+                            {isUploadingImage ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Upload className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Click the camera icon on your avatar or the upload
+                          button to select an image
+                        </p>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           onClick={handleProfileUpdate}
