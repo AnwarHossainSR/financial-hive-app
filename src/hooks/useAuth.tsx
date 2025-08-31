@@ -90,7 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }
   }, [createOrUpdateProfile]);
-
+  console.log("user", user);
   useEffect(() => {
     let mounted = true;
 
