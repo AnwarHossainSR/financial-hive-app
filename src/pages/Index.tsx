@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
+import { getMonthDateRange } from "@/lib/utils";
 import { Book } from "@/types/book";
 import { Transaction, TransactionFilters } from "@/types/transaction";
 import { useEffect, useMemo, useState } from "react";
@@ -53,16 +54,6 @@ const Index = () => {
     search: undefined,
     note: undefined,
   });
-
-  // Helper function to get month date range
-  const getMonthDateRange = (monthString: string) => {
-    const [year, month] = monthString.split("-");
-    const startDate = `${year}-${month}-01`;
-    const endDate = new Date(parseInt(year), parseInt(month), 0)
-      .toISOString()
-      .split("T")[0];
-    return { startDate, endDate };
-  };
 
   // Create combined filters for the hook
   const combinedFilters = useMemo(() => {
@@ -155,7 +146,6 @@ const Index = () => {
   };
 
   const handleEditTransaction = async (updatedTransaction: Transaction) => {
-    console.log("updatedTransaction", updatedTransaction);
     const { error } = await updateTransaction(updatedTransaction.id, {
       ...updatedTransaction,
       amount: Number(updatedTransaction.amount),
@@ -360,7 +350,6 @@ const Index = () => {
   const canAddTransaction = selectedBook !== null;
 
   const handleFilterChange = (newFilters: TransactionFilters) => {
-    console.log("newFilters", newFilters);
     setFilters(newFilters);
   };
 

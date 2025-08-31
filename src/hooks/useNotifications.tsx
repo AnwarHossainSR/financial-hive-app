@@ -105,8 +105,6 @@ export const useNotifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log("Notification change:", payload);
-
           // Invalidate queries to trigger refetch
           queryClient.invalidateQueries({
             queryKey: notificationKeys.list(user.id),
@@ -178,7 +176,6 @@ export const useNotifications = () => {
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-
       const { data, error } = await supabase
         .from("notifications")
         .update({ read: true, updated_at: new Date().toISOString() })
@@ -323,6 +320,10 @@ export const useNotifications = () => {
     async (id: string) => {
       try {
         await deleteNotificationMutation.mutateAsync(id);
+        // invalidate cache
+        queryClient.invalidateQueries({
+          queryKey: notificationKeys.list(user?.id || ""),
+        });
         return { error: null };
       } catch (error: any) {
         return { error: error.message };

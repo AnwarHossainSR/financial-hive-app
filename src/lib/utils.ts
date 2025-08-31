@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
-import { format } from "date-fns";
+import { endOfMonth, format, startOfMonth } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { enUS } from "date-fns/locale";
 import { twMerge } from "tailwind-merge";
@@ -52,3 +52,13 @@ export const EXPENSE_CATEGORIES = [
   "Home Rent",
   "Other",
 ];
+
+export const getMonthDateRange = (monthString: string) => {
+  const [year, month] = monthString.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1); // month is 0-based
+
+  const startDate = format(startOfMonth(date), "yyyy-MM-dd");
+  const endDate = format(endOfMonth(date), "yyyy-MM-dd");
+
+  return { startDate, endDate };
+};
