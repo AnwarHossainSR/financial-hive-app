@@ -134,12 +134,13 @@ export function QuickStats({
   monthlyIncome,
   monthlyExpense,
   transactionCount,
-  monthlyBudget = 5000,
+  monthlyBudget = 20000,
 }: QuickStatsProps) {
   const [isMobileStatsOpen, setIsMobileStatsOpen] = useState(false);
 
-  const monthlySavings = monthlyIncome - monthlyExpense;
-  const savingsProgress = (monthlySavings / monthlyBudget) * 100;
+  const budgetRemaining = monthlyBudget - monthlyExpense;
+  const budgetUsedProgress = (monthlyExpense / monthlyBudget) * 100;
+  const budgetRemainingProgress = Math.max(0, 100 - budgetUsedProgress);
 
   // Mock trend data - in real app, this would come from comparing with previous month
   const incomeTrend = { value: 12.5, isPositive: true };
@@ -171,12 +172,12 @@ export function QuickStats({
       delay: 200,
     },
     {
-      title: "Savings Goal",
-      value: `${Math.round(savingsProgress)}%`,
+      title: "Budget Used",
+      value: `${Math.round(budgetUsedProgress)}%`,
       icon: <Target className="w-5 h-5 text-purple-950" />,
       color: "from-purple-500 to-indigo-500",
-      progress: savingsProgress,
-      subtitle: `৳${monthlySavings.toLocaleString()} / ৳${monthlyBudget.toLocaleString()}`,
+      progress: budgetUsedProgress,
+      subtitle: `৳${monthlyExpense.toLocaleString()} / ৳${monthlyBudget.toLocaleString()}`,
       delay: 300,
     },
   ];
