@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
@@ -90,48 +90,6 @@ export const useNotifications = () => {
     refetchOnWindowFocus: false,
   });
 
-  // Set up real-time subscription
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel(`notifications:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          // Invalidate queries to trigger refetch
-          queryClient.invalidateQueries({
-            queryKey: notificationKeys.list(user.id),
-          });
-          queryClient.invalidateQueries({
-            queryKey: notificationKeys.unreadCount(user.id),
-          });
-
-          // Show toast for new notifications
-          if (payload.eventType === "INSERT") {
-            const newNotification = payload.new as Notification;
-            toast({
-              title: newNotification.title,
-              description: newNotification.message,
-              variant:
-                newNotification.type === "error" ? "destructive" : "default",
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, queryClient, toast]);
-
   // Create notification mutation
   const createNotificationMutation = useMutation({
     mutationFn: async ({
@@ -165,7 +123,12 @@ export const useNotifications = () => {
       return data;
     },
     onSuccess: () => {
-      // The real-time subscription will handle cache invalidation
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.list(user?.id || ""),
+      });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(user?.id || ""),
+      });
     },
     onError: (error: any) => {
       console.error("Error creating notification:", error);
@@ -240,7 +203,12 @@ export const useNotifications = () => {
       return id;
     },
     onSuccess: () => {
-      // The real-time subscription will handle cache invalidation
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.list(user?.id || ""),
+      });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(user?.id || ""),
+      });
     },
     onError: (error: any) => {
       console.error("Error deleting notification:", error);

@@ -74,7 +74,7 @@ export const TransactionsSection = ({
     return transactions.slice(startIndex, endIndex);
   }, [transactions, startIndex, endIndex]);
 
-  const [selectedTransaction, SetselectedTransaction] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
@@ -134,7 +134,7 @@ export const TransactionsSection = ({
 
   const handleEditTransaction = (transaction: Transaction) => {
     setShowEditForm(true);
-    SetselectedTransaction(transaction);
+    setSelectedTransaction(transaction);
   };
 
   return (

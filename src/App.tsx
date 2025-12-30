@@ -16,6 +16,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Settings = lazy(() => import("./pages/Settings"));
+const BookDetails = lazy(() => import("./pages/BookDetails"));
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -74,6 +75,16 @@ const App = () => (
                     <ProtectedRoute>
                       <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
                         <Settings />
+                      </div>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/book/:bookId"
+                  element={
+                    <ProtectedRoute>
+                      <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
+                        <BookDetails />
                       </div>
                     </ProtectedRoute>
                   }

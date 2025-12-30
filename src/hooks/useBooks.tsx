@@ -15,6 +15,7 @@ import {
 import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
+export type { Book };
 // Query Keys Factory
 const bookKeys = {
   all: ["books"] as const,

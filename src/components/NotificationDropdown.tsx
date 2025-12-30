@@ -22,6 +22,7 @@ export const NotificationDropdown = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    clearAllNotifications,
   } = useNotifications();
 
   const getIcon = (type: "info" | "success" | "warning" | "error") => {
@@ -80,23 +81,37 @@ export const NotificationDropdown = () => {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-80">
-        <div className="flex items-center justify-between p-2">
-          <DropdownMenuLabel className="text-sm font-semibold">
-            Notifications
-          </DropdownMenuLabel>
+        <div className="flex flex-col p-2 space-y-1">
+          <div className="flex items-center justify-between">
+            <DropdownMenuLabel className="text-sm font-semibold">
+              Notifications
+            </DropdownMenuLabel>
+            {notifications.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllNotifications}
+                className="text-xs h-6 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={loading}
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleMarkAllAsRead}
-              className="text-xs h-6 px-2"
+              className="text-xs h-6 px-2 w-full justify-start font-normal"
               disabled={loading}
             >
               {loading ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="w-3 h-3 animate-spin mr-2" />
               ) : (
-                "Mark all read"
+                <Check className="w-3 h-3 mr-2" />
               )}
+              Mark all as read
             </Button>
           )}
         </div>
