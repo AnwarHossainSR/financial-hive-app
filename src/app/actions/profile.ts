@@ -18,6 +18,8 @@ export async function updateProfileAction(data: {
     return { error: "Not authenticated" };
   }
 
+  console.log("user", user);
+
   try {
     // 1. Update Supabase Auth user metadata
     const { error: authError } = await supabase.auth.updateUser({
@@ -31,16 +33,16 @@ export async function updateProfileAction(data: {
 
     // 2. Update Prisma profile
     await prisma.profile.upsert({
-      where: { user_id: user.id },
+      where: { id: user.id },
       update: {
-        display_name: data.displayName,
+        full_name: data.displayName,
         avatar_url: data.avatarUrl,
         updated_at: new Date(),
       },
       create: {
-        user_id: user.id,
+        id: user.id,
         email: user.email!,
-        display_name: data.displayName,
+        full_name: data.displayName,
         avatar_url: data.avatarUrl,
       },
     });
@@ -62,18 +64,48 @@ export async function ensureProfileExistsAction(userData: {
     const displayName =
       userData.display_name || userData.email?.split("@")[0] || "User";
 
+    console.log("=== DEBUG ensureProfileExistsAction ===");
+    console.log("userData:", JSON.stringify(userData, null, 2));
+    console.log(
+      "DATABASE_URL:",
+      process.env.DATABASE_URL?.substring(0, 50) + "..."
+    );
+
+    // Debug: Try to query the profiles table structure
+    try {
+      const tableCheck = await prisma.$queryRaw`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'profiles' AND table_schema = 'public'
+      `;
+      console.log(
+        "Profiles table columns:",
+        JSON.stringify(tableCheck, null, 2)
+      );
+
+      // Also check what tables exist
+      const tablesCheck = await prisma.$queryRaw`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+      `;
+      console.log("All public tables:", JSON.stringify(tablesCheck, null, 2));
+    } catch (schemaError: any) {
+      console.error("Error checking schema:", schemaError.message);
+    }
+
     await prisma.profile.upsert({
-      where: { user_id: userData.id },
+      where: { id: userData.id },
       update: {
         email: userData.email,
-        display_name: displayName,
+        full_name: displayName,
         avatar_url: userData.avatar_url,
         updated_at: new Date(),
       },
       create: {
-        user_id: userData.id,
+        id: userData.id,
         email: userData.email || "",
-        display_name: displayName,
+        full_name: displayName,
         avatar_url: userData.avatar_url,
       },
     });
