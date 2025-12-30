@@ -64,36 +64,6 @@ export async function ensureProfileExistsAction(userData: {
     const displayName =
       userData.display_name || userData.email?.split("@")[0] || "User";
 
-    console.log("=== DEBUG ensureProfileExistsAction ===");
-    console.log("userData:", JSON.stringify(userData, null, 2));
-    console.log(
-      "DATABASE_URL:",
-      process.env.DATABASE_URL?.substring(0, 50) + "..."
-    );
-
-    // Debug: Try to query the profiles table structure
-    try {
-      const tableCheck = await prisma.$queryRaw`
-        SELECT column_name, data_type 
-        FROM information_schema.columns 
-        WHERE table_name = 'profiles' AND table_schema = 'public'
-      `;
-      console.log(
-        "Profiles table columns:",
-        JSON.stringify(tableCheck, null, 2)
-      );
-
-      // Also check what tables exist
-      const tablesCheck = await prisma.$queryRaw`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
-      `;
-      console.log("All public tables:", JSON.stringify(tablesCheck, null, 2));
-    } catch (schemaError: any) {
-      console.error("Error checking schema:", schemaError.message);
-    }
-
     await prisma.profile.upsert({
       where: { user_id: userData.id },
       update: {
