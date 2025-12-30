@@ -1,3 +1,5 @@
+"use client";
+
 import { BookAndMonthSelector } from "@/components/BookAndMonthSelector";
 import { CSVImport } from "@/components/CSVImport";
 import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
@@ -20,12 +22,13 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { getMonthDateRange } from "@/lib/utils";
 import { Book } from "@/types/book";
 import { Transaction, TransactionFilters } from "@/types/transaction";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 
-const BookDetails = () => {
-  const { bookId } = useParams<{ bookId: string }>();
-  const navigate = useNavigate();
+export default function BookDetailsPage() {
+  const params = useParams();
+  const bookId = params?.bookId as string;
+  const router = useRouter();
   const { toast } = useToast();
   const { books, initialized: booksInitialized } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -95,10 +98,10 @@ const BookDetails = () => {
           description: "The book you're looking for doesn't exist.",
           variant: "destructive",
         });
-        navigate("/");
+        router.push("/");
       }
     }
-  }, [books, booksInitialized, bookId, navigate, toast]);
+  }, [books, booksInitialized, bookId, router, toast]);
 
   const { totalIncome, totalExpense, monthlyBudget } = useMemo(() => {
     const income = transactions
@@ -326,7 +329,7 @@ const BookDetails = () => {
         <BookAndMonthSelector
           selectedBook={selectedBook}
           onSelectBook={(book) =>
-            book ? navigate(`/book/${book.id}`) : navigate("/")
+            book ? router.push(`/book/${book.id}`) : router.push("/")
           }
           selectedMonth={selectedMonth}
           onSelectMonth={handleMonthChange}
@@ -410,6 +413,4 @@ const BookDetails = () => {
       />
     </div>
   );
-};
-
-export default BookDetails;
+}

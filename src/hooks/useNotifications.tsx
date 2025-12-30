@@ -1,4 +1,11 @@
-import { supabase } from "@/integrations/supabase/client";
+import {
+  clearAllNotificationsAction,
+  deleteNotificationAction,
+  getNotificationsAction,
+  getUnreadCountAction,
+  markAllAsReadAction,
+  markAsReadAction,
+} from "@/app/actions/notifications";
 import {
   keepPreviousData,
   useMutation,
@@ -6,7 +13,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
 export interface Notification {
@@ -30,38 +36,8 @@ const notificationKeys = {
     [...notificationKeys.all, "unread", userId] as const,
 };
 
-// Fetch functions
-const fetchNotifications = async (userId: string): Promise<Notification[]> => {
-  if (!userId) return [];
-
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50); // Limit to last 50 notifications
-
-  if (error) throw error;
-  //@ts-expect-error expect-error
-  return data || [];
-};
-
-const fetchUnreadCount = async (userId: string): Promise<number> => {
-  if (!userId) return 0;
-
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("read", false);
-
-  if (error) throw error;
-  return count || 0;
-};
-
 export const useNotifications = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Fetch notifications
@@ -73,7 +49,12 @@ export const useNotifications = () => {
     refetch,
   } = useQuery({
     queryKey: notificationKeys.list(user?.id || ""),
-    queryFn: () => fetchNotifications(user?.id || ""),
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { notifications, error } = await getNotificationsAction(user.id);
+      if (error) throw new Error(error);
+      return notifications as any[];
+    },
     enabled: !!user,
     staleTime: 30000, // 30 seconds
     placeholderData: keepPreviousData,
@@ -83,78 +64,28 @@ export const useNotifications = () => {
   // Fetch unread count
   const { data: unreadCount = 0, refetch: refetchUnreadCount } = useQuery({
     queryKey: notificationKeys.unreadCount(user?.id || ""),
-    queryFn: () => fetchUnreadCount(user?.id || ""),
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count, error } = await getUnreadCountAction(user.id);
+      if (error) throw new Error(error);
+      return count;
+    },
     enabled: !!user,
     staleTime: 10000, // 10 seconds
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
   });
 
-  // Create notification mutation
-  const createNotificationMutation = useMutation({
-    mutationFn: async ({
-      title,
-      message,
-      type = "info",
-      metadata = {},
-    }: {
-      title: string;
-      message: string;
-      type?: Notification["type"];
-      metadata?: Record<string, any>;
-    }) => {
-      if (!user) throw new Error("User not authenticated");
-
-      const { data, error } = await supabase
-        .from("notifications")
-        .insert([
-          {
-            user_id: user.id,
-            title,
-            message,
-            type,
-            metadata,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
-    },
-    onError: (error: any) => {
-      console.error("Error creating notification:", error);
-    },
-  });
-
   // Mark as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-      const { data, error } = await supabase
-        .from("notifications")
-        .update({ read: true, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const { success, error } = await markAsReadAction(id);
+      if (error) throw new Error(error);
+      return id;
     },
     onSuccess: () => {
-      // Optimistically update cache
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error marking notification as read:", error);
@@ -165,23 +96,12 @@ export const useNotifications = () => {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
-
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true, updated_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .eq("read", false);
-
-      if (error) throw error;
+      const { success, error } = await markAllAsReadAction(user.id);
+      if (error) throw new Error(error);
+      return success;
     },
     onSuccess: () => {
-      // Update cache
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error marking all notifications as read:", error);
@@ -192,23 +112,12 @@ export const useNotifications = () => {
   const deleteNotificationMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      const { success, error } = await deleteNotificationAction(id);
+      if (error) throw new Error(error);
       return id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error deleting notification:", error);
@@ -219,21 +128,12 @@ export const useNotifications = () => {
   const clearAllNotificationsMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
-
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      const { success, error } = await clearAllNotificationsAction(user.id);
+      if (error) throw new Error(error);
+      return success;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error clearing all notifications:", error);
@@ -241,28 +141,6 @@ export const useNotifications = () => {
   });
 
   // Wrapper functions
-  const createNotification = useCallback(
-    async (
-      title: string,
-      message: string,
-      type: Notification["type"] = "info",
-      metadata: Record<string, any> = {}
-    ) => {
-      try {
-        await createNotificationMutation.mutateAsync({
-          title,
-          message,
-          type,
-          metadata,
-        });
-        return { error: null };
-      } catch (error: any) {
-        return { error: error.message };
-      }
-    },
-    [createNotificationMutation]
-  );
-
   const markAsRead = useCallback(
     async (id: string) => {
       try {
@@ -288,10 +166,6 @@ export const useNotifications = () => {
     async (id: string) => {
       try {
         await deleteNotificationMutation.mutateAsync(id);
-        // invalidate cache
-        queryClient.invalidateQueries({
-          queryKey: notificationKeys.list(user?.id || ""),
-        });
         return { error: null };
       } catch (error: any) {
         return { error: error.message };
@@ -315,7 +189,6 @@ export const useNotifications = () => {
     loading,
     error: isError ? (error as Error)?.message : null,
     initialized: !loading,
-    createNotification,
     markAsRead,
     markAllAsRead,
     deleteNotification,

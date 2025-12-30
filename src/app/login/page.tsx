@@ -1,3 +1,7 @@
+"use client";
+
+import { Suspense } from "react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,10 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useForm } from "react-hook-form";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 // Validation schemas
@@ -57,11 +61,12 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-const Auth = () => {
+function LoginContent() {
   const { user, loading, signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [view, setView] = useState<"auth" | "forgot-password" | "reset-sent">(
     "auth"
   );
@@ -69,8 +74,7 @@ const Auth = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Extract redirect URL from query params
-  const query = new URLSearchParams(location.search);
-  const redirectTo = query.get("redirect") || "/";
+  const redirectTo = searchParams?.get("redirect") || "/";
 
   // Form instances with react-hook-form
   const signInForm = useForm<SignInData>({
@@ -100,13 +104,13 @@ const Auth = () => {
 
   // Auto-fill email from query params if available
   useEffect(() => {
-    const email = query.get("email");
+    const email = searchParams?.get("email");
     if (email) {
       signInForm.setValue("email", email);
       signUpForm.setValue("email", email);
       forgotPasswordForm.setValue("email", email);
     }
-  }, [query, signInForm, signUpForm, forgotPasswordForm]);
+  }, [searchParams, signInForm, signUpForm, forgotPasswordForm]);
 
   // React 19 useActionState for sign-in
   const [signInState, signInAction] = useActionState(
@@ -130,7 +134,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have been signed in successfully.",
         });
-        navigate(redirectTo);
+        router.push(redirectTo);
         return { success: true };
       } catch (err: any) {
         const message = err.message || "An unexpected error occurred";
@@ -174,7 +178,8 @@ const Auth = () => {
           title: "Account created!",
           description: "Please check your email to verify your account.",
         });
-        navigate(`/auth?redirect=${encodeURIComponent(redirectTo)}`);
+        // Stay on auth but maybe show a message or redirect to a wait page
+        router.push(`/login?redirect=${encodeURIComponent(redirectTo)}`);
         return { success: true };
       } catch (err: any) {
         const message = err.message || "An unexpected error occurred";
@@ -227,6 +232,12 @@ const Auth = () => {
     null
   );
 
+  useEffect(() => {
+    if (user) {
+      router.replace(redirectTo);
+    }
+  }, [user, router, redirectTo]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -236,13 +247,12 @@ const Auth = () => {
   }
 
   if (user) {
-    return <Navigate to={redirectTo} replace />;
+    return null; // Will redirect in useEffect
   }
 
   if (view === "forgot-password") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
-        <title>Reset Password - CashBook</title>
         <div className="w-full max-w-md">
           <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
@@ -279,7 +289,6 @@ const Auth = () => {
                   </Label>
                   <Input
                     id="reset-email"
-                    name="email"
                     type="email"
                     placeholder="Enter your email"
                     {...forgotPasswordForm.register("email")}
@@ -325,7 +334,6 @@ const Auth = () => {
   if (view === "reset-sent") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
-        <title>Password Reset Sent - CashBook</title>
         <div className="w-full max-w-md">
           <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
@@ -378,7 +386,6 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
-      <title>Sign In or Sign Up - CashBook</title>
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -424,7 +431,6 @@ const Auth = () => {
                     </Label>
                     <Input
                       id="signin-email"
-                      name="email"
                       type="email"
                       placeholder="Enter your email"
                       {...signInForm.register("email")}
@@ -466,7 +472,6 @@ const Auth = () => {
                     </div>
                     <PasswordInput
                       id="signin-password"
-                      name="password"
                       placeholder="Enter your password"
                       {...signInForm.register("password")}
                       showPassword={showPassword}
@@ -514,7 +519,6 @@ const Auth = () => {
                     </Label>
                     <Input
                       id="signup-name"
-                      name="displayName"
                       type="text"
                       placeholder="Enter your name"
                       {...signUpForm.register("displayName")}
@@ -545,7 +549,6 @@ const Auth = () => {
                     </Label>
                     <Input
                       id="signup-email"
-                      name="email"
                       type="email"
                       placeholder="Enter your email"
                       {...signUpForm.register("email")}
@@ -576,7 +579,6 @@ const Auth = () => {
                     </Label>
                     <PasswordInput
                       id="signup-password"
-                      name="password"
                       placeholder="Choose a password (min. 6 characters)"
                       {...signUpForm.register("password")}
                       showPassword={showPassword}
@@ -603,7 +605,6 @@ const Auth = () => {
                     </Label>
                     <PasswordInput
                       id="signup-confirm"
-                      name="confirmPassword"
                       placeholder="Confirm your password"
                       {...signUpForm.register("confirmPassword")}
                       showPassword={showConfirmPassword}
@@ -649,6 +650,18 @@ const Auth = () => {
       </div>
     </div>
   );
-};
+}
 
-export default Auth;
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
+  );
+}

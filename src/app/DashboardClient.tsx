@@ -1,8 +1,10 @@
+"use client";
+
 import { BookSelector } from "@/components/BookSelector";
 import { Header } from "@/components/Header";
 import { useBooks } from "@/hooks/useBooks";
 
-const Index = () => {
+export default function DashboardPage() {
   const { initialized: booksInitialized } = useBooks();
 
   return (
@@ -26,6 +28,4 @@ const Index = () => {
       </main>
     </div>
   );
-};
-
-export default Index;
+}

@@ -1,3 +1,5 @@
+"use client";
+
 import { Header } from "@/components/Header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsers } from "@/hooks/useUsers";
@@ -32,15 +35,14 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-const Users = () => {
+export default function UsersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"created_at" | "email" | "last_sign_in">(
-    "created_at"
-  );
+  const [sortBy, setSortBy] = useState<"created_at" | "email">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const isMobile = useIsMobile();
 
   const {
     users,
@@ -71,9 +73,6 @@ const Users = () => {
   const ITEM_HEIGHT_MOBILE = 140; // Taller for mobile layout
   const ITEM_HEIGHT_DESKTOP = 80; // Compact table row height
   const CONTAINER_HEIGHT = 600;
-
-  // Check if mobile (you might want to use a proper hook for this)
-  const [isMobile, setIsMobile] = useState(false);
 
   const ITEM_HEIGHT = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT_DESKTOP;
 
@@ -137,16 +136,6 @@ const Users = () => {
 
   const getInitials = (email: string) => {
     return email?.charAt(0)?.toUpperCase() || "U";
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const formatDateMobile = (dateString: string) => {
@@ -599,7 +588,7 @@ const Users = () => {
                             transform: `translateY(${offsetY}px)`,
                           }}
                         >
-                          {visibleUsers.map((userItem, index) => (
+                          {visibleUsers.map((userItem) => (
                             <div
                               key={userItem.id}
                               style={{ height: ITEM_HEIGHT_MOBILE }}
@@ -641,7 +630,7 @@ const Users = () => {
                             transform: `translateY(${offsetY}px)`,
                           }}
                         >
-                          {visibleUsers.map((userItem, index) => (
+                          {visibleUsers.map((userItem) => (
                             <div
                               key={userItem.id}
                               style={{ height: ITEM_HEIGHT_DESKTOP }}
@@ -673,6 +662,4 @@ const Users = () => {
       </main>
     </div>
   );
-};
-
-export default Users;
+}

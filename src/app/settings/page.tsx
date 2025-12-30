@@ -1,3 +1,5 @@
+"use client";
+
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { Header } from "@/components/Header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,7 +35,7 @@ import {
 } from "lucide-react";
 import { useCallback } from "react";
 
-const Settings = () => {
+export default function SettingsPage() {
   const { user } = useAuth();
   const { books } = useBooks();
   const { toast } = useToast();
@@ -544,6 +546,4 @@ const Settings = () => {
       </main>
     </div>
   );
-};
-
-export default Settings;
+}

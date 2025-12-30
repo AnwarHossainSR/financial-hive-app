@@ -11,27 +11,28 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 // Configuration based on environment
 const config = {
   development: {
-    supabaseUrl: process.env.VITE_SUPABASE_URL,
-    serviceRoleKey: process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     admin: {
-      email: process.env.VITE_ADMIN_EMAIL,
-      password: process.env.VITE_ADMIN_PASSWORD,
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
       displayName: "Mahedi Hasan",
     },
   },
   production: {
-    supabaseUrl: process.env.SUPABASE_URL_PROD || process.env.SUPABASE_URL,
+    supabaseUrl:
+      process.env.SUPABASE_URL_PROD || process.env.NEXT_PUBLIC_SUPABASE_URL,
     serviceRoleKey:
-      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY_PROD ||
-      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+      process.env.SUPABASE_SERVICE_ROLE_KEY_PROD ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
     admin: {
-      email: process.env.VITE_ADMIN_EMAIL,
-      password: process.env.VITE_ADMIN_PASSWORD,
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
       displayName: "Mahedi Hasan",
     },
   },

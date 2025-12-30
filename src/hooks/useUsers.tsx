@@ -1,19 +1,31 @@
+import { getProfileRole } from "@/app/actions/user-settings";
+import {
+  deleteUserAction,
+  getUsersAction,
+  getUserStatsAction,
+  updateUserRoleAction,
+} from "@/app/actions/users";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState } from "react";
 
-interface UserWithProfile extends Omit<User, "email"> {
+interface UserWithProfile {
+  id: string;
+  email: string;
   role?: string;
   display_name?: string;
-  email: string;
+  user_metadata?: {
+    display_name?: string;
+    avatar_url?: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 interface UseUsersConfig {
   searchTerm?: string;
   roleFilter?: string;
-  sortBy?: "created_at" | "email" | "last_sign_in";
+  sortBy?: "created_at" | "email";
   sortOrder?: "asc" | "desc";
   limit?: number;
 }
@@ -46,18 +58,10 @@ export const useUsers = (config: UseUsersConfig = {}) => {
 
     const checkAdminStatus = async () => {
       try {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("role, email")
-          .eq("user_id", currentUser.id)
-          .single();
-
-        if (error) {
-          setIsAdmin(false);
-          return;
+        const { role, error } = await getProfileRole(currentUser.id);
+        if (!error) {
+          setIsAdmin(role === "admin");
         }
-
-        setIsAdmin(profile?.role === "admin");
       } catch (error) {
         setIsAdmin(false);
       }
@@ -66,9 +70,10 @@ export const useUsers = (config: UseUsersConfig = {}) => {
     checkAdminStatus();
   }, [currentUser]);
 
-  // Fetch users from Supabase Auth
+  // Fetch users using Server Action
   const fetchUsers = useCallback(
     async (page: number = 0, append: boolean = false) => {
+      // In a real app, you'd check server-side too (we do in the action)
       if (!isAdmin) return;
 
       const isLoadingMore = page > 0;
@@ -76,84 +81,42 @@ export const useUsers = (config: UseUsersConfig = {}) => {
         setLoadingMore(true);
       } else {
         setLoading(true);
-        setUsers([]);
+        if (!append) setUsers([]);
       }
 
       try {
-        // Build the query step by step
-        let query = supabase.from("profiles").select(
-          `
-            user_id,
-            email,
-            display_name,
-            role,
-            created_at,
-            updated_at
-          `,
-          { count: "exact" }
-        ); // Add count: 'exact' to get total count
+        const {
+          users: fetchedUsers,
+          total,
+          error,
+        } = await getUsersAction({
+          searchTerm,
+          roleFilter,
+          sortBy,
+          sortOrder,
+          page,
+          limit,
+        });
 
-        // Apply search filter
-        if (searchTerm) {
-          query = query.ilike("email", `%${searchTerm}%`);
-        }
+        if (error) throw new Error(error);
 
-        // Apply role filter
-        if (roleFilter) {
-          query = query.eq("role", roleFilter);
-        }
+        const formattedUsers = (fetchedUsers as any[]).map((p) => ({
+          ...p,
+          id: p.user_id,
+          user_metadata: {
+            display_name: p.display_name,
+            avatar_url: p.avatar_url,
+          },
+        }));
 
-        // Apply sorting
-        query = query.order(sortBy, { ascending: sortOrder === "asc" });
-
-        // Apply pagination
-        const from = page * limit;
-        const to = from + limit - 1;
-        query = query.range(from, to);
-
-        const { data: profilesData, error: profilesError, count } = await query;
-
-        if (profilesError) {
-          console.error("Profiles error:", profilesError);
-          throw profilesError;
-        }
-
-        if (!profilesData) {
-          throw new Error("No data returned");
-        }
-
-        // Get additional user data from auth.users if needed
-        // For now, we'll work with profiles data and simulate auth user structure
-        const formattedUsers: UserWithProfile[] = profilesData.map(
-          (profile) => ({
-            id: profile.user_id,
-            email: profile.email || "",
-            created_at: profile.created_at,
-            updated_at: profile.updated_at,
-            role: profile.role || "user",
-            display_name: profile.display_name,
-            user_metadata: {
-              display_name: profile.display_name,
-            },
-            // Simulate auth user fields
-            aud: "authenticated",
-            email_confirmed_at: profile.created_at,
-            last_sign_in_at: profile.updated_at,
-            app_metadata: {},
-            identities: [],
-          })
-        );
-
-        if (append && page > 0) {
+        if (append) {
           setUsers((prevUsers) => [...prevUsers, ...formattedUsers]);
         } else {
           setUsers(formattedUsers);
           setCurrentPage(0);
         }
 
-        // Use count from query, fallback to data length if count is null
-        const totalCount = count !== null ? count : formattedUsers.length;
-        setTotalUsers(totalCount);
+        setTotalUsers(total);
         setHasNextPage(formattedUsers.length === limit);
       } catch (error: any) {
         console.error("Error fetching users:", error);
@@ -182,24 +145,10 @@ export const useUsers = (config: UseUsersConfig = {}) => {
   // Update user role
   const updateUserRole = useCallback(
     async (userId: string, newRole: string) => {
-      if (!isAdmin) {
-        throw new Error("Only admins can update user roles");
-      }
-
       try {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            role: newRole,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", userId);
+        const { success, error } = await updateUserRoleAction(userId, newRole);
+        if (error) throw new Error(error);
 
-        if (error) {
-          throw error;
-        }
-
-        // Update local state
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === userId ? { ...user, role: newRole } : user
@@ -210,76 +159,20 @@ export const useUsers = (config: UseUsersConfig = {}) => {
         throw error;
       }
     },
-    [isAdmin]
+    []
   );
 
   // Delete user
   const deleteUser = useCallback(
     async (userId: string) => {
-      if (!isAdmin) {
-        throw new Error("Only admins can delete users");
-      }
-
       if (userId === currentUser?.id) {
         throw new Error("You cannot delete your own account");
       }
 
       try {
-        // Delete user-related data first - use explicit typing to avoid TS inference issues
-        const deletePromises = [
-          supabase
-            .from("transactions")
-            .delete()
-            .eq("user_id", userId) as Promise<any>,
-          supabase
-            .from("book_members")
-            .delete()
-            .eq("user_id", userId) as Promise<any>,
-          supabase
-            .from("user_settings")
-            .delete()
-            .eq("user_id", userId) as Promise<any>,
-          supabase
-            .from("profiles")
-            .delete()
-            .eq("user_id", userId) as Promise<any>,
-        ];
+        const { success, error } = await deleteUserAction(userId);
+        if (error) throw new Error(error);
 
-        // Only delete from books and monthly_budgets if those tables exist
-        try {
-          deletePromises.push(
-            supabase
-              .from("books")
-              .delete()
-              .eq("user_id", userId) as Promise<any>,
-            supabase
-              .from("monthly_budgets")
-              .delete()
-              .eq("user_id", userId) as Promise<any>
-          );
-        } catch (tableError) {
-          console.log(
-            "Some tables might not exist, continuing with deletion..."
-          );
-        }
-
-        const results = await Promise.allSettled(deletePromises);
-
-        // Log any failed deletions but don't stop the process
-        results.forEach((result, index) => {
-          if (result.status === "rejected") {
-            console.warn(
-              `Failed to delete from table ${index}:`,
-              result.reason
-            );
-          }
-        });
-
-        // Note: Deleting from auth.users requires admin privileges
-        // This would typically be done through a server-side function
-        // For now, we'll just remove from profiles and update local state
-
-        // Update local state
         setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
         setTotalUsers((prev) => Math.max(0, prev - 1));
       } catch (error: any) {
@@ -287,42 +180,20 @@ export const useUsers = (config: UseUsersConfig = {}) => {
         throw error;
       }
     },
-    [isAdmin, currentUser?.id]
+    [currentUser?.id]
   );
 
   // Get user statistics
   const getUserStats = useCallback(async () => {
-    if (!isAdmin) return null;
-
     try {
-      const { data: profilesData, error } = await supabase
-        .from("profiles")
-        .select("role");
-
-      if (error) {
-        console.error("Error fetching user stats:", error);
-        return null;
-      }
-
-      if (!profilesData) {
-        return null;
-      }
-
-      const roleStats = profilesData.reduce((acc, profile) => {
-        const role = profile.role || "user";
-        acc[role] = (acc[role] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      return {
-        total: profilesData.length,
-        ...roleStats,
-      };
+      const { stats, error } = await getUserStatsAction();
+      if (error) throw new Error(error);
+      return stats;
     } catch (error) {
       console.error("Error fetching user stats:", error);
       return null;
     }
-  }, [isAdmin]);
+  }, []);
 
   // Reset and refetch when config changes
   useEffect(() => {

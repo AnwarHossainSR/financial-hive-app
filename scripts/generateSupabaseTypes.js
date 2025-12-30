@@ -2,11 +2,11 @@ import { exec } from "child_process";
 import dotenv from "dotenv";
 
 // Load environment variables
-dotenv.config();
-const projectId = process.env.VITE_SUPEBASE_PROJECT_ID;
+dotenv.config({ path: ".env.local" });
+const projectId = process.env.NEXT_PUBLIC_SUPEBASE_PROJECT_ID;
 
 if (!projectId) {
-  console.error("❌ VITE_SUPABASE_PROJECT_ID is not defined in .env");
+  console.error("❌ NEXT_PUBLIC_SUPEBASE_PROJECT_ID is not defined in .env");
   process.exit(1);
 }
 

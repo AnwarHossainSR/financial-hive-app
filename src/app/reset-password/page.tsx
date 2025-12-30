@@ -1,3 +1,5 @@
+"use client";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { CheckCircle, Loader2, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const ResetPassword = () => {
+export default function ResetPasswordPage() {
   const { updatePassword, user, loading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,9 +28,9 @@ const ResetPassword = () => {
   useEffect(() => {
     if (!loading && !user) {
       // Redirect to auth page if no user session
-      window.location.href = "/auth";
+      router.push("/login");
     }
-  }, [user, loading]);
+  }, [user, loading, router]);
 
   const handlePasswordUpdate = async () => {
     setIsLoading(true);
@@ -59,7 +63,7 @@ const ResetPassword = () => {
 
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
-          window.location.href = "/";
+          router.push("/");
         }, 2000);
       }
     } catch (err) {
@@ -192,7 +196,7 @@ const ResetPassword = () => {
 
                 <Button
                   variant="outline"
-                  onClick={() => (window.location.href = "/auth")}
+                  onClick={() => router.push("/login")}
                   className="w-full h-10 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg"
                 >
                   Back to Sign In
@@ -212,6 +216,4 @@ const ResetPassword = () => {
       </div>
     </div>
   );
-};
-
-export default ResetPassword;
+}

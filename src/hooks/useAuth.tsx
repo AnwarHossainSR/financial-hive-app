@@ -1,4 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
+"use client";
+
+import { ensureProfileExistsAction } from "@/app/actions/profile";
+import { createClient } from "@/lib/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import {
   createContext,
@@ -7,6 +10,15 @@ import {
   useEffect,
   useState,
 } from "react";
+
+// Lazy singleton to avoid module-level initialization during prerendering
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+const getSupabase = () => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient();
+  }
+  return supabaseInstance;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -33,26 +45,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createOrUpdateProfile = useCallback(async (user: User) => {
     try {
-      const profileData = {
-        user_id: user.id,
+      await ensureProfileExistsAction({
+        id: user.id,
         email: user.email,
         display_name:
           user.user_metadata?.display_name ||
           user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0],
+          user.user_metadata?.name,
         avatar_url: user.user_metadata?.avatar_url,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase.from("profiles").upsert(profileData, {
-        onConflict: "user_id",
       });
 
-      if (error) {
-        console.error("Error updating profile:", error);
-        return { error };
-      }
       return { error: null };
     } catch (error) {
       console.error("Error in createOrUpdateProfile:", error);
@@ -66,7 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const {
         data: { session },
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } = await getSupabase().auth.getSession();
 
       if (sessionError) throw sessionError;
 
@@ -75,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const {
           data: { user: verifiedUser },
           error: userError,
-        } = await supabase.auth.getUser();
+        } = await getSupabase().auth.getUser();
 
         if (verifiedUser && !userError) {
           setSession(session);
@@ -107,8 +109,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Initial check
         await checkSession();
 
-        const { data } = supabase.auth.onAuthStateChange(
-          async (event, currentSession) => {
+        const { data } = getSupabase().auth.onAuthStateChange(
+          async (event: string, currentSession: Session | null) => {
             if (!mounted) return;
 
             console.log("Auth event:", event);
@@ -171,7 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(true);
         const redirectUrl = `${window.location.origin}/`;
 
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await getSupabase().auth.signUp({
           email,
           password,
           options: {
@@ -206,7 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (email: string, password: string) => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await getSupabase().auth.signInWithPassword({
           email,
           password,
         });
@@ -234,7 +236,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const resetPassword = useCallback(async (email: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
@@ -250,7 +252,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updatePassword = useCallback(async (password: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await getSupabase().auth.updateUser({
         password,
       });
 
@@ -266,7 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = useCallback(async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
+      const { error } = await getSupabase().auth.signOut();
 
       if (error) {
         console.error("Sign out error:", error);

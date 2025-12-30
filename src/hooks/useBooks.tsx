@@ -1,10 +1,10 @@
-import { supabase } from "@/integrations/supabase/client";
 import {
-  createBookNotification,
-  setBudgetNotification,
-  updateBookNotification,
-  welcomeNotification,
-} from "@/lib/notificationHelpers";
+  createBookAction,
+  deleteBookAction,
+  getBooksAction,
+  updateBookAction,
+} from "@/app/actions/books";
+import { setMonthlyBudgetAction } from "@/app/actions/profile";
 import { Book } from "@/types/book";
 import {
   keepPreviousData,
@@ -15,41 +15,15 @@ import {
 import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
+
 export type { Book };
+
 // Query Keys Factory
 const bookKeys = {
   all: ["books"] as const,
   lists: () => [...bookKeys.all, "list"] as const,
   list: (userId: string) => [...bookKeys.lists(), userId] as const,
   detail: (id: string) => [...bookKeys.all, "detail", id] as const,
-};
-
-// Fetch function
-const fetchBooks = async (userId: string): Promise<Book[]> => {
-  if (!userId) return [];
-
-  const { data: bookData, error: bookError } = await supabase
-    .from("books")
-    .select(
-      `
-      *,
-      monthly_budgets (
-        id,
-        book_id,
-        month,
-        amount,
-        created_at,
-        updated_at
-      )
-    `
-    )
-    .eq("owner_id", userId)
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (bookError) throw bookError;
-
-  return bookData || [];
 };
 
 const useBooks = () => {
@@ -66,7 +40,12 @@ const useBooks = () => {
     refetch,
   } = useQuery({
     queryKey: bookKeys.list(user?.id || ""),
-    queryFn: () => fetchBooks(user?.id || ""),
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { books, error } = await getBooksAction(user.id);
+      if (error) throw new Error(error);
+      return books as any[];
+    },
     enabled: !!user,
     staleTime: 300000, // 5 minutes
     placeholderData: keepPreviousData,
@@ -87,73 +66,17 @@ const useBooks = () => {
       is_default?: boolean;
     }) => {
       if (!user) throw new Error("User not authenticated");
-
-      // If this is going to be the default book, update all others first
-      if (is_default && books.length > 0) {
-        await supabase
-          .from("books")
-          .update({ is_default: false })
-          .eq("owner_id", user.id);
-      }
-
-      const { data, error } = await supabase
-        .from("books")
-        .insert([
-          {
-            name,
-            type,
-            description,
-            is_default,
-            owner_id: user.id,
-          },
-        ])
-        .select(
-          `
-          *,
-          monthly_budgets (
-            id,
-            book_id,
-            month,
-            amount,
-            created_at,
-            updated_at
-          )
-        `
-        )
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: async (data) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          // If this is the default book, make all others non-default
-          if (data.is_default) {
-            const updatedBooks = old.map((book) => ({
-              ...book,
-              is_default: false,
-            }));
-            return [data, ...updatedBooks];
-          }
-          return [data, ...old];
-        }
-      );
-
-      // Create notification instead of toast
-      await createBookNotification(user!.id, {
-        id: data.id,
-        name: data.name,
-        type: data.type,
+      const { book, error } = await createBookAction(user.id, {
+        name,
+        type,
+        description,
+        is_default,
       });
-
-      // If this is the user's first book, send a welcome notification
-      if (books.length === 0) {
-        await welcomeNotification(user!.id, user!.user_metadata?.display_name);
-      }
-
+      if (error) throw new Error(error);
+      return book;
+    },
+    onSuccess: async (data: any) => {
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
       toast({
         title: "Book created",
         description: `${data.name} has been created successfully.`,
@@ -180,63 +103,12 @@ const useBooks = () => {
       >;
     }) => {
       if (!user) throw new Error("User not authenticated");
-
-      // If making this the default book, update all others first
-      if (updates.is_default && books.length > 1) {
-        await supabase
-          .from("books")
-          .update({ is_default: false })
-          .eq("owner_id", user.id)
-          .neq("id", id);
-      }
-
-      const { data, error } = await supabase
-        .from("books")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("owner_id", user.id)
-        .select(
-          `
-          *,
-          monthly_budgets (
-            id,
-            book_id,
-            month,
-            amount,
-            created_at,
-            updated_at
-          )
-        `
-        )
-        .single();
-
-      if (error) throw error;
-      return data;
+      const { book, error } = await updateBookAction(id, user.id, updates);
+      if (error) throw new Error(error);
+      return book;
     },
-    onSuccess: async (data) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          return old.map((book) => {
-            if (book.id === data.id) {
-              return data;
-            }
-            // If the updated book is now default, make others non-default
-            if (data.is_default) {
-              return { ...book, is_default: false };
-            }
-            return book;
-          });
-        }
-      );
-
-      // Create notification instead of toast
-      await updateBookNotification(user!.id, {
-        id: data.id,
-        name: data.name,
-      });
-
+    onSuccess: async (data: any) => {
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
       toast({
         title: "Book updated",
         description: "Your changes have been saved.",
@@ -263,57 +135,16 @@ const useBooks = () => {
       amount: number;
     }) => {
       if (!user) throw new Error("User not authenticated");
-
-      const { data, error } = await supabase
-        .from("monthly_budgets")
-        .upsert(
-          {
-            book_id: bookId,
-            month,
-            amount,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "book_id,month" }
-        )
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: async (data) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          return old.map((book) => {
-            if (book.id === data.book_id) {
-              const existingBudgets = book.monthly_budgets || [];
-              const updatedBudgets = existingBudgets.some(
-                (b) => b.month === data.month
-              )
-                ? existingBudgets.map((b) =>
-                    b.month === data.month ? data : b
-                  )
-                : [...existingBudgets, data];
-
-              return { ...book, monthly_budgets: updatedBudgets };
-            }
-            return book;
-          });
-        }
+      const { budget, error } = await setMonthlyBudgetAction(
+        bookId,
+        month,
+        amount
       );
-
-      // Find the book name for the notification
-      const book = books.find((b) => b.id === data.book_id);
-      if (book) {
-        // Create notification instead of toast
-        await setBudgetNotification(user!.id, {
-          bookName: book.name,
-          month: data.month,
-          amount: data.amount,
-        });
-      }
+      if (error) throw new Error(error);
+      return budget;
+    },
+    onSuccess: async (data: any) => {
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
 
       toast({
         title: "Budget updated",
@@ -333,25 +164,12 @@ const useBooks = () => {
   const deleteBookMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-
-      const { error } = await supabase
-        .from("books")
-        .delete()
-        .eq("id", id)
-        .eq("owner_id", user.id);
-
-      if (error) throw error;
+      const { success, error } = await deleteBookAction(id);
+      if (error) throw new Error(error);
       return id;
     },
-    onSuccess: (deletedId) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          return old.filter((book) => book.id !== deletedId);
-        }
-      );
-
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
       toast({
         title: "Book deleted",
         description: "The book has been removed.",
@@ -366,7 +184,6 @@ const useBooks = () => {
     },
   });
 
-  // Wrapper functions to match original API
   const createBook = useCallback(
     async (
       name: string,

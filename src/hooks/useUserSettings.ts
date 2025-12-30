@@ -1,11 +1,18 @@
+import {
+  clearDatabaseAction,
+  getProfileRole,
+  getUserSettings,
+  updateUserSettingsAction,
+} from "@/app/actions/user-settings";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 
 export const useUserSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const supabase = createClient();
   const [settings, setSettings] = useState({
     default_book_id: null as string | null,
     notifications: {
@@ -27,34 +34,24 @@ export const useUserSettings = () => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        // Fetch settings
-        const { data, error } = await supabase
-          .from("user_settings")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
+        const { settings: userSettings, error: settingsError } =
+          await getUserSettings(user.id);
 
-        if (error && error.code !== "PGRST116") {
-          throw error;
-        }
+        if (settingsError) throw new Error(settingsError);
 
-        if (data) {
+        if (userSettings) {
           setSettings({
-            default_book_id: data.default_book_id,
-            notifications: data.notifications as any,
-            export_format: data.export_format,
-            currency: data.currency,
+            default_book_id: userSettings.default_book_id,
+            notifications: userSettings.notifications as any,
+            export_format: userSettings.export_format,
+            currency: userSettings.currency,
           });
         }
 
-        // Check admin status (assuming admin role is stored in user_metadata)
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("user_id", user.id)
-          .single();
+        const { role, error: roleError } = await getProfileRole(user.id);
+        if (roleError) throw new Error(roleError);
 
-        setIsAdmin(profile?.role === "admin");
+        setIsAdmin(role === "admin");
       } catch (error: any) {
         toast({
           title: "Error fetching settings",
@@ -76,18 +73,9 @@ export const useUserSettings = () => {
     setLoading(true);
     try {
       const updates = { ...settings, ...newSettings };
-      const { error } = await supabase.from("user_settings").upsert(
-        {
-          user_id: user.id,
-          default_book_id: updates.default_book_id,
-          notifications: updates.notifications,
-          export_format: updates.export_format,
-          currency: updates.currency,
-        },
-        { onConflict: "user_id" } // Specify the conflict target
-      );
+      const { error } = await updateUserSettingsAction(user.id, updates);
 
-      if (error) throw error;
+      if (error) throw new Error(error);
 
       setSettings(updates);
       toast({
@@ -104,69 +92,14 @@ export const useUserSettings = () => {
       setLoading(false);
     }
   };
+
   // Export data
   const exportData = async (format: "csv" | "json") => {
-    setLoading(true);
-    try {
-      const { data: transactions } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user?.id);
-
-      const { data: books } = await supabase
-        .from("books")
-        .select("*")
-        .eq("user_id", user?.id);
-
-      if (format === "csv") {
-        const csv = [
-          "Transactions",
-          "id,book_id,date,category,amount,note",
-          ...(transactions?.map(
-            (t) =>
-              `${t.id},${t.book_id},${t.date},${t.category},${t.amount},${
-                t.note || ""
-              }`
-          ) || []),
-          "",
-          "Books",
-          "id,name,created_at",
-          ...(books?.map((b) => `${b.id},${b.name},${b.created_at}`) || []),
-        ].join("\n");
-
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cashbook_export_${new Date().toISOString()}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const json = { transactions, books };
-        const blob = new Blob([JSON.stringify(json, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cashbook_export_${new Date().toISOString()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
-      toast({
-        title: "Data exported",
-        description: `Your data has been exported as ${format.toUpperCase()}.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error exporting data",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    if (!user) return;
+    toast({
+      title: "Feature temporarily unavailable",
+      description: "Data export is being refactored for the new architecture.",
+    });
   };
 
   // Clear database (admin only)
@@ -189,95 +122,15 @@ export const useUserSettings = () => {
 
     setLoading(true);
     try {
-      // Define tables in deletion order to respect foreign key constraints
-      const tables: string[] = [
-        "transactions",
-        "book_members",
-        "monthly_budgets",
-        "books",
-        "user_settings",
-        "profiles",
-      ];
-
-      // Delete from each table
-      for (const table of tables) {
-        const { error, count } = await supabase
-          .from(table as any)
-          .delete()
-          .not("id", "is", null); // Optional: ensures all rows are targeted
-
-        if (error) {
-          console.error(`Error deleting from ${table}:`, {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          throw new Error(`Failed to delete ${table}: ${error.message}`);
-        }
-      }
-
-      // Delete Auth all users
-      const { error: authError, data }: any = await supabase
-        .from("auth.users")
-        .select("id");
-
-      if (authError) {
-        console.error("Error listing users:", {
-          message: authError.message,
-          details: authError.details,
-          hint: authError.hint,
-          code: authError.code,
-        });
-        throw new Error(`Failed to list users: ${authError.message}`);
-      }
-
-      if (data) {
-        for (const user of data.users) {
-          const { error: userError }: any =
-            await supabase.auth.admin.deleteUser(user.id);
-          if (userError) {
-            console.error("Error deleting user:", {
-              message: userError.message,
-              details: userError.details,
-              hint: userError.hint,
-              code: userError.code,
-            });
-            throw new Error(`Failed to delete user: ${userError.message}`);
-          }
-        }
-      }
-
-      // Delete storage objects in receipts bucket
-      const { error: storageError }: any = await supabase.storage
-        .from("receipts")
-        .remove(["*"]);
-
-      if (storageError) {
-        console.error("Error deleting storage objects:", {
-          message: storageError.message,
-          details: storageError.details,
-          hint: storageError.hint,
-          code: storageError.code,
-        });
-        throw new Error(
-          `Failed to delete storage objects: ${storageError.message}`
-        );
-      }
-      console.log("Deleted all objects from receipts bucket");
+      const { success, error } = await clearDatabaseAction(isAdmin);
+      if (!success) throw new Error(error || "Failed to clear database");
 
       toast({
         title: "Database cleared",
-        description: "All data has been permanently deleted.",
+        description: "All application data has been permanently deleted.",
         variant: "destructive",
       });
     } catch (error: any) {
-      console.error("Clear database error:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
       toast({
         title: "Error clearing database",
         description: error.message || "An unexpected error occurred.",
@@ -290,41 +143,11 @@ export const useUserSettings = () => {
 
   // Delete account
   const deleteAccount = async () => {
-    if (!user) return;
-    if (
-      !confirm(
-        "Are you sure you want to delete your account? This action cannot be undone."
-      )
-    )
-      return;
-
-    setLoading(true);
-    try {
-      // Delete user-related data
-      await Promise.all([
-        supabase.from("transactions").delete().eq("user_id", user.id),
-        supabase.from("books").delete().eq("user_id", user.id),
-        supabase.from("user_settings").delete().eq("user_id", user.id),
-        supabase.from("profiles").delete().eq("user_id", user.id),
-      ]);
-
-      // Delete user from auth
-      await supabase.auth.signOut();
-      await supabase.auth.admin.deleteUser(user.id);
-      toast({
-        title: "Account deleted",
-        description: "Your account has been permanently deleted.",
-        variant: "destructive",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error deleting account",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Feature temporarily unavailable",
+      description:
+        "Account deletion is being refactored for the new architecture.",
+    });
   };
 
   return {

@@ -1,24 +1,29 @@
-import { PGlite } from "@electric-sql/pglite";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPGlite } from "pglite-prisma-adapter";
+import { Pool } from "pg";
 
-// In Prisma 7, the connection URL is no longer passed directly in the datasource block of schema.prisma.
-// For the runtime, you must pass either an 'adapter' or 'accelerateUrl' to the constructor.
+const prismaClientSingleton = () => {
+  const connectionString = process.env.DATABASE_URL;
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not defined");
+  }
+
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
+
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
 };
 
-// Initialize PGlite (either in-memory or persisted)
-const pglite = new PGlite();
-const adapter = new PrismaPGlite(pglite);
+declare global {
+  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
+}
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter,
-    // If using Prisma Accelerate instead:
-    // accelerateUrl: import.meta.env.VITE_PRISMA_ACCELERATE_URL,
-  });
+const prisma = globalThis.prisma ?? prismaClientSingleton();
 
-if (import.meta.env.MODE !== "production") globalForPrisma.prisma = prisma;
+export default prisma;
+
+if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;

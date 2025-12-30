@@ -1,3 +1,9 @@
+"use client";
+
+import {
+  setMonthlyBudgetAction,
+  updateProfileAction,
+} from "@/app/actions/profile";
 import { Header } from "@/components/Header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { TransactionFilters } from "@/types/transaction";
 import {
   BookOpen,
@@ -35,7 +41,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const Profile = () => {
+export default function ProfilePage() {
+  const supabase = createClient();
   const { user } = useAuth();
   const { books, setMonthlyBudget } = useBooks();
   const { toast } = useToast();
@@ -59,6 +66,14 @@ const Profile = () => {
   });
   const [newBudget, setNewBudget] = useState("");
 
+  // Update state when user loads
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.user_metadata?.display_name || "");
+      setAvatarUrl(user.user_metadata?.avatar_url || "");
+    }
+  }, [user]);
+
   // Reset budgetMonth when book changes
   useEffect(() => {
     if (selectedBookId !== "all") {
@@ -69,7 +84,7 @@ const Profile = () => {
       setBudgetMonth(currentMonth);
     }
   }, [selectedBookId]);
-  console.log("avatarUrl", avatarUrl);
+
   // Create transaction filters based on selections
   const transactionFilters: TransactionFilters = useMemo(() => {
     const filters: TransactionFilters = {};
@@ -92,7 +107,6 @@ const Profile = () => {
       filters.startDate = startOfYear.toISOString().split("T")[0];
       filters.endDate = endOfYear.toISOString().split("T")[0];
     }
-    // For "all", we don't set date filters
 
     return filters;
   }, [selectedBookId, selectedTimePeriod]);
@@ -142,7 +156,7 @@ const Profile = () => {
       // For "all books", sum up all budgets for the current month or use default
       const totalBudget = books.reduce((sum, book) => {
         const budget = book.monthly_budgets?.find(
-          (b) => b.month === budgetMonth
+          (b: any) => b.month === budgetMonth
         );
         return sum + (budget?.amount || 5000); // Default 5000 per book if no budget set
       }, 0);
@@ -150,7 +164,7 @@ const Profile = () => {
     } else {
       // For specific book
       const budget = selectedBook?.monthly_budgets?.find(
-        (b) => b.month === budgetMonth
+        (b: any) => b.month === budgetMonth
       );
       return budget?.amount || 5000;
     }
@@ -165,8 +179,6 @@ const Profile = () => {
     (Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  // Recent activity (limit to 5 most recent)
-  const recentTransactions = transactions.slice(0, 5);
   const categoriesUsed = [...new Set(transactions.map((t) => t.category))]
     .length;
 
@@ -179,12 +191,7 @@ const Profile = () => {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file || !user) {
-      console.log("No file or user:", { file, user: !!user });
-      return;
-    }
-
-    console.log("Starting upload for file:", file.name, file.type, file.size);
+    if (!file || !user) return;
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
@@ -209,39 +216,24 @@ const Profile = () => {
     setIsUploadingImage(true);
 
     try {
-      // Create unique filename
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = fileName; // Remove avatars/ folder, just use filename
-
-      console.log("Uploading to path:", filePath);
+      const filePath = `${user.id}/${fileName}`;
 
       // Upload file to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("profile-images") // Match your bucket name
-        .upload(`${user.id}/${filePath}`, file, {
-          // Add user.id folder structure
-          upsert: true, // Allow overwriting
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(filePath, file, {
+          upsert: true,
         });
 
-      console.log("Upload response:", { uploadData, uploadError });
-
-      if (uploadError) {
-        // If bucket doesn't exist, try creating it or use different bucket
-        console.error("Upload error:", uploadError);
-        throw new Error(`Upload failed: ${uploadError.message}`);
-      }
+      if (uploadError) throw uploadError;
 
       // Get public URL
       const {
         data: { publicUrl },
-      } = supabase.storage
-        .from("profile-images")
-        .getPublicUrl(`${user.id}/${filePath}`);
+      } = supabase.storage.from("profile-images").getPublicUrl(filePath);
 
-      console.log("Public URL:", publicUrl);
-
-      // Update local state
       setAvatarUrl(publicUrl);
 
       toast({
@@ -259,7 +251,6 @@ const Profile = () => {
       });
     } finally {
       setIsUploadingImage(false);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -268,23 +259,12 @@ const Profile = () => {
 
   const handleProfileUpdate = async () => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          display_name: displayName,
-          avatar_url: avatarUrl,
-        },
+      const { success, error } = await updateProfileAction({
+        displayName,
+        avatarUrl,
       });
 
-      if (error) throw error;
-
-      await supabase
-        .from("profiles")
-        .update({
-          display_name: displayName,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user?.id);
+      if (error) throw new Error(error);
 
       toast({
         title: "Profile updated",
@@ -311,7 +291,14 @@ const Profile = () => {
     }
 
     try {
-      await setMonthlyBudget(selectedBookId, budgetMonth, Number(newBudget));
+      const { error } = await setMonthlyBudgetAction(
+        selectedBookId,
+        budgetMonth,
+        Number(newBudget)
+      );
+
+      if (error) throw new Error(error);
+
       toast({
         title: "Budget set",
         description: `Budget of ৳${Number(
@@ -334,7 +321,6 @@ const Profile = () => {
     { value: "year", label: "This Year" },
   ];
 
-  // Generate last 12 months for budget selection
   const getMonthOptions = () => {
     const months = [];
     const now = new Date();
@@ -353,12 +339,10 @@ const Profile = () => {
     return months;
   };
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return `৳${amount.toLocaleString()}`;
   };
 
-  // Get display text for selected filters
   const getFilterDisplayText = () => {
     const bookText =
       selectedBookId === "all"
@@ -371,7 +355,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100  ">
       <Header
         showImportExport={false}
         title="CashBook"
@@ -381,7 +365,7 @@ const Profile = () => {
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Profile Header */}
-          <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
+          <Card className="border-none shadow-xl bg-white  rounded-2xl overflow-hidden">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                 <div className="relative">
@@ -450,10 +434,6 @@ const Profile = () => {
                             )}
                           </Button>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Click the camera icon on your avatar or the upload
-                          button to select an image
-                        </p>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -506,14 +486,14 @@ const Profile = () => {
           </Card>
 
           {/* Current Filter Display */}
-          <Card className="border-none shadow-card rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <Card className="border-none shadow-card rounded-lg bg-blue-50  border-blue-200 ">
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                  <p className="text-sm text-blue-600  font-medium">
                     Currently showing data for:
                   </p>
-                  <p className="text-lg font-semibold text-blue-800 dark:text-blue-300">
+                  <p className="text-lg font-semibold text-blue-800 ">
                     {getFilterDisplayText()}
                   </p>
                 </div>
@@ -560,7 +540,7 @@ const Profile = () => {
               </Select>
             </div>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="text-sm font-medium">
                   Set Monthly Budget
@@ -605,13 +585,13 @@ const Profile = () => {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Total Books
                 </CardTitle>
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="w-8 h-8 bg-blue-100  rounded-lg flex items-center justify-center">
+                  <BookOpen className="h-4 w-4 text-blue-600 " />
                 </div>
               </CardHeader>
               <CardContent>
@@ -622,13 +602,13 @@ const Profile = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Transactions
                 </CardTitle>
-                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                  <CreditCard className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <div className="w-8 h-8 bg-purple-100  rounded-lg flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-purple-600 " />
                 </div>
               </CardHeader>
               <CardContent>
@@ -644,21 +624,17 @@ const Profile = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    netWorth >= 0
-                      ? "bg-green-100 dark:bg-green-900/30"
-                      : "bg-red-100 dark:bg-red-900/30"
+                    netWorth >= 0 ? "bg-green-100 " : "bg-red-100 "
                   }`}
                 >
                   <TrendingUp
                     className={`h-4 w-4 ${
-                      netWorth >= 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
+                      netWorth >= 0 ? "text-green-600 " : "text-red-600 "
                     }`}
                   />
                 </div>
@@ -677,13 +653,13 @@ const Profile = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Categories
                 </CardTitle>
-                <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                  <PlusCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <div className="w-8 h-8 bg-orange-100  rounded-lg flex items-center justify-center">
+                  <PlusCircle className="h-4 w-4 text-orange-600 " />
                 </div>
               </CardHeader>
               <CardContent>
@@ -697,11 +673,11 @@ const Profile = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Monthly Budget Progress */}
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                    <Target className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <div className="w-8 h-8 bg-emerald-100  rounded-lg flex items-center justify-center">
+                    <Target className="w-5 h-5 text-emerald-600 " />
                   </div>
                   Monthly Budget Progress
                 </CardTitle>
@@ -709,7 +685,7 @@ const Profile = () => {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">
-                    This Month's Spending
+                    This Month&apos;s Spending
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {formatCurrency(currentMonthExpenses)} /{" "}
@@ -745,18 +721,18 @@ const Profile = () => {
             </Card>
 
             {/* Financial Overview */}
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="w-8 h-8 bg-blue-100  rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-blue-600 " />
                   </div>
                   Financial Overview
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-green-50  rounded-lg">
                     <span className="text-sm font-medium text-green-600">
                       Total Income
                     </span>
@@ -765,7 +741,7 @@ const Profile = () => {
                     </span>
                   </div>
 
-                  <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-red-50  rounded-lg">
                     <span className="text-sm font-medium text-red-600">
                       Total Expenses
                     </span>
@@ -776,7 +752,7 @@ const Profile = () => {
 
                   <Separator />
 
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-gray-50  rounded-lg">
                     <span className="text-sm font-medium">Net Balance</span>
                     <span
                       className={`text-sm font-bold ${
@@ -790,93 +766,9 @@ const Profile = () => {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Recent Activity */}
-            <Card className="lg:col-span-2 border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {transactionsLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground font-medium">
-                      Loading transactions...
-                    </p>
-                  </div>
-                ) : recentTransactions.length > 0 ? (
-                  <div className="space-y-3">
-                    {recentTransactions.map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-4 rounded-lg border border-border bg-card/50 hover:bg-card/80 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                              transaction.type === "income"
-                                ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                                : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                            }`}
-                          >
-                            {transaction.type === "income" ? "+" : "-"}
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              {transaction.note || transaction.category}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(transaction.date).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p
-                            className={`font-medium ${
-                              transaction.type === "income"
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {transaction.type === "income" ? "+" : "-"}
-                            {formatCurrency(Number(transaction.amount))}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {transaction.category}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CreditCard className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground font-medium">
-                      No transactions found
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {selectedTimePeriod === "all"
-                        ? "Start tracking your expenses to see activity here"
-                        : `No transactions found for the selected ${
-                            selectedTimePeriod === "month" ? "month" : "year"
-                          }`}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </div>
       </main>
     </div>
   );
-};
-
-export default Profile;
+}

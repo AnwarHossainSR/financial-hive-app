@@ -1,7 +1,9 @@
+"use server";
+
 // Helper functions to create notifications for different events
 // Import these into your transaction and book hooks
 
-import { supabase } from "@/integrations/supabase/client";
+import prisma from "@/lib/prisma";
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 
@@ -18,16 +20,15 @@ const createNotificationInDB = async (
   notificationData: NotificationData
 ) => {
   try {
-    const { error } = await supabase.from("notifications").insert([
-      {
+    await prisma.notification.create({
+      data: {
         user_id: userId,
-        ...notificationData,
+        title: notificationData.title,
+        message: notificationData.message,
+        type: notificationData.type as any,
+        metadata: notificationData.metadata || {},
       },
-    ]);
-
-    if (error) {
-      console.error("Error creating notification:", error);
-    }
+    });
   } catch (error) {
     console.error("Failed to create notification:", error);
   }

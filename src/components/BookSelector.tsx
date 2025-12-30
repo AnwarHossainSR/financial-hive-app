@@ -31,8 +31,8 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
 import { BookSelectorSkeleton } from "./skeleton/BookSelectorSkeleton";
 import { Switch } from "./ui/switch";
 
@@ -56,8 +56,8 @@ export const BookSelector = ({
     description: "",
     is_default: false,
   });
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +86,7 @@ export const BookSelector = ({
       });
       // Select the newly created book and navigate
       onSelectBook(data);
-      navigate(`/book/${data.id}`);
+      router.push(`/book/${data.id}`);
     } else {
       toast({
         title: "Error",
@@ -119,7 +119,9 @@ export const BookSelector = ({
       });
       // Update selected book to reflect changes
       onSelectBook(data);
-      setSearchParams({ bookId: data.id });
+      const params = new URLSearchParams(searchParams);
+      params.set("bookId", data.id);
+      router.push(`?${params.toString()}`);
     } else {
       toast({
         title: "Error",
@@ -137,7 +139,7 @@ export const BookSelector = ({
     if (!error) {
       onSelectBook(null);
       setShowEditDialog(false);
-      navigate("/");
+      router.push("/");
       toast({
         title: "Book Deleted",
         description: "The book was successfully deleted.",
@@ -177,7 +179,7 @@ export const BookSelector = ({
               size="sm"
               onClick={() => {
                 onSelectBook(null);
-                navigate("/");
+                router.push("/");
               }}
               className="border-border text-foreground hover:bg-primary/5 hover:border-primary/50 transition-all duration-300 rounded-lg"
             >
@@ -256,7 +258,7 @@ export const BookSelector = ({
                     )}
                     onClick={() => {
                       onSelectBook(book);
-                      navigate(`/book/${book.id}`);
+                      router.push(`/book/${book.id}`);
                     }}
                   >
                     <div className="flex flex-col h-full space-y-3">
