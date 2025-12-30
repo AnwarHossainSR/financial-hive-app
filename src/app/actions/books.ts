@@ -27,6 +27,7 @@ export async function getBooksAction(userId: string) {
         updated_at: b.updated_at.toISOString(),
         monthly_budgets: b.monthly_budgets.map((mb) => ({
           ...mb,
+          amount: Number(mb.amount),
           created_at: mb.created_at.toISOString(),
           updated_at: mb.updated_at.toISOString(),
         })),
