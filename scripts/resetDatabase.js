@@ -3,16 +3,17 @@ import dotenv from "dotenv";
 import * as readline from "node:readline";
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 // Initialize Supabase admin client with service role key
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "your-supabase-url";
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "your-supabase-url";
 const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || "your-service-role-key";
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "your-service-role-key";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
-    "❌ VITE_SUPABASE_URL or VITE_SUPABASE_SERVICE_ROLE_KEY is not defined in .env"
+    "❌ NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not defined in .env"
   );
   process.exit(1);
 }

@@ -61,7 +61,7 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname.startsWith("/signup") ||
       request.nextUrl.pathname === "/"
     ) {
-      url.pathname = "/index"; // Or wherever the main dashboard is
+      url.pathname = "/"; // Or wherever the main dashboard is
       return NextResponse.redirect(url);
     }
   }
