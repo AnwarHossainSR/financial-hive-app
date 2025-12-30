@@ -11,7 +11,14 @@ import {
   useState,
 } from "react";
 
-const supabase = createClient();
+// Lazy singleton to avoid module-level initialization during prerendering
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+const getSupabase = () => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient();
+  }
+  return supabaseInstance;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -61,7 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const {
         data: { session },
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } = await getSupabase().auth.getSession();
 
       if (sessionError) throw sessionError;
 
@@ -70,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const {
           data: { user: verifiedUser },
           error: userError,
-        } = await supabase.auth.getUser();
+        } = await getSupabase().auth.getUser();
 
         if (verifiedUser && !userError) {
           setSession(session);
@@ -102,7 +109,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Initial check
         await checkSession();
 
-        const { data } = supabase.auth.onAuthStateChange(
+        const { data } = getSupabase().auth.onAuthStateChange(
           async (event: string, currentSession: Session | null) => {
             if (!mounted) return;
 
@@ -166,7 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(true);
         const redirectUrl = `${window.location.origin}/`;
 
-        const { data, error } = await supabase.auth.signUp({
+        const { data, error } = await getSupabase().auth.signUp({
           email,
           password,
           options: {
@@ -201,7 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (email: string, password: string) => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await getSupabase().auth.signInWithPassword({
           email,
           password,
         });
@@ -229,7 +236,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const resetPassword = useCallback(async (email: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
@@ -245,7 +252,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updatePassword = useCallback(async (password: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await getSupabase().auth.updateUser({
         password,
       });
 
@@ -261,7 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = useCallback(async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
+      const { error } = await getSupabase().auth.signOut();
 
       if (error) {
         console.error("Sign out error:", error);
