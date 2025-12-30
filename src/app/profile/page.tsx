@@ -41,9 +41,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const supabase = createClient();
-
 export default function ProfilePage() {
+  const supabase = createClient();
   const { user } = useAuth();
   const { books, setMonthlyBudget } = useBooks();
   const { toast } = useToast();
@@ -157,7 +156,7 @@ export default function ProfilePage() {
       // For "all books", sum up all budgets for the current month or use default
       const totalBudget = books.reduce((sum, book) => {
         const budget = book.monthly_budgets?.find(
-          (b) => b.month === budgetMonth
+          (b: any) => b.month === budgetMonth
         );
         return sum + (budget?.amount || 5000); // Default 5000 per book if no budget set
       }, 0);
@@ -165,7 +164,7 @@ export default function ProfilePage() {
     } else {
       // For specific book
       const budget = selectedBook?.monthly_budgets?.find(
-        (b) => b.month === budgetMonth
+        (b: any) => b.month === budgetMonth
       );
       return budget?.amount || 5000;
     }
@@ -630,16 +629,12 @@ export default function ProfilePage() {
                 <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    netWorth >= 0
-                      ? "bg-green-100 "
-                      : "bg-red-100 "
+                    netWorth >= 0 ? "bg-green-100 " : "bg-red-100 "
                   }`}
                 >
                   <TrendingUp
                     className={`h-4 w-4 ${
-                      netWorth >= 0
-                        ? "text-green-600 "
-                        : "text-red-600 "
+                      netWorth >= 0 ? "text-green-600 " : "text-red-600 "
                     }`}
                   />
                 </div>
@@ -690,7 +685,7 @@ export default function ProfilePage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">
-                    This Month's Spending
+                    This Month&apos;s Spending
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {formatCurrency(currentMonthExpenses)} /{" "}
