@@ -62,7 +62,11 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname === "/"
     ) {
       url.pathname = "/"; // Or wherever the main dashboard is
-      return NextResponse.redirect(url);
+
+      // Prevent redirect loop if already on the target page
+      if (request.nextUrl.pathname !== url.pathname) {
+        return NextResponse.redirect(url);
+      }
     }
   }
 
