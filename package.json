@@ -20,7 +20,8 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@hookform/resolvers": "^2.0.0",
+    "@hookform/resolvers": "^5.2.2",
+    "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -65,12 +66,13 @@
     "lucide-react": "^0.471.0",
     "next": "15.1.4",
     "papaparse": "^5.5.3",
+    "pg": "^8.16.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-hook-form": "^7.54.2",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.0",
-    "tailwind-merge": "^3.0.1",
+    "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
     "zod": "^3.24.1"
@@ -80,6 +82,7 @@
     "@types/lodash": "^4.17.14",
     "@types/node": "^20.17.11",
     "@types/papaparse": "^5.3.15",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.23",
@@ -87,7 +90,7 @@
     "eslint-config-next": "15.1.4",
     "postcss": "^8.5.6",
     "prisma": "^7.2.0",
-    "tailwindcss": "^4.0.0",
+    "tailwindcss": "^3.4.11",
     "typescript": "^5.7.2"
   }
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,7 +61,7 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const { user, loading, signIn, signUp, resetPassword } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -647,5 +649,19 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

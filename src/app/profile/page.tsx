@@ -356,7 +356,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100  ">
       <Header
         showImportExport={false}
         title="CashBook"
@@ -366,7 +366,7 @@ export default function ProfilePage() {
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Profile Header */}
-          <Card className="border-none shadow-xl bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
+          <Card className="border-none shadow-xl bg-white  rounded-2xl overflow-hidden">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                 <div className="relative">
@@ -487,14 +487,14 @@ export default function ProfilePage() {
           </Card>
 
           {/* Current Filter Display */}
-          <Card className="border-none shadow-card rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <Card className="border-none shadow-card rounded-lg bg-blue-50  border-blue-200 ">
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                  <p className="text-sm text-blue-600  font-medium">
                     Currently showing data for:
                   </p>
-                  <p className="text-lg font-semibold text-blue-800 dark:text-blue-300">
+                  <p className="text-lg font-semibold text-blue-800 ">
                     {getFilterDisplayText()}
                   </p>
                 </div>
@@ -541,7 +541,7 @@ export default function ProfilePage() {
               </Select>
             </div>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="text-sm font-medium">
                   Set Monthly Budget
@@ -586,13 +586,13 @@ export default function ProfilePage() {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Total Books
                 </CardTitle>
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="w-8 h-8 bg-blue-100  rounded-lg flex items-center justify-center">
+                  <BookOpen className="h-4 w-4 text-blue-600 " />
                 </div>
               </CardHeader>
               <CardContent>
@@ -603,13 +603,13 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Transactions
                 </CardTitle>
-                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                  <CreditCard className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <div className="w-8 h-8 bg-purple-100  rounded-lg flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-purple-600 " />
                 </div>
               </CardHeader>
               <CardContent>
@@ -625,21 +625,21 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
                 <div
                   className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                     netWorth >= 0
-                      ? "bg-green-100 dark:bg-green-900/30"
-                      : "bg-red-100 dark:bg-red-900/30"
+                      ? "bg-green-100 "
+                      : "bg-red-100 "
                   }`}
                 >
                   <TrendingUp
                     className={`h-4 w-4 ${
                       netWorth >= 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
+                        ? "text-green-600 "
+                        : "text-red-600 "
                     }`}
                   />
                 </div>
@@ -658,13 +658,13 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md hover:shadow-lg transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Categories
                 </CardTitle>
-                <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                  <PlusCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <div className="w-8 h-8 bg-orange-100  rounded-lg flex items-center justify-center">
+                  <PlusCircle className="h-4 w-4 text-orange-600 " />
                 </div>
               </CardHeader>
               <CardContent>
@@ -678,11 +678,11 @@ export default function ProfilePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Monthly Budget Progress */}
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                    <Target className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <div className="w-8 h-8 bg-emerald-100  rounded-lg flex items-center justify-center">
+                    <Target className="w-5 h-5 text-emerald-600 " />
                   </div>
                   Monthly Budget Progress
                 </CardTitle>
@@ -726,18 +726,18 @@ export default function ProfilePage() {
             </Card>
 
             {/* Financial Overview */}
-            <Card className="border-none shadow-card rounded-lg bg-white dark:bg-gray-800 bg-opacity-95 backdrop-blur-md">
+            <Card className="border-none shadow-card rounded-lg bg-white  bg-opacity-95 backdrop-blur-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="w-8 h-8 bg-blue-100  rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-blue-600 " />
                   </div>
                   Financial Overview
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-green-50  rounded-lg">
                     <span className="text-sm font-medium text-green-600">
                       Total Income
                     </span>
@@ -746,7 +746,7 @@ export default function ProfilePage() {
                     </span>
                   </div>
 
-                  <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-red-50  rounded-lg">
                     <span className="text-sm font-medium text-red-600">
                       Total Expenses
                     </span>
@@ -757,7 +757,7 @@ export default function ProfilePage() {
 
                   <Separator />
 
-                  <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <div className="flex justify-between items-center p-3 bg-gray-50  rounded-lg">
                     <span className="text-sm font-medium">Net Balance</span>
                     <span
                       className={`text-sm font-bold ${
