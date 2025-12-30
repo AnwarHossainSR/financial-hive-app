@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { prisma } from "@/lib/prisma";
 import {
   keepPreviousData,
   useMutation,
@@ -34,29 +34,28 @@ const notificationKeys = {
 const fetchNotifications = async (userId: string): Promise<Notification[]> => {
   if (!userId) return [];
 
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50); // Limit to last 50 notifications
+  const notifications = await prisma.notification.findMany({
+    where: {
+      user_id: userId,
+    },
+    orderBy: {
+      created_at: "desc",
+    },
+    take: 50,
+  });
 
-  if (error) throw error;
-  //@ts-expect-error expect-error
-  return data || [];
+  return (notifications as any) || [];
 };
 
 const fetchUnreadCount = async (userId: string): Promise<number> => {
   if (!userId) return 0;
 
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("read", false);
-
-  if (error) throw error;
-  return count || 0;
+  return await prisma.notification.count({
+    where: {
+      user_id: userId,
+      read: false,
+    },
+  });
 };
 
 export const useNotifications = () => {
@@ -105,22 +104,15 @@ export const useNotifications = () => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { data, error } = await supabase
-        .from("notifications")
-        .insert([
-          {
-            user_id: user.id,
-            title,
-            message,
-            type,
-            metadata,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await prisma.notification.create({
+        data: {
+          user_id: user.id,
+          title,
+          message,
+          type: type as any,
+          metadata: metadata as any,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -139,16 +131,14 @@ export const useNotifications = () => {
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-      const { data, error } = await supabase
-        .from("notifications")
-        .update({ read: true, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .select()
-        .single();
 
-      if (error) throw error;
-      return data;
+      return await prisma.notification.update({
+        where: { id },
+        data: {
+          read: true,
+          updated_at: new Date(),
+        },
+      });
     },
     onSuccess: () => {
       // Optimistically update cache
@@ -166,13 +156,16 @@ export const useNotifications = () => {
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true, updated_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .eq("read", false);
-
-      if (error) throw error;
+      return await prisma.notification.updateMany({
+        where: {
+          user_id: user.id,
+          read: false,
+        },
+        data: {
+          read: true,
+          updated_at: new Date(),
+        },
+      });
     },
     onSuccess: () => {
       // Update cache
@@ -193,13 +186,10 @@ export const useNotifications = () => {
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
+      await prisma.notification.delete({
+        where: { id },
+      });
 
-      if (error) throw error;
       return id;
     },
     onSuccess: () => {
@@ -220,12 +210,11 @@ export const useNotifications = () => {
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("user_id", user.id);
-
-      if (error) throw error;
+      return await prisma.notification.deleteMany({
+        where: {
+          user_id: user.id,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

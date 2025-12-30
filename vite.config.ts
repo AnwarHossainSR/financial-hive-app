@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => ({
     port: 3000,
   },
   plugins: [react()].filter(Boolean),
+  define: {
+    global: "window",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

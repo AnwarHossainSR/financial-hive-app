@@ -227,7 +227,7 @@ importers:
         version: 3.4.19
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@swc/core@1.15.8)(@types/node@24.10.4)(typescript@5.9.3)
+        version: 10.9.2(@swc/core@1.15.8)(@swc/wasm@1.15.8)(@types/node@24.10.4)(typescript@5.9.3)
       typescript:
         specifier: ^5.5.3
         version: 5.9.3
@@ -237,6 +237,12 @@ importers:
       vite:
         specifier: ^7.0.6
         version: 7.3.0(@types/node@24.10.4)(jiti@1.21.7)
+      vite-plugin-top-level-await:
+        specifier: ^1.6.0
+        version: 1.6.0(rollup@4.54.0)(vite@7.3.0(@types/node@24.10.4)(jiti@1.21.7))
+      vite-plugin-wasm:
+        specifier: ^3.5.0
+        version: 3.5.0(vite@7.3.0(@types/node@24.10.4)(jiti@1.21.7))
 
 packages:
 
@@ -1281,6 +1287,15 @@ packages:
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
 
+  '@rollup/plugin-virtual@3.0.2':
+    resolution: {integrity: sha512-10monEYsBp3scM4/ND4LNH5Rxvh3e/cVeL3jWTgZ2SrQ+BmUoQcopVQvnaMcOnykb1VkxUFuDAN+0FnpTFRy2A==}
+    engines: {node: '>=14.0.0'}
+    peerDependencies:
+      rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
+    peerDependenciesMeta:
+      rollup:
+        optional: true
+
   '@rollup/rollup-android-arm-eabi@4.54.0':
     resolution: {integrity: sha512-OywsdRHrFvCdvsewAInDKCNyR3laPA2mc9bRYJ6LBp5IyvF3fvXbbNR0bSzHlZVFtn6E0xw2oZlyjg4rKCVcng==}
     cpu: [arm]
@@ -1495,6 +1510,9 @@ packages:
 
   '@swc/types@0.1.25':
     resolution: {integrity: sha512-iAoY/qRhNH8a/hBvm3zKj9qQ4oc2+3w1unPJa2XvTK3XjeLXtzcCingVPw/9e5mn1+0yPqxcBGp9Jf0pkfMb1g==}
+
+  '@swc/wasm@1.15.8':
+    resolution: {integrity: sha512-RG2BxGbbsjtddFCo1ghKH6A/BMXbY1eMBfpysV0lJMCpI4DZOjW1BNBnxvBt7YsYmlJtmy5UXIg9/4ekBTFFaQ==}
 
   '@tailwindcss/typography@0.5.19':
     resolution: {integrity: sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg==}
@@ -2943,6 +2961,10 @@ packages:
   utrie@1.0.2:
     resolution: {integrity: sha512-1MLa5ouZiOmQzUbjbu9VmjLzn1QLXBhwpUa7kdLUQK+KQ5KA9I1vk5U4YHe/X2Ch7PYnJfWuWT+VbuxbGwljhw==}
 
+  uuid@10.0.0:
+    resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    hasBin: true
+
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
 
@@ -2962,6 +2984,16 @@ packages:
 
   victory-vendor@37.3.6:
     resolution: {integrity: sha512-SbPDPdDBYp+5MJHhBCAyI7wKM3d5ivekigc2Dk2s7pgbZ9wIgIBYGVw4zGHBml/qTFbexrofXW6Gu4noGxrOwQ==}
+
+  vite-plugin-top-level-await@1.6.0:
+    resolution: {integrity: sha512-bNhUreLamTIkoulCR9aDXbTbhLk6n1YE8NJUTTxl5RYskNRtzOR0ASzSjBVRtNdjIfngDXo11qOsybGLNsrdww==}
+    peerDependencies:
+      vite: '>=2.8'
+
+  vite-plugin-wasm@3.5.0:
+    resolution: {integrity: sha512-X5VWgCnqiQEGb+omhlBVsvTfxikKtoOgAzQ95+BZ8gQ+VfMHIjSHr0wyvXFQCa0eKQ0fKyaL0kWcEnYqBac4lQ==}
+    peerDependencies:
+      vite: ^2 || ^3 || ^4 || ^5 || ^6 || ^7
 
   vite@7.3.0:
     resolution: {integrity: sha512-dZwN5L1VlUBewiP6H9s2+B3e3Jg96D0vzN+Ry73sOefebhYr9f94wwkMNN/9ouoU8pV1BqA1d1zGk8928cx0rg==}
@@ -4078,6 +4110,10 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 
+  '@rollup/plugin-virtual@3.0.2(rollup@4.54.0)':
+    optionalDependencies:
+      rollup: 4.54.0
+
   '@rollup/rollup-android-arm-eabi@4.54.0':
     optional: true
 
@@ -4237,6 +4273,8 @@ snapshots:
   '@swc/types@0.1.25':
     dependencies:
       '@swc/counter': 0.1.3
+
+  '@swc/wasm@1.15.8': {}
 
   '@tailwindcss/typography@0.5.19(tailwindcss@3.4.19)':
     dependencies:
@@ -5611,7 +5649,7 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
-  ts-node@10.9.2(@swc/core@1.15.8)(@types/node@24.10.4)(typescript@5.9.3):
+  ts-node@10.9.2(@swc/core@1.15.8)(@swc/wasm@1.15.8)(@types/node@24.10.4)(typescript@5.9.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.12
@@ -5630,6 +5668,7 @@ snapshots:
       yn: 3.1.1
     optionalDependencies:
       '@swc/core': 1.15.8
+      '@swc/wasm': 1.15.8
 
   tslib@2.8.1: {}
 
@@ -5690,6 +5729,8 @@ snapshots:
       base64-arraybuffer: 1.0.2
     optional: true
 
+  uuid@10.0.0: {}
+
   v8-compile-cache-lib@3.0.1: {}
 
   valibot@1.2.0(typescript@5.9.3):
@@ -5721,6 +5762,21 @@ snapshots:
       d3-shape: 3.2.0
       d3-time: 3.1.0
       d3-timer: 3.0.1
+
+  vite-plugin-top-level-await@1.6.0(rollup@4.54.0)(vite@7.3.0(@types/node@24.10.4)(jiti@1.21.7)):
+    dependencies:
+      '@rollup/plugin-virtual': 3.0.2(rollup@4.54.0)
+      '@swc/core': 1.15.8
+      '@swc/wasm': 1.15.8
+      uuid: 10.0.0
+      vite: 7.3.0(@types/node@24.10.4)(jiti@1.21.7)
+    transitivePeerDependencies:
+      - '@swc/helpers'
+      - rollup
+
+  vite-plugin-wasm@3.5.0(vite@7.3.0(@types/node@24.10.4)(jiti@1.21.7)):
+    dependencies:
+      vite: 7.3.0(@types/node@24.10.4)(jiti@1.21.7)
 
   vite@7.3.0(@types/node@24.10.4)(jiti@1.21.7):
     dependencies:

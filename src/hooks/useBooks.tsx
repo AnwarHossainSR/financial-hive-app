@@ -1,10 +1,10 @@
-import { supabase } from "@/integrations/supabase/client";
 import {
   createBookNotification,
   setBudgetNotification,
   updateBookNotification,
   welcomeNotification,
 } from "@/lib/notificationHelpers";
+import { prisma } from "@/lib/prisma";
 import { Book } from "@/types/book";
 import {
   keepPreviousData,
@@ -15,7 +15,9 @@ import {
 import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
+
 export type { Book };
+
 // Query Keys Factory
 const bookKeys = {
   all: ["books"] as const,
@@ -28,28 +30,18 @@ const bookKeys = {
 const fetchBooks = async (userId: string): Promise<Book[]> => {
   if (!userId) return [];
 
-  const { data: bookData, error: bookError } = await supabase
-    .from("books")
-    .select(
-      `
-      *,
-      monthly_budgets (
-        id,
-        book_id,
-        month,
-        amount,
-        created_at,
-        updated_at
-      )
-    `
-    )
-    .eq("owner_id", userId)
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: false });
+  const books = await prisma.book.findMany({
+    where: {
+      owner_id: userId,
+    },
+    include: {
+      monthly_budgets: true,
+    },
+    orderBy: [{ is_default: "desc" }, { created_at: "desc" }],
+  });
 
-  if (bookError) throw bookError;
-
-  return bookData || [];
+  // Convert Decimal to number for the UI if needed
+  return (books as any) || [];
 };
 
 const useBooks = () => {
@@ -88,44 +80,30 @@ const useBooks = () => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      // If this is going to be the default book, update all others first
-      if (is_default && books.length > 0) {
-        await supabase
-          .from("books")
-          .update({ is_default: false })
-          .eq("owner_id", user.id);
-      }
+      return await prisma.$transaction(async (tx) => {
+        // If this is going to be the default book, update all others first
+        if (is_default) {
+          await tx.book.updateMany({
+            where: { owner_id: user.id },
+            data: { is_default: false },
+          });
+        }
 
-      const { data, error } = await supabase
-        .from("books")
-        .insert([
-          {
+        return await tx.book.create({
+          data: {
             name,
-            type,
+            type: type as any,
             description,
             is_default,
             owner_id: user.id,
           },
-        ])
-        .select(
-          `
-          *,
-          monthly_budgets (
-            id,
-            book_id,
-            month,
-            amount,
-            created_at,
-            updated_at
-          )
-        `
-        )
-        .single();
-
-      if (error) throw error;
-      return data;
+          include: {
+            monthly_budgets: true,
+          },
+        });
+      });
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       // Optimistically update the cache
       queryClient.setQueryData(
         bookKeys.list(user?.id || ""),
@@ -142,7 +120,7 @@ const useBooks = () => {
         }
       );
 
-      // Create notification instead of toast
+      // Create notification
       await createBookNotification(user!.id, {
         id: data.id,
         name: data.name,
@@ -181,39 +159,31 @@ const useBooks = () => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      // If making this the default book, update all others first
-      if (updates.is_default && books.length > 1) {
-        await supabase
-          .from("books")
-          .update({ is_default: false })
-          .eq("owner_id", user.id)
-          .neq("id", id);
-      }
+      return await prisma.$transaction(async (tx) => {
+        // If making this the default book, update all others first
+        if (updates.is_default) {
+          await tx.book.updateMany({
+            where: {
+              owner_id: user.id,
+              id: { not: id },
+            },
+            data: { is_default: false },
+          });
+        }
 
-      const { data, error } = await supabase
-        .from("books")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("owner_id", user.id)
-        .select(
-          `
-          *,
-          monthly_budgets (
-            id,
-            book_id,
-            month,
-            amount,
-            created_at,
-            updated_at
-          )
-        `
-        )
-        .single();
-
-      if (error) throw error;
-      return data;
+        return await tx.book.update({
+          where: { id },
+          data: {
+            ...(updates as any),
+            updated_at: new Date(),
+          },
+          include: {
+            monthly_budgets: true,
+          },
+        });
+      });
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       // Optimistically update the cache
       queryClient.setQueryData(
         bookKeys.list(user?.id || ""),
@@ -231,7 +201,7 @@ const useBooks = () => {
         }
       );
 
-      // Create notification instead of toast
+      // Create notification
       await updateBookNotification(user!.id, {
         id: data.id,
         name: data.name,
@@ -264,24 +234,26 @@ const useBooks = () => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { data, error } = await supabase
-        .from("monthly_budgets")
-        .upsert(
-          {
+      // Use upsert
+      return await prisma.monthlyBudget.upsert({
+        where: {
+          book_id_month: {
             book_id: bookId,
-            month,
-            amount,
-            updated_at: new Date().toISOString(),
+            month: month,
           },
-          { onConflict: "book_id,month" }
-        )
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+        },
+        update: {
+          amount: amount,
+          updated_at: new Date(),
+        },
+        create: {
+          book_id: bookId,
+          month: month,
+          amount: amount,
+        },
+      });
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       // Optimistically update the cache
       queryClient.setQueryData(
         bookKeys.list(user?.id || ""),
@@ -307,11 +279,10 @@ const useBooks = () => {
       // Find the book name for the notification
       const book = books.find((b) => b.id === data.book_id);
       if (book) {
-        // Create notification instead of toast
         await setBudgetNotification(user!.id, {
           bookName: book.name,
           month: data.month,
-          amount: data.amount,
+          amount: Number(data.amount),
         });
       }
 
@@ -334,13 +305,10 @@ const useBooks = () => {
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("books")
-        .delete()
-        .eq("id", id)
-        .eq("owner_id", user.id);
+      await prisma.book.delete({
+        where: { id },
+      });
 
-      if (error) throw error;
       return id;
     },
     onSuccess: (deletedId) => {

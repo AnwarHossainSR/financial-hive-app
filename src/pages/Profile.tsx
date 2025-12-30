@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
 import { supabase } from "@/integrations/supabase/client";
+import { prisma } from "@/lib/prisma";
 import { TransactionFilters } from "@/types/transaction";
 import {
   BookOpen,
@@ -268,23 +269,21 @@ const Profile = () => {
 
   const handleProfileUpdate = async () => {
     try {
-      const { error } = await supabase.auth.updateUser({
+      await supabase.auth.updateUser({
         data: {
           display_name: displayName,
           avatar_url: avatarUrl,
         },
       });
 
-      if (error) throw error;
-
-      await supabase
-        .from("profiles")
-        .update({
+      await prisma.profile.update({
+        where: { user_id: user?.id },
+        data: {
           display_name: displayName,
           avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user?.id);
+          updated_at: new Date(),
+        },
+      });
 
       toast({
         title: "Profile updated",

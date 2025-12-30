@@ -4,6 +4,7 @@ import {
   importTransactionsNotification,
   updateTransactionNotification,
 } from "@/lib/notificationHelpers";
+import { prisma } from "@/lib/prisma";
 import {
   PaginationInfo,
   Transaction,
@@ -19,6 +20,7 @@ import {
 import { useCallback, useMemo } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
+
 export type { PaginationInfo, Transaction, TransactionFilters };
 
 const ITEMS_PER_PAGE = 50;
@@ -39,39 +41,48 @@ const transactionKeys = {
     [...transactionKeys.all, "count", filters] as const,
 };
 
-// Helper function to build query with filters
-const buildQuery = (baseQuery: any, filters: TransactionFilters) => {
-  let query = baseQuery;
-
-  // Always filter by user_id first
-  if (filters.userId) {
-    query = query.eq("user_id", filters.userId);
-  }
+// Helper function to build Prisma where clause
+const buildWhereClause = (filters: TransactionFilters, userId: string) => {
+  const where: any = {
+    user_id: userId,
+  };
 
   if (filters.bookId) {
-    query = query.eq("book_id", filters.bookId);
+    where.book_id = filters.bookId;
   }
   if (filters.type) {
-    query = query.eq("type", filters.type);
+    where.type = filters.type;
   }
   if (filters.category) {
-    query = query.eq("category", filters.category);
+    where.category = filters.category;
   }
   if (filters.startDate) {
-    query = query.gte("date", filters.startDate);
+    where.date = {
+      ...where.date,
+      gte: new Date(filters.startDate),
+    };
   }
   if (filters.endDate) {
-    query = query.lte("date", filters.endDate);
+    where.date = {
+      ...where.date,
+      lte: new Date(filters.endDate),
+    };
   }
   if (filters.note) {
-    query = query.ilike("note", `%${filters.note}%`);
+    where.note = {
+      contains: filters.note,
+      mode: "insensitive",
+    };
   }
   if (filters.search && filters.search.trim()) {
     const searchTerm = filters.search.trim();
-    query = query.ilike("note", `%${searchTerm}%`);
+    where.note = {
+      contains: searchTerm,
+      mode: "insensitive",
+    };
   }
 
-  return query;
+  return where;
 };
 
 // Fetch functions
@@ -79,52 +90,29 @@ const fetchTransactions = async (
   filters: TransactionFilters,
   userId: string,
   page = 0
-) => {
-  if (!userId) {
-    return [];
-  }
+): Promise<Transaction[]> => {
+  if (!userId) return [];
 
-  let query = supabase
-    .from("transactions")
-    .select("*")
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
+  const where = buildWhereClause(filters, userId);
 
-  // Include userId in filters for building the query
-  const filtersWithUserId = { ...filters, userId };
-  query = buildQuery(query, filtersWithUserId);
+  const transactions = await prisma.transaction.findMany({
+    where,
+    orderBy: [{ date: "desc" }, { created_at: "desc" }],
+    skip: page * ITEMS_PER_PAGE,
+    take: ITEMS_PER_PAGE,
+  });
 
-  const { data, error } = await query;
-  if (error) {
-    console.error("Error fetching transactions:", error);
-    throw error;
-  }
-
-  return data || [];
+  return (transactions as any) || [];
 };
 
 const fetchTransactionCount = async (
   filters: TransactionFilters,
   userId: string
-) => {
+): Promise<number> => {
   if (!userId) return 0;
 
-  let countQuery = supabase
-    .from("transactions")
-    .select("*", { count: "exact", head: true });
-
-  // Include userId in filters for building the query
-  const filtersWithUserId = { ...filters, userId };
-  countQuery = buildQuery(countQuery, filtersWithUserId);
-
-  const { count, error } = await countQuery;
-  if (error) {
-    console.error("Error fetching transaction count:", error);
-    throw error;
-  }
-
-  return count || 0;
+  const where = buildWhereClause(filters, userId);
+  return await prisma.transaction.count({ where });
 };
 
 const fetchTransactionsInfinite = async ({
@@ -228,30 +216,28 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (!user) throw new Error("User not authenticated");
       if (!transaction.book_id) throw new Error("No book selected");
 
-      const transactionData = {
-        ...transaction,
-        user_id: user.id,
-        amount: Number(transaction.amount),
-        date: transaction.date,
-      };
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert([transactionData])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await prisma.transaction.create({
+        data: {
+          book_id: transaction.book_id,
+          user_id: user.id,
+          type: transaction.type as any,
+          amount: Number(transaction.amount),
+          category: transaction.category,
+          note: transaction.note,
+          date: new Date(transaction.date),
+          image_url: transaction.image_url,
+        },
+      });
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       // Invalidate and refetch relevant queries
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      // Create notification instead of toast
+
+      // Create notification
       await createTransactionNotification(user!.id, {
         id: data.id,
         type: data.type,
-        amount: data.amount,
+        amount: Number(data.amount),
         category: data.category,
         note: data.note,
       });
@@ -284,35 +270,34 @@ const useTransactions = (filters: TransactionFilters = {}) => {
     }) => {
       if (!user) throw new Error("User not authenticated");
 
-      const updateData = {
-        ...updates,
-        updated_at: new Date().toISOString(),
+      const data: any = {
+        ...(updates as any),
+        updated_at: new Date(),
       };
 
       if (updates.amount !== undefined) {
-        updateData.amount = Number(updates.amount);
+        data.amount = Number(updates.amount);
+      }
+      if (updates.date !== undefined) {
+        data.date = new Date(updates.date);
       }
 
-      const { data, error } = await supabase
-        .from("transactions")
-        .update(updateData)
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return await prisma.transaction.update({
+        where: { id },
+        data,
+      });
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      // Create notification instead of toast
+
+      // Create notification
       await updateTransactionNotification(user!.id, {
         id: data.id,
         type: data.type,
-        amount: data.amount,
+        amount: Number(data.amount),
         category: data.category,
       });
+
       toast({
         title: "Transaction updated",
         description: "Your changes have been saved.",
@@ -331,13 +316,10 @@ const useTransactions = (filters: TransactionFilters = {}) => {
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
+      await prisma.transaction.delete({
+        where: { id },
+      });
 
-      if (error) throw error;
       return id;
     },
     onSuccess: async () => {
@@ -397,27 +379,27 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (!user) throw new Error("User not authenticated");
       if (!transactions.length) throw new Error("No transactions to import");
 
-      const transactionData = transactions.map((transaction) => ({
-        ...transaction,
+      const data = transactions.map((transaction) => ({
+        book_id: transaction.book_id,
         user_id: user.id,
+        type: transaction.type as any,
         amount: Number(transaction.amount),
-        date: transaction.date || new Date().toISOString().split("T")[0],
+        category: transaction.category,
+        note: transaction.note,
+        date: transaction.date ? new Date(transaction.date) : new Date(),
+        image_url: transaction.image_url,
       }));
 
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert(transactionData)
-        .select();
-
-      if (error) throw error;
-      return data;
+      return await prisma.transaction.createMany({
+        data,
+      });
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      await importTransactionsNotification(user!.id, data.length);
+      await importTransactionsNotification(user!.id, data.count);
       toast({
         title: "Transactions imported",
-        description: `Successfully imported ${data.length} transactions.`,
+        description: `Successfully imported ${data.count} transactions.`,
       });
     },
     onError: (error: any) => {

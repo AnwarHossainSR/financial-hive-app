@@ -20,7 +20,7 @@
     "reset:db:force": "AUTOMATED_RESET=true node scripts/resetDatabase.js",
     "migration:link": "npx supabase link",
     "db:seed": "node scripts/seed.js",
-    "postinstall": "prisma generate && npm run generate-types"
+    "postinstall": "PRISMA_CLIENT_FORCE_WASM=true prisma generate"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
@@ -100,6 +100,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^7.0.6"
+    "vite": "^7.0.6",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0"
   }
 }

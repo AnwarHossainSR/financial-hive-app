@@ -1,5 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client/edge";
 import { PrismaPGlite } from "pglite-prisma-adapter";
 
 // In Prisma 7, the connection URL is no longer passed directly in the datasource block of schema.prisma.
@@ -9,16 +9,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Initialize PGlite (either in-memory or persisted)
-const pglite = new PGlite();
+// Initialize PGlite with persistent storage (IndexedDB in the browser)
+const pglite = new PGlite("idb://financial-hive-db");
 const adapter = new PrismaPGlite(pglite);
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
-    // If using Prisma Accelerate instead:
-    // accelerateUrl: import.meta.env.VITE_PRISMA_ACCELERATE_URL,
   });
 
 if (import.meta.env.MODE !== "production") globalForPrisma.prisma = prisma;

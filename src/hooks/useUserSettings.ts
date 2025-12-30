@@ -1,6 +1,7 @@
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { prisma } from "@/lib/prisma";
 import { useEffect, useState } from "react";
 
 export const useUserSettings = () => {
@@ -27,32 +28,25 @@ export const useUserSettings = () => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        // Fetch settings
-        const { data, error } = await supabase
-          .from("user_settings")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
+        // Fetch settings - Model name is UserSettings (plural as in schema)
+        const userSettings = await prisma.userSettings.findUnique({
+          where: { user_id: user.id },
+        });
 
-        if (error && error.code !== "PGRST116") {
-          throw error;
-        }
-
-        if (data) {
+        if (userSettings) {
           setSettings({
-            default_book_id: data.default_book_id,
-            notifications: data.notifications as any,
-            export_format: data.export_format,
-            currency: data.currency,
+            default_book_id: userSettings.default_book_id,
+            notifications: userSettings.notifications as any,
+            export_format: userSettings.export_format,
+            currency: userSettings.currency,
           });
         }
 
-        // Check admin status (assuming admin role is stored in user_metadata)
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("user_id", user.id)
-          .single();
+        // Check admin status
+        const profile = await prisma.profile.findUnique({
+          where: { user_id: user.id },
+          select: { role: true },
+        });
 
         setIsAdmin(profile?.role === "admin");
       } catch (error: any) {
@@ -76,18 +70,24 @@ export const useUserSettings = () => {
     setLoading(true);
     try {
       const updates = { ...settings, ...newSettings };
-      const { error } = await supabase.from("user_settings").upsert(
-        {
+
+      await prisma.userSettings.upsert({
+        where: { user_id: user.id },
+        update: {
+          default_book_id: updates.default_book_id,
+          notifications: updates.notifications as any,
+          export_format: updates.export_format,
+          currency: updates.currency,
+          updated_at: new Date(),
+        },
+        create: {
           user_id: user.id,
           default_book_id: updates.default_book_id,
-          notifications: updates.notifications,
+          notifications: updates.notifications as any,
           export_format: updates.export_format,
           currency: updates.currency,
         },
-        { onConflict: "user_id" } // Specify the conflict target
-      );
-
-      if (error) throw error;
+      });
 
       setSettings(updates);
       toast({
@@ -104,19 +104,16 @@ export const useUserSettings = () => {
       setLoading(false);
     }
   };
+
   // Export data
   const exportData = async (format: "csv" | "json") => {
+    if (!user) return;
     setLoading(true);
     try {
-      const { data: transactions } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user?.id);
-
-      const { data: books } = await supabase
-        .from("books")
-        .select("*")
-        .eq("user_id", user?.id);
+      const [transactions, books] = await Promise.all([
+        prisma.transaction.findMany({ where: { user_id: user.id } }),
+        prisma.book.findMany({ where: { owner_id: user.id } }),
+      ]);
 
       if (format === "csv") {
         const csv = [
@@ -124,14 +121,16 @@ export const useUserSettings = () => {
           "id,book_id,date,category,amount,note",
           ...(transactions?.map(
             (t) =>
-              `${t.id},${t.book_id},${t.date},${t.category},${t.amount},${
-                t.note || ""
-              }`
+              `${t.id},${t.book_id},${t.date.toISOString()},${t.category},${
+                t.amount
+              },${t.note || ""}`
           ) || []),
           "",
           "Books",
           "id,name,created_at",
-          ...(books?.map((b) => `${b.id},${b.name},${b.created_at}`) || []),
+          ...(books?.map(
+            (b) => `${b.id},${b.name},${b.created_at.toISOString()}`
+          ) || []),
         ].join("\n");
 
         const blob = new Blob([csv], { type: "text/csv" });
@@ -189,95 +188,32 @@ export const useUserSettings = () => {
 
     setLoading(true);
     try {
-      // Define tables in deletion order to respect foreign key constraints
-      const tables: string[] = [
-        "transactions",
-        "book_members",
-        "monthly_budgets",
-        "books",
-        "user_settings",
-        "profiles",
-      ];
-
-      // Delete from each table
-      for (const table of tables) {
-        const { error, count } = await supabase
-          .from(table as any)
-          .delete()
-          .not("id", "is", null); // Optional: ensures all rows are targeted
-
-        if (error) {
-          console.error(`Error deleting from ${table}:`, {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          throw new Error(`Failed to delete ${table}: ${error.message}`);
-        }
-      }
-
-      // Delete Auth all users
-      const { error: authError, data }: any = await supabase
-        .from("auth.users")
-        .select("id");
-
-      if (authError) {
-        console.error("Error listing users:", {
-          message: authError.message,
-          details: authError.details,
-          hint: authError.hint,
-          code: authError.code,
-        });
-        throw new Error(`Failed to list users: ${authError.message}`);
-      }
-
-      if (data) {
-        for (const user of data.users) {
-          const { error: userError }: any =
-            await supabase.auth.admin.deleteUser(user.id);
-          if (userError) {
-            console.error("Error deleting user:", {
-              message: userError.message,
-              details: userError.details,
-              hint: userError.hint,
-              code: userError.code,
-            });
-            throw new Error(`Failed to delete user: ${userError.message}`);
-          }
-        }
-      }
+      // Use transaction to ensure all deletions happen or none
+      await prisma.$transaction([
+        prisma.transaction.deleteMany({}),
+        prisma.bookMember.deleteMany({}),
+        prisma.monthlyBudget.deleteMany({}),
+        prisma.book.deleteMany({}),
+        prisma.userSettings.deleteMany({}),
+        prisma.notification.deleteMany({}),
+        prisma.profile.deleteMany({}),
+      ]);
 
       // Delete storage objects in receipts bucket
-      const { error: storageError }: any = await supabase.storage
-        .from("receipts")
-        .remove(["*"]);
-
-      if (storageError) {
-        console.error("Error deleting storage objects:", {
-          message: storageError.message,
-          details: storageError.details,
-          hint: storageError.hint,
-          code: storageError.code,
-        });
-        throw new Error(
-          `Failed to delete storage objects: ${storageError.message}`
-        );
+      const { data: files } = await supabase.storage.from("receipts").list("");
+      if (files && files.length > 0) {
+        await supabase.storage
+          .from("receipts")
+          .remove(files.map((f) => f.name));
       }
-      console.log("Deleted all objects from receipts bucket");
 
       toast({
         title: "Database cleared",
-        description: "All data has been permanently deleted.",
+        description: "All application data has been permanently deleted.",
         variant: "destructive",
       });
     } catch (error: any) {
-      console.error("Clear database error:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
+      console.error("Clear database error:", error);
       toast({
         title: "Error clearing database",
         description: error.message || "An unexpected error occurred.",
@@ -300,20 +236,32 @@ export const useUserSettings = () => {
 
     setLoading(true);
     try {
-      // Delete user-related data
-      await Promise.all([
-        supabase.from("transactions").delete().eq("user_id", user.id),
-        supabase.from("books").delete().eq("user_id", user.id),
-        supabase.from("user_settings").delete().eq("user_id", user.id),
-        supabase.from("profiles").delete().eq("user_id", user.id),
+      // Delete user-related data using Prisma
+      // Order matters due to manual relations and cascade if configured
+      await prisma.$transaction([
+        prisma.transaction.deleteMany({ where: { user_id: user.id } }),
+        prisma.bookMember.deleteMany({
+          where: {
+            OR: [{ user_id: user.id }, { book: { owner_id: user.id } }],
+          },
+        }),
+        prisma.monthlyBudget.deleteMany({
+          where: {
+            book: { owner_id: user.id },
+          },
+        }),
+        prisma.book.deleteMany({ where: { owner_id: user.id } }),
+        prisma.userSettings.deleteMany({ where: { user_id: user.id } }),
+        prisma.notification.deleteMany({ where: { user_id: user.id } }),
+        prisma.profile.delete({ where: { user_id: user.id } }),
       ]);
 
-      // Delete user from auth
       await supabase.auth.signOut();
-      await supabase.auth.admin.deleteUser(user.id);
+
       toast({
         title: "Account deleted",
-        description: "Your account has been permanently deleted.",
+        description:
+          "Your account data has been deleted and you have been signed out.",
         variant: "destructive",
       });
     } catch (error: any) {
