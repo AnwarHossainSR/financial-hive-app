@@ -33,16 +33,16 @@ export async function updateProfileAction(data: {
 
     // 2. Update Prisma profile
     await prisma.profile.upsert({
-      where: { id: user.id },
+      where: { user_id: user.id },
       update: {
-        full_name: data.displayName,
+        display_name: data.displayName,
         avatar_url: data.avatarUrl,
         updated_at: new Date(),
       },
       create: {
-        id: user.id,
+        user_id: user.id,
         email: user.email!,
-        full_name: data.displayName,
+        display_name: data.displayName,
         avatar_url: data.avatarUrl,
       },
     });
@@ -95,17 +95,17 @@ export async function ensureProfileExistsAction(userData: {
     }
 
     await prisma.profile.upsert({
-      where: { id: userData.id },
+      where: { user_id: userData.id },
       update: {
         email: userData.email,
-        full_name: displayName,
+        display_name: displayName,
         avatar_url: userData.avatar_url,
         updated_at: new Date(),
       },
       create: {
-        id: userData.id,
+        user_id: userData.id,
         email: userData.email || "",
-        full_name: displayName,
+        display_name: displayName,
         avatar_url: userData.avatar_url,
       },
     });

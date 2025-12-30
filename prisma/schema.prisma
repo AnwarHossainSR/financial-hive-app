@@ -7,12 +7,14 @@ datasource db {
 }
 
 model Profile {
-  id              String    @id @db.Uuid
-  full_name       String?
-  avatar_url      String?
-  is_system_admin Boolean   @default(false)
-  updated_at      DateTime? @db.Timestamptz(6)
-  email           String?
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @unique @db.Uuid
+  display_name String?
+  avatar_url   String?
+  email        String?
+  role         String   @default("user") @db.VarChar(20)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("profiles")
 }
