@@ -36,23 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(use
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON public.notifications(user_id, read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
 
--- Enable Realtime for notifications table
-DO $$
-BEGIN
-    BEGIN
-        ALTER PUBLICATION supabase_realtime DROP TABLE public.notifications;
-    EXCEPTION WHEN OTHERS THEN
-        -- Ignore errors if table is not in publication
-    END;
-    
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-    EXCEPTION WHEN OTHERS THEN
-        -- Log error but continue
-        RAISE NOTICE 'Could not add notifications table to realtime publication: %', SQLERRM;
-    END;
-END;
-$$;
+-- Realtime enablement for notifications removed.
 
 -- Function to create notification (helper function)
 CREATE OR REPLACE FUNCTION public.create_notification(

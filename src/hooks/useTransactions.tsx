@@ -19,6 +19,7 @@ import {
 import { useCallback, useMemo } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
+export type { PaginationInfo, Transaction, TransactionFilters };
 
 const ITEMS_PER_PAGE = 50;
 

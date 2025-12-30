@@ -32,7 +32,7 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { BookSelectorSkeleton } from "./skeleton/BookSelectorSkeleton";
 import { Switch } from "./ui/switch";
 
@@ -57,6 +57,7 @@ export const BookSelector = ({
     is_default: false,
   });
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,9 +84,9 @@ export const BookSelector = ({
         title: "Book Created",
         description: "Your new book was successfully created.",
       });
-      // Select the newly created book and update query param
+      // Select the newly created book and navigate
       onSelectBook(data);
-      setSearchParams({ bookId: data.id });
+      navigate(`/book/${data.id}`);
     } else {
       toast({
         title: "Error",
@@ -136,7 +137,7 @@ export const BookSelector = ({
     if (!error) {
       onSelectBook(null);
       setShowEditDialog(false);
-      setSearchParams({}); // Clear query param
+      navigate("/");
       toast({
         title: "Book Deleted",
         description: "The book was successfully deleted.",
@@ -176,7 +177,7 @@ export const BookSelector = ({
               size="sm"
               onClick={() => {
                 onSelectBook(null);
-                setSearchParams({}); // Clear query param
+                navigate("/");
               }}
               className="border-border text-foreground hover:bg-primary/5 hover:border-primary/50 transition-all duration-300 rounded-lg"
             >
@@ -243,56 +244,55 @@ export const BookSelector = ({
 
           <CardContent className="p-5">
             {books.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {books.map((book) => (
                   <div
                     key={book.id}
                     className={cn(
-                      "group relative p-3 rounded-lg border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-income hover:border-primary/50",
+                      "group relative p-4 rounded-xl border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-xl hover:border-primary/50",
                       "animate-scale-in",
                       book.is_default &&
-                        "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-sm"
+                        "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-md"
                     )}
                     onClick={() => {
                       onSelectBook(book);
-                      setSearchParams({ bookId: book.id });
+                      navigate(`/book/${book.id}`);
                     }}
                   >
-                    {/* Default Book Indicator */}
-                    {book.is_default && (
-                      <div className="absolute -top-1 -right-1 z-10">
-                        <div className="relative">
+                    <div className="flex flex-col h-full space-y-3">
+                      <div className="flex items-start justify-between">
+                        {book.type === "business" ? (
+                          <div className="p-2 bg-income/10 rounded-lg">
+                            <Building2 className="w-5 h-5 text-income transform transition-transform duration-300 group-hover:scale-110" />
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            <User className="w-5 h-5 text-primary transform transition-transform duration-300 group-hover:scale-110" />
+                          </div>
+                        )}
+
+                        {book.is_default && (
                           <Badge
                             variant="secondary"
                             className="bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/30 dark:to-yellow-900/30 
                                      text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800 
-                                     px-1.5 py-0.5 text-xs font-semibold rounded-full shadow-md
-                                     hover:shadow-lg transition-all duration-200"
+                                     px-2 py-0.5 text-[10px] font-bold rounded-full shadow-sm
+                                     transition-all duration-200"
                           >
                             <Star className="w-2.5 h-2.5 mr-1 fill-current" />
-                            Default
+                            DEFAULT
                           </Badge>
-                          {/* Subtle glow effect */}
-                          <div className="absolute inset-0 bg-gradient-to-r from-amber-200/30 to-yellow-200/30 rounded-full blur-sm -z-10 scale-125" />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col space-y-2">
-                      <div className="flex items-center space-x-2">
-                        {book.type === "business" ? (
-                          <Building2 className="w-5 h-5 text-income transform transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
-                        ) : (
-                          <User className="w-5 h-5 text-primary transform transition-transform duration-300 group-hover:scale-110 flex-shrink-0" />
                         )}
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-semibold text-foreground truncate">
-                            {book.name}
-                          </h3>
-                          <p className="text-xs text-muted-foreground capitalize">
-                            {book.type}
-                          </p>
-                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold text-foreground leading-tight group-hover:text-primary transition-colors mb-1">
+                          {book.name}
+                        </h3>
+                        <p className="text-xs text-muted-foreground capitalize flex items-center">
+                          <span className="w-1 h-1 rounded-full bg-muted-foreground/30 mr-1.5" />
+                          {book.type} Book
+                        </p>
                       </div>
                       {book.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2 leading-tight">

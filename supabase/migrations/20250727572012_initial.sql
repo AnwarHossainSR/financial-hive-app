@@ -236,38 +236,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_book_id ON public.transactions(book_
 CREATE INDEX IF NOT EXISTS idx_monthly_budgets_book_id ON public.monthly_budgets(book_id);
 CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON public.user_settings(user_id);
 
--- Ensure Realtime publication exists (idempotent)
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    CREATE PUBLICATION supabase_realtime;
-  END IF;
-END;
-$$;
-
--- Enable Realtime for tables (idempotent)
-DO $$
-DECLARE 
-    table_list text[] := ARRAY['public.books', 'public.transactions', 'public.book_members', 'public.monthly_budgets', 'public.user_settings'];
-    table_name text;
-BEGIN
-    FOREACH table_name IN ARRAY table_list
-    LOOP
-        BEGIN
-            EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE %s', table_name);
-        EXCEPTION WHEN OTHERS THEN
-            -- Ignore errors if table is not in publication
-        END;
-        
-        BEGIN
-            EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %s', table_name);
-        EXCEPTION WHEN OTHERS THEN
-            -- Log error but continue
-            RAISE NOTICE 'Could not add table % to realtime publication: %', table_name, SQLERRM;
-        END;
-    END LOOP;
-END;
-$$;
+-- Realtime publication setup removed as requested. Standard REST/Query pattern is used.
 
 -- Optional: Debug function to verify auth.uid()
 CREATE OR REPLACE FUNCTION public.debug_auth_uid()

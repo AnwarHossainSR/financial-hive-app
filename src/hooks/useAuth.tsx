@@ -65,18 +65,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       const {
         data: { session },
-        error,
+        error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error("Error checking session:", error);
-        throw error;
-      }
+      if (sessionError) throw sessionError;
 
       if (session) {
-        setSession(session);
-        setUser(session.user);
-        await createOrUpdateProfile(session.user);
+        // Double check user with the server to ensure session is valid
+        const {
+          data: { user: verifiedUser },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (verifiedUser && !userError) {
+          setSession(session);
+          setUser(verifiedUser);
+          await createOrUpdateProfile(verifiedUser);
+        } else {
+          setSession(null);
+          setUser(null);
+        }
       } else {
         setSession(null);
         setUser(null);
@@ -85,49 +93,59 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Session check failed:", error);
       setSession(null);
       setUser(null);
-      throw error;
     } finally {
       setLoading(false);
     }
   }, [createOrUpdateProfile]);
-  console.log("user", user);
+
   useEffect(() => {
     let mounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
 
     const initializeAuth = async () => {
-      await checkSession();
+      try {
+        // Initial check
+        await checkSession();
 
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (!mounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
+        const { data } = supabase.auth.onAuthStateChange(
+          async (event, currentSession) => {
+            if (!mounted) return;
 
-        if (
-          session?.user &&
-          (event === "SIGNED_IN" ||
-            event === "TOKEN_REFRESHED" ||
-            event === "PASSWORD_RECOVERY")
-        ) {
-          await createOrUpdateProfile(session.user);
+            console.log("Auth event:", event);
+
+            if (event === "SIGNED_OUT") {
+              setSession(null);
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+
+            if (currentSession?.user) {
+              setSession(currentSession);
+              setUser(currentSession.user);
+
+              if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+                await createOrUpdateProfile(currentSession.user);
+              }
+            } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+              // If event suggests we should have a user but don't, re-check
+              await checkSession();
+            }
+
+            setLoading(false);
+          }
+        );
+
+        subscription = data.subscription;
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+        if (mounted) {
+          setLoading(false);
         }
-
-        setLoading(false);
-      });
-
-      return () => {
-        mounted = false;
-        subscription.unsubscribe();
-      };
+      }
     };
 
-    initializeAuth().catch((error) => {
-      console.error("Error initializing auth:", error);
-      if (mounted) {
-        setLoading(false);
-      }
-    });
+    initializeAuth();
 
     // Periodic session refresh (every 5 minutes)
     const refreshInterval = setInterval(() => {
@@ -140,6 +158,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       mounted = false;
+      if (subscription) {
+        subscription.unsubscribe();
+      }
       clearInterval(refreshInterval);
     };
   }, [checkSession, createOrUpdateProfile]);

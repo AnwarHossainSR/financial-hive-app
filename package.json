@@ -19,10 +19,13 @@
     "reset:db": "node scripts/resetDatabase.js --YES",
     "reset:db:force": "AUTOMATED_RESET=true node scripts/resetDatabase.js",
     "migration:link": "npx supabase link",
-    "db:seed": "node scripts/seed.js"
+    "db:seed": "node scripts/seed.js",
+    "postinstall": "prisma generate && npm run generate-types"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
     "@hookform/resolvers": "^5.2.0",
+    "@prisma/client": "^7.2.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
@@ -65,6 +68,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.525.0",
     "papaparse": "^5.5.3",
+    "pglite-prisma-adapter": "^0.7.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.61.1",
@@ -90,6 +94,7 @@
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
     "postcss": "^8.4.47",
+    "prisma": "^7.2.0",
     "supabase": "^2.31.8",
     "tailwindcss": "^3.4.11",
     "ts-node": "^10.9.2",
