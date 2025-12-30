@@ -3,7 +3,7 @@
 // Helper functions to create notifications for different events
 // Import these into your transaction and book hooks
 
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 export type NotificationType = "info" | "success" | "warning" | "error";
 

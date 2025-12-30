@@ -1,7 +1,7 @@
 "use server";
 
 import { setBudgetNotification } from "@/lib/notificationHelpers";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
