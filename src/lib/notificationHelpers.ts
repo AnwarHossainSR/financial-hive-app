@@ -1,3 +1,5 @@
+"use server";
+
 // Helper functions to create notifications for different events
 // Import these into your transaction and book hooks
 

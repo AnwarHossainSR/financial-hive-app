@@ -19,4 +19,4 @@ export const prisma =
     adapter,
   });
 
-if (import.meta.env.MODE !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

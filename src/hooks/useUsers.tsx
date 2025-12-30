@@ -1,13 +1,25 @@
+import { getProfileRole } from "@/app/actions/user-settings";
+import {
+  deleteUserAction,
+  getUsersAction,
+  getUserStatsAction,
+  updateUserRoleAction,
+} from "@/app/actions/users";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { prisma } from "@/lib/prisma";
-import { User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState } from "react";
 
-interface UserWithProfile extends Omit<User, "email"> {
+interface UserWithProfile {
+  id: string;
+  email: string;
   role?: string;
   display_name?: string;
-  email: string;
+  user_metadata?: {
+    display_name?: string;
+    avatar_url?: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 interface UseUsersConfig {
@@ -46,12 +58,10 @@ export const useUsers = (config: UseUsersConfig = {}) => {
 
     const checkAdminStatus = async () => {
       try {
-        const profile = await prisma.profile.findUnique({
-          where: { user_id: currentUser.id },
-          select: { role: true },
-        });
-
-        setIsAdmin(profile?.role === "admin");
+        const { role, error } = await getProfileRole(currentUser.id);
+        if (!error) {
+          setIsAdmin(role === "admin");
+        }
       } catch (error) {
         setIsAdmin(false);
       }
@@ -60,9 +70,10 @@ export const useUsers = (config: UseUsersConfig = {}) => {
     checkAdminStatus();
   }, [currentUser]);
 
-  // Fetch users using Prisma
+  // Fetch users using Server Action
   const fetchUsers = useCallback(
     async (page: number = 0, append: boolean = false) => {
+      // In a real app, you'd check server-side too (we do in the action)
       if (!isAdmin) return;
 
       const isLoadingMore = page > 0;
@@ -74,47 +85,29 @@ export const useUsers = (config: UseUsersConfig = {}) => {
       }
 
       try {
-        const where: any = {};
-        if (searchTerm) {
-          where.OR = [
-            { email: { contains: searchTerm, mode: "insensitive" } },
-            { display_name: { contains: searchTerm, mode: "insensitive" } },
-          ];
-        }
-        if (roleFilter) {
-          where.role = roleFilter;
-        }
+        const {
+          users: fetchedUsers,
+          total,
+          error,
+        } = await getUsersAction({
+          searchTerm,
+          roleFilter,
+          sortBy,
+          sortOrder,
+          page,
+          limit,
+        });
 
-        const [profilesData, count] = await Promise.all([
-          prisma.profile.findMany({
-            where,
-            orderBy: {
-              [sortBy]: sortOrder,
-            },
-            skip: page * limit,
-            take: limit,
-          }),
-          prisma.profile.count({ where }),
-        ]);
+        if (error) throw new Error(error);
 
-        const formattedUsers: UserWithProfile[] = profilesData.map(
-          (profile) => ({
-            id: profile.user_id,
-            email: profile.email || "",
-            created_at: profile.created_at.toISOString(),
-            updated_at: profile.updated_at.toISOString(),
-            role: profile.role || "user",
-            display_name: profile.display_name || undefined,
-            user_metadata: {
-              display_name: profile.display_name,
-            },
-            aud: "authenticated",
-            email_confirmed_at: profile.created_at.toISOString(),
-            last_sign_in_at: profile.updated_at.toISOString(),
-            app_metadata: {},
-            identities: [],
-          })
-        );
+        const formattedUsers = (fetchedUsers as any[]).map((p) => ({
+          ...p,
+          id: p.user_id,
+          user_metadata: {
+            display_name: p.display_name,
+            avatar_url: p.avatar_url,
+          },
+        }));
 
         if (append) {
           setUsers((prevUsers) => [...prevUsers, ...formattedUsers]);
@@ -123,7 +116,7 @@ export const useUsers = (config: UseUsersConfig = {}) => {
           setCurrentPage(0);
         }
 
-        setTotalUsers(count);
+        setTotalUsers(total);
         setHasNextPage(formattedUsers.length === limit);
       } catch (error: any) {
         console.error("Error fetching users:", error);
@@ -152,18 +145,9 @@ export const useUsers = (config: UseUsersConfig = {}) => {
   // Update user role
   const updateUserRole = useCallback(
     async (userId: string, newRole: string) => {
-      if (!isAdmin) {
-        throw new Error("Only admins can update user roles");
-      }
-
       try {
-        await prisma.profile.update({
-          where: { user_id: userId },
-          data: {
-            role: newRole,
-            updated_at: new Date(),
-          },
-        });
+        const { success, error } = await updateUserRoleAction(userId, newRole);
+        if (error) throw new Error(error);
 
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
@@ -175,38 +159,19 @@ export const useUsers = (config: UseUsersConfig = {}) => {
         throw error;
       }
     },
-    [isAdmin]
+    []
   );
 
   // Delete user
   const deleteUser = useCallback(
     async (userId: string) => {
-      if (!isAdmin) {
-        throw new Error("Only admins can delete users");
-      }
-
       if (userId === currentUser?.id) {
         throw new Error("You cannot delete your own account");
       }
 
       try {
-        await prisma.$transaction([
-          prisma.transaction.deleteMany({ where: { user_id: userId } }),
-          prisma.bookMember.deleteMany({
-            where: {
-              OR: [{ user_id: userId }, { book: { owner_id: userId } }],
-            },
-          }),
-          prisma.monthlyBudget.deleteMany({
-            where: {
-              book: { owner_id: userId },
-            },
-          }),
-          prisma.book.deleteMany({ where: { owner_id: userId } }),
-          prisma.userSettings.deleteMany({ where: { user_id: userId } }),
-          prisma.notification.deleteMany({ where: { user_id: userId } }),
-          prisma.profile.delete({ where: { user_id: userId } }),
-        ]);
+        const { success, error } = await deleteUserAction(userId);
+        if (error) throw new Error(error);
 
         setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
         setTotalUsers((prev) => Math.max(0, prev - 1));
@@ -215,33 +180,20 @@ export const useUsers = (config: UseUsersConfig = {}) => {
         throw error;
       }
     },
-    [isAdmin, currentUser?.id]
+    [currentUser?.id]
   );
 
   // Get user statistics
   const getUserStats = useCallback(async () => {
-    if (!isAdmin) return null;
-
     try {
-      const profilesData = await prisma.profile.findMany({
-        select: { role: true },
-      });
-
-      const roleStats = profilesData.reduce((acc, profile) => {
-        const role = profile.role || "user";
-        acc[role] = (acc[role] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      return {
-        total: profilesData.length,
-        ...roleStats,
-      };
+      const { stats, error } = await getUserStatsAction();
+      if (error) throw new Error(error);
+      return stats;
     } catch (error) {
       console.error("Error fetching user stats:", error);
       return null;
     }
-  }, [isAdmin]);
+  }, []);
 
   // Reset and refetch when config changes
   useEffect(() => {

@@ -1,0 +1,33 @@
+
+> next-app@0.1.0 build
+> next build
+
+   ▲ Next.js 15.1.4
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/10) ...
+Supabase environment variables are missing. User session might not be available.
+Supabase environment variables are missing. User session might not be available.
+Error occurred prerendering page "/settings". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: @supabase/ssr: Your project's URL and API key are required to create a Supabase client!
+
+Check your Supabase project's API settings to find these values
+
+https://supabase.com/dashboard/project/_/settings/api
+    at A (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\649.js:1:8191)
+    at n (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\904.js:1:10148)
+    at 20145 (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\904.js:1:6928)
+    at t (D:\works\personal\react\financial-hive-app\next-app\.next\server\webpack-runtime.js:1:128)
+    at 68408 (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\904.js:1:5239)
+    at Object.t [as require] (D:\works\personal\react\financial-hive-app\next-app\.next\server\webpack-runtime.js:1:128)
+    at require (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:131:7946)
+    at u (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:36:646)
+    at F (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:36:10477)
+    at T (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:36:8526)
+Export encountered an error on /settings/page: /settings, exiting the build.
+ ⨯ Static worker exited with code: 1 and signal: null

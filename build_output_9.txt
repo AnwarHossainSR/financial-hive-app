@@ -1,0 +1,28 @@
+
+> next-app@0.1.0 build
+> next build
+
+   ▲ Next.js 15.1.4
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/9) ...
+Supabase environment variables are missing. User session might not be available.
+Error occurred prerendering page "/profile". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: supabaseUrl is required.
+    at np (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\649.js:96:66254)
+    at new nm (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\649.js:96:66619)
+    at ng (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\649.js:96:69859)
+    at 66906 (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\863.js:1:940)
+    at t (D:\works\personal\react\financial-hive-app\next-app\.next\server\webpack-runtime.js:1:128)
+    at 28662 (D:\works\personal\react\financial-hive-app\next-app\.next\server\app\profile\page.js:6:1757)
+    at Object.t [as require] (D:\works\personal\react\financial-hive-app\next-app\.next\server\webpack-runtime.js:1:128)
+    at require (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:131:7946)
+    at u (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:36:646)
+    at F (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:36:10477)
+Export encountered an error on /profile/page: /profile, exiting the build.
+ ⨯ Static worker exited with code: 1 and signal: null

@@ -1,0 +1,28 @@
+
+> next-app@0.1.0 build
+> next build
+
+   ▲ Next.js 15.1.4
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/8) ...
+Supabase environment variables are missing. User session might not be available.
+ ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/login". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+    at s (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\49.js:5:9403)
+    at h (D:\works\personal\react\financial-hive-app\next-app\.next\server\chunks\49.js:5:26059)
+    at rN (D:\works\personal\react\financial-hive-app\next-app\.next\server\app\login\page.js:1:89597)
+    at nO (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:45959)
+    at nI (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:47734)
+    at nL (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:65533)
+    at nN (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:63164)
+    at n$ (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:46311)
+    at nI (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:47780)
+    at nI (D:\works\personal\react\financial-hive-app\next-app\node_modules\.pnpm\next@15.1.4_react-dom@19.0.0_react@19.0.0__react@19.0.0\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:20:62515)
+Error occurred prerendering page "/login". Read more: https://nextjs.org/docs/messages/prerender-error
+Export encountered an error on /login/page: /login, exiting the build.
+ ⨯ Static worker exited with code: 1 and signal: null

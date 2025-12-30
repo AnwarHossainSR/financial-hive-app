@@ -1,4 +1,11 @@
-import { prisma } from "@/lib/prisma";
+import {
+  clearAllNotificationsAction,
+  deleteNotificationAction,
+  getNotificationsAction,
+  getUnreadCountAction,
+  markAllAsReadAction,
+  markAsReadAction,
+} from "@/app/actions/notifications";
 import {
   keepPreviousData,
   useMutation,
@@ -6,7 +13,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
 export interface Notification {
@@ -30,37 +36,8 @@ const notificationKeys = {
     [...notificationKeys.all, "unread", userId] as const,
 };
 
-// Fetch functions
-const fetchNotifications = async (userId: string): Promise<Notification[]> => {
-  if (!userId) return [];
-
-  const notifications = await prisma.notification.findMany({
-    where: {
-      user_id: userId,
-    },
-    orderBy: {
-      created_at: "desc",
-    },
-    take: 50,
-  });
-
-  return (notifications as any) || [];
-};
-
-const fetchUnreadCount = async (userId: string): Promise<number> => {
-  if (!userId) return 0;
-
-  return await prisma.notification.count({
-    where: {
-      user_id: userId,
-      read: false,
-    },
-  });
-};
-
 export const useNotifications = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Fetch notifications
@@ -72,7 +49,12 @@ export const useNotifications = () => {
     refetch,
   } = useQuery({
     queryKey: notificationKeys.list(user?.id || ""),
-    queryFn: () => fetchNotifications(user?.id || ""),
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { notifications, error } = await getNotificationsAction(user.id);
+      if (error) throw new Error(error);
+      return notifications as any[];
+    },
     enabled: !!user,
     staleTime: 30000, // 30 seconds
     placeholderData: keepPreviousData,
@@ -82,69 +64,28 @@ export const useNotifications = () => {
   // Fetch unread count
   const { data: unreadCount = 0, refetch: refetchUnreadCount } = useQuery({
     queryKey: notificationKeys.unreadCount(user?.id || ""),
-    queryFn: () => fetchUnreadCount(user?.id || ""),
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count, error } = await getUnreadCountAction(user.id);
+      if (error) throw new Error(error);
+      return count;
+    },
     enabled: !!user,
     staleTime: 10000, // 10 seconds
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
   });
 
-  // Create notification mutation
-  const createNotificationMutation = useMutation({
-    mutationFn: async ({
-      title,
-      message,
-      type = "info",
-      metadata = {},
-    }: {
-      title: string;
-      message: string;
-      type?: Notification["type"];
-      metadata?: Record<string, any>;
-    }) => {
-      if (!user) throw new Error("User not authenticated");
-
-      return await prisma.notification.create({
-        data: {
-          user_id: user.id,
-          title,
-          message,
-          type: type as any,
-          metadata: metadata as any,
-        },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
-    },
-    onError: (error: any) => {
-      console.error("Error creating notification:", error);
-    },
-  });
-
   // Mark as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-
-      return await prisma.notification.update({
-        where: { id },
-        data: {
-          read: true,
-          updated_at: new Date(),
-        },
-      });
+      const { success, error } = await markAsReadAction(id);
+      if (error) throw new Error(error);
+      return id;
     },
     onSuccess: () => {
-      // Optimistically update cache
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error marking notification as read:", error);
@@ -155,26 +96,12 @@ export const useNotifications = () => {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
-
-      return await prisma.notification.updateMany({
-        where: {
-          user_id: user.id,
-          read: false,
-        },
-        data: {
-          read: true,
-          updated_at: new Date(),
-        },
-      });
+      const { success, error } = await markAllAsReadAction(user.id);
+      if (error) throw new Error(error);
+      return success;
     },
     onSuccess: () => {
-      // Update cache
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error marking all notifications as read:", error);
@@ -185,20 +112,12 @@ export const useNotifications = () => {
   const deleteNotificationMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-
-      await prisma.notification.delete({
-        where: { id },
-      });
-
+      const { success, error } = await deleteNotificationAction(id);
+      if (error) throw new Error(error);
       return id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error deleting notification:", error);
@@ -209,20 +128,12 @@ export const useNotifications = () => {
   const clearAllNotificationsMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
-
-      return await prisma.notification.deleteMany({
-        where: {
-          user_id: user.id,
-        },
-      });
+      const { success, error } = await clearAllNotificationsAction(user.id);
+      if (error) throw new Error(error);
+      return success;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.list(user?.id || ""),
-      });
-      queryClient.invalidateQueries({
-        queryKey: notificationKeys.unreadCount(user?.id || ""),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
     onError: (error: any) => {
       console.error("Error clearing all notifications:", error);
@@ -230,28 +141,6 @@ export const useNotifications = () => {
   });
 
   // Wrapper functions
-  const createNotification = useCallback(
-    async (
-      title: string,
-      message: string,
-      type: Notification["type"] = "info",
-      metadata: Record<string, any> = {}
-    ) => {
-      try {
-        await createNotificationMutation.mutateAsync({
-          title,
-          message,
-          type,
-          metadata,
-        });
-        return { error: null };
-      } catch (error: any) {
-        return { error: error.message };
-      }
-    },
-    [createNotificationMutation]
-  );
-
   const markAsRead = useCallback(
     async (id: string) => {
       try {
@@ -277,10 +166,6 @@ export const useNotifications = () => {
     async (id: string) => {
       try {
         await deleteNotificationMutation.mutateAsync(id);
-        // invalidate cache
-        queryClient.invalidateQueries({
-          queryKey: notificationKeys.list(user?.id || ""),
-        });
         return { error: null };
       } catch (error: any) {
         return { error: error.message };
@@ -304,7 +189,6 @@ export const useNotifications = () => {
     loading,
     error: isError ? (error as Error)?.message : null,
     initialized: !loading,
-    createNotification,
     markAsRead,
     markAllAsRead,
     deleteNotification,

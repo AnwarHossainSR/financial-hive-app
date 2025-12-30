@@ -1,10 +1,10 @@
 import {
-  createBookNotification,
-  setBudgetNotification,
-  updateBookNotification,
-  welcomeNotification,
-} from "@/lib/notificationHelpers";
-import { prisma } from "@/lib/prisma";
+  createBookAction,
+  deleteBookAction,
+  getBooksAction,
+  updateBookAction,
+} from "@/app/actions/books";
+import { setMonthlyBudgetAction } from "@/app/actions/profile";
 import { Book } from "@/types/book";
 import {
   keepPreviousData,
@@ -26,24 +26,6 @@ const bookKeys = {
   detail: (id: string) => [...bookKeys.all, "detail", id] as const,
 };
 
-// Fetch function
-const fetchBooks = async (userId: string): Promise<Book[]> => {
-  if (!userId) return [];
-
-  const books = await prisma.book.findMany({
-    where: {
-      owner_id: userId,
-    },
-    include: {
-      monthly_budgets: true,
-    },
-    orderBy: [{ is_default: "desc" }, { created_at: "desc" }],
-  });
-
-  // Convert Decimal to number for the UI if needed
-  return (books as any) || [];
-};
-
 const useBooks = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -58,7 +40,12 @@ const useBooks = () => {
     refetch,
   } = useQuery({
     queryKey: bookKeys.list(user?.id || ""),
-    queryFn: () => fetchBooks(user?.id || ""),
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { books, error } = await getBooksAction(user.id);
+      if (error) throw new Error(error);
+      return books as any[];
+    },
     enabled: !!user,
     staleTime: 300000, // 5 minutes
     placeholderData: keepPreviousData,
@@ -79,59 +66,17 @@ const useBooks = () => {
       is_default?: boolean;
     }) => {
       if (!user) throw new Error("User not authenticated");
-
-      return await prisma.$transaction(async (tx) => {
-        // If this is going to be the default book, update all others first
-        if (is_default) {
-          await tx.book.updateMany({
-            where: { owner_id: user.id },
-            data: { is_default: false },
-          });
-        }
-
-        return await tx.book.create({
-          data: {
-            name,
-            type: type as any,
-            description,
-            is_default,
-            owner_id: user.id,
-          },
-          include: {
-            monthly_budgets: true,
-          },
-        });
+      const { book, error } = await createBookAction(user.id, {
+        name,
+        type,
+        description,
+        is_default,
       });
+      if (error) throw new Error(error);
+      return book;
     },
     onSuccess: async (data: any) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          // If this is the default book, make all others non-default
-          if (data.is_default) {
-            const updatedBooks = old.map((book) => ({
-              ...book,
-              is_default: false,
-            }));
-            return [data, ...updatedBooks];
-          }
-          return [data, ...old];
-        }
-      );
-
-      // Create notification
-      await createBookNotification(user!.id, {
-        id: data.id,
-        name: data.name,
-        type: data.type,
-      });
-
-      // If this is the user's first book, send a welcome notification
-      if (books.length === 0) {
-        await welcomeNotification(user!.id, user!.user_metadata?.display_name);
-      }
-
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
       toast({
         title: "Book created",
         description: `${data.name} has been created successfully.`,
@@ -158,55 +103,12 @@ const useBooks = () => {
       >;
     }) => {
       if (!user) throw new Error("User not authenticated");
-
-      return await prisma.$transaction(async (tx) => {
-        // If making this the default book, update all others first
-        if (updates.is_default) {
-          await tx.book.updateMany({
-            where: {
-              owner_id: user.id,
-              id: { not: id },
-            },
-            data: { is_default: false },
-          });
-        }
-
-        return await tx.book.update({
-          where: { id },
-          data: {
-            ...(updates as any),
-            updated_at: new Date(),
-          },
-          include: {
-            monthly_budgets: true,
-          },
-        });
-      });
+      const { book, error } = await updateBookAction(id, user.id, updates);
+      if (error) throw new Error(error);
+      return book;
     },
     onSuccess: async (data: any) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          return old.map((book) => {
-            if (book.id === data.id) {
-              return data;
-            }
-            // If the updated book is now default, make others non-default
-            if (data.is_default) {
-              return { ...book, is_default: false };
-            }
-            return book;
-          });
-        }
-      );
-
-      // Create notification
-      await updateBookNotification(user!.id, {
-        id: data.id,
-        name: data.name,
-      });
-
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
       toast({
         title: "Book updated",
         description: "Your changes have been saved.",
@@ -233,58 +135,16 @@ const useBooks = () => {
       amount: number;
     }) => {
       if (!user) throw new Error("User not authenticated");
-
-      // Use upsert
-      return await prisma.monthlyBudget.upsert({
-        where: {
-          book_id_month: {
-            book_id: bookId,
-            month: month,
-          },
-        },
-        update: {
-          amount: amount,
-          updated_at: new Date(),
-        },
-        create: {
-          book_id: bookId,
-          month: month,
-          amount: amount,
-        },
-      });
+      const { budget, error } = await setMonthlyBudgetAction(
+        bookId,
+        month,
+        amount
+      );
+      if (error) throw new Error(error);
+      return budget;
     },
     onSuccess: async (data: any) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          return old.map((book) => {
-            if (book.id === data.book_id) {
-              const existingBudgets = book.monthly_budgets || [];
-              const updatedBudgets = existingBudgets.some(
-                (b) => b.month === data.month
-              )
-                ? existingBudgets.map((b) =>
-                    b.month === data.month ? data : b
-                  )
-                : [...existingBudgets, data];
-
-              return { ...book, monthly_budgets: updatedBudgets };
-            }
-            return book;
-          });
-        }
-      );
-
-      // Find the book name for the notification
-      const book = books.find((b) => b.id === data.book_id);
-      if (book) {
-        await setBudgetNotification(user!.id, {
-          bookName: book.name,
-          month: data.month,
-          amount: Number(data.amount),
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
 
       toast({
         title: "Budget updated",
@@ -304,22 +164,12 @@ const useBooks = () => {
   const deleteBookMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error("User not authenticated");
-
-      await prisma.book.delete({
-        where: { id },
-      });
-
+      const { success, error } = await deleteBookAction(id);
+      if (error) throw new Error(error);
       return id;
     },
-    onSuccess: (deletedId) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(
-        bookKeys.list(user?.id || ""),
-        (old: Book[] = []) => {
-          return old.filter((book) => book.id !== deletedId);
-        }
-      );
-
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: bookKeys.all });
       toast({
         title: "Book deleted",
         description: "The book has been removed.",
@@ -334,7 +184,6 @@ const useBooks = () => {
     },
   });
 
-  // Wrapper functions to match original API
   const createBook = useCallback(
     async (
       name: string,

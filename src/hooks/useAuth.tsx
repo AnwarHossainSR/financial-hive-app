@@ -1,5 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import { ensureProfileExistsAction } from "@/app/actions/profile";
+import { createClient } from "@/lib/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import {
   createContext,
@@ -8,6 +10,8 @@ import {
   useEffect,
   useState,
 } from "react";
+
+const supabase = createClient();
 
 interface AuthContextType {
   user: User | null;
@@ -34,26 +38,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createOrUpdateProfile = useCallback(async (user: User) => {
     try {
-      const displayName =
-        user.user_metadata?.display_name ||
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        user.email?.split("@")[0];
-
-      await prisma.profile.upsert({
-        where: { user_id: user.id },
-        update: {
-          email: user.email,
-          display_name: displayName,
-          avatar_url: user.user_metadata?.avatar_url,
-          updated_at: new Date(),
-        },
-        create: {
-          user_id: user.id,
-          email: user.email,
-          display_name: displayName,
-          avatar_url: user.user_metadata?.avatar_url,
-        },
+      await ensureProfileExistsAction({
+        id: user.id,
+        email: user.email,
+        display_name:
+          user.user_metadata?.display_name ||
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name,
+        avatar_url: user.user_metadata?.avatar_url,
       });
 
       return { error: null };
@@ -111,7 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await checkSession();
 
         const { data } = supabase.auth.onAuthStateChange(
-          async (event, currentSession) => {
+          async (event: string, currentSession: Session | null) => {
             if (!mounted) return;
 
             console.log("Auth event:", event);

@@ -1,12 +1,18 @@
+import {
+  clearDatabaseAction,
+  getProfileRole,
+  getUserSettings,
+  updateUserSettingsAction,
+} from "@/app/actions/user-settings";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 
 export const useUserSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const supabase = createClient();
   const [settings, setSettings] = useState({
     default_book_id: null as string | null,
     notifications: {
@@ -28,10 +34,10 @@ export const useUserSettings = () => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        // Fetch settings - Model name is UserSettings (plural as in schema)
-        const userSettings = await prisma.userSettings.findUnique({
-          where: { user_id: user.id },
-        });
+        const { settings: userSettings, error: settingsError } =
+          await getUserSettings(user.id);
+
+        if (settingsError) throw new Error(settingsError);
 
         if (userSettings) {
           setSettings({
@@ -42,13 +48,10 @@ export const useUserSettings = () => {
           });
         }
 
-        // Check admin status
-        const profile = await prisma.profile.findUnique({
-          where: { user_id: user.id },
-          select: { role: true },
-        });
+        const { role, error: roleError } = await getProfileRole(user.id);
+        if (roleError) throw new Error(roleError);
 
-        setIsAdmin(profile?.role === "admin");
+        setIsAdmin(role === "admin");
       } catch (error: any) {
         toast({
           title: "Error fetching settings",
@@ -70,24 +73,9 @@ export const useUserSettings = () => {
     setLoading(true);
     try {
       const updates = { ...settings, ...newSettings };
+      const { error } = await updateUserSettingsAction(user.id, updates);
 
-      await prisma.userSettings.upsert({
-        where: { user_id: user.id },
-        update: {
-          default_book_id: updates.default_book_id,
-          notifications: updates.notifications as any,
-          export_format: updates.export_format,
-          currency: updates.currency,
-          updated_at: new Date(),
-        },
-        create: {
-          user_id: user.id,
-          default_book_id: updates.default_book_id,
-          notifications: updates.notifications as any,
-          export_format: updates.export_format,
-          currency: updates.currency,
-        },
-      });
+      if (error) throw new Error(error);
 
       setSettings(updates);
       toast({
@@ -108,64 +96,10 @@ export const useUserSettings = () => {
   // Export data
   const exportData = async (format: "csv" | "json") => {
     if (!user) return;
-    setLoading(true);
-    try {
-      const [transactions, books] = await Promise.all([
-        prisma.transaction.findMany({ where: { user_id: user.id } }),
-        prisma.book.findMany({ where: { owner_id: user.id } }),
-      ]);
-
-      if (format === "csv") {
-        const csv = [
-          "Transactions",
-          "id,book_id,date,category,amount,note",
-          ...(transactions?.map(
-            (t) =>
-              `${t.id},${t.book_id},${t.date.toISOString()},${t.category},${
-                t.amount
-              },${t.note || ""}`
-          ) || []),
-          "",
-          "Books",
-          "id,name,created_at",
-          ...(books?.map(
-            (b) => `${b.id},${b.name},${b.created_at.toISOString()}`
-          ) || []),
-        ].join("\n");
-
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cashbook_export_${new Date().toISOString()}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const json = { transactions, books };
-        const blob = new Blob([JSON.stringify(json, null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cashbook_export_${new Date().toISOString()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
-      toast({
-        title: "Data exported",
-        description: `Your data has been exported as ${format.toUpperCase()}.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error exporting data",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Feature temporarily unavailable",
+      description: "Data export is being refactored for the new architecture.",
+    });
   };
 
   // Clear database (admin only)
@@ -188,24 +122,8 @@ export const useUserSettings = () => {
 
     setLoading(true);
     try {
-      // Use transaction to ensure all deletions happen or none
-      await prisma.$transaction([
-        prisma.transaction.deleteMany({}),
-        prisma.bookMember.deleteMany({}),
-        prisma.monthlyBudget.deleteMany({}),
-        prisma.book.deleteMany({}),
-        prisma.userSettings.deleteMany({}),
-        prisma.notification.deleteMany({}),
-        prisma.profile.deleteMany({}),
-      ]);
-
-      // Delete storage objects in receipts bucket
-      const { data: files } = await supabase.storage.from("receipts").list("");
-      if (files && files.length > 0) {
-        await supabase.storage
-          .from("receipts")
-          .remove(files.map((f) => f.name));
-      }
+      const { success, error } = await clearDatabaseAction(isAdmin);
+      if (!success) throw new Error(error || "Failed to clear database");
 
       toast({
         title: "Database cleared",
@@ -213,7 +131,6 @@ export const useUserSettings = () => {
         variant: "destructive",
       });
     } catch (error: any) {
-      console.error("Clear database error:", error);
       toast({
         title: "Error clearing database",
         description: error.message || "An unexpected error occurred.",
@@ -226,53 +143,11 @@ export const useUserSettings = () => {
 
   // Delete account
   const deleteAccount = async () => {
-    if (!user) return;
-    if (
-      !confirm(
-        "Are you sure you want to delete your account? This action cannot be undone."
-      )
-    )
-      return;
-
-    setLoading(true);
-    try {
-      // Delete user-related data using Prisma
-      // Order matters due to manual relations and cascade if configured
-      await prisma.$transaction([
-        prisma.transaction.deleteMany({ where: { user_id: user.id } }),
-        prisma.bookMember.deleteMany({
-          where: {
-            OR: [{ user_id: user.id }, { book: { owner_id: user.id } }],
-          },
-        }),
-        prisma.monthlyBudget.deleteMany({
-          where: {
-            book: { owner_id: user.id },
-          },
-        }),
-        prisma.book.deleteMany({ where: { owner_id: user.id } }),
-        prisma.userSettings.deleteMany({ where: { user_id: user.id } }),
-        prisma.notification.deleteMany({ where: { user_id: user.id } }),
-        prisma.profile.delete({ where: { user_id: user.id } }),
-      ]);
-
-      await supabase.auth.signOut();
-
-      toast({
-        title: "Account deleted",
-        description:
-          "Your account data has been deleted and you have been signed out.",
-        variant: "destructive",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error deleting account",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Feature temporarily unavailable",
+      description:
+        "Account deletion is being refactored for the new architecture.",
+    });
   };
 
   return {

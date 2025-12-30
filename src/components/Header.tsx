@@ -10,7 +10,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Download, Settings, Upload, User } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import { NotificationDropdown } from "./NotificationDropdown";
 
 interface HeaderProps {
@@ -30,14 +30,14 @@ export function Header({
   title = "CashBook",
   subtitle,
 }: HeaderProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/login");
+      router.push("/login");
       toast({
         title: "Signed out successfully",
         description: "You have been logged out of your account.",
@@ -94,7 +94,7 @@ export function Header({
         <div className="flex items-center space-x-4">
           <div
             className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => navigate("/")}
+            onClick={() => router.push("/")}
           >
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <img
@@ -164,15 +164,15 @@ export function Header({
                 )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/users")}>
+              <DropdownMenuItem onClick={() => router.push("/users")}>
                 <User className="w-4 h-4 mr-2" />
                 Users
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/profile")}>
+              <DropdownMenuItem onClick={() => router.push("/profile")}>
                 <User className="w-4 h-4 mr-2" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
