@@ -38,6 +38,8 @@ model Book {
 enum BookType {
   personal
   business
+
+  @@map("book_type")
 }
 
 model BookMember {
@@ -57,6 +59,8 @@ enum AppRole {
   owner
   member
   viewer
+
+  @@map("app_role")
 }
 
 model Transaction {
@@ -79,6 +83,8 @@ model Transaction {
 enum TransactionType {
   income
   expense
+
+  @@map("transaction_type")
 }
 
 model MonthlyBudget {
@@ -126,4 +132,6 @@ enum NotificationType {
   success
   warning
   error
+
+  @@map("notification_type")
 }

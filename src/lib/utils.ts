@@ -23,9 +23,11 @@ export const formatDateForDisplay = (dateString: string) => {
 };
 
 // Helper function to get current time in Bangladesh timezone (Asia/Dhaka)
-export const getBangladeshTime = (date = null) => {
-  if (!date) date = new Date();
-  const bangladeshTime = toZonedTime(date, "Asia/Dhaka");
+export const getBangladeshTime = (
+  date: Date | string | number | null = null
+) => {
+  const dateToUse = date ? new Date(date) : new Date();
+  const bangladeshTime = toZonedTime(dateToUse, "Asia/Dhaka");
   return format(bangladeshTime, "yyyy-MM-dd'T'HH:mm");
 };
 
@@ -57,8 +59,8 @@ export const getMonthDateRange = (monthString: string) => {
   const [year, month] = monthString.split("-");
   const date = new Date(parseInt(year), parseInt(month) - 1); // month is 0-based
 
-  const startDate = format(startOfMonth(date), "yyyy-MM-dd");
-  const endDate = format(endOfMonth(date), "yyyy-MM-dd");
+  const startDate = startOfMonth(date).toISOString();
+  const endDate = endOfMonth(date).toISOString();
 
   return { startDate, endDate };
 };

@@ -30,10 +30,14 @@ export async function getTransactionsAction(params: {
     if (filters.type) where.type = filters.type as any;
     if (filters.category) where.category = filters.category;
     if (filters.startDate) {
-      where.date = { ...where.date, gte: new Date(filters.startDate) };
+      const start = new Date(filters.startDate);
+      if (filters.startDate.length <= 10) start.setHours(0, 0, 0, 0);
+      where.date = { ...where.date, gte: start };
     }
     if (filters.endDate) {
-      where.date = { ...where.date, lte: new Date(filters.endDate) };
+      const end = new Date(filters.endDate);
+      if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
+      where.date = { ...where.date, lte: end };
     }
     if (filters.search) {
       where.note = { contains: filters.search, mode: "insensitive" };
