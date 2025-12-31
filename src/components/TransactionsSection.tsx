@@ -33,6 +33,7 @@ import {
   Plus,
   Search,
   TrendingUp,
+  Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { TransactionEditForm } from "./TransactionEditForm";
@@ -191,7 +192,7 @@ export const TransactionsSection = ({
               disabled={!canAddTransaction}
               className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all rounded-xl backdrop-blur-sm disabled:opacity-50"
             >
-              <Download className="w-4 h-4 mr-2" />
+              <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Import</span>
             </Button>
 
