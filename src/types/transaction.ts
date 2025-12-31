@@ -45,6 +45,7 @@ export interface TransactionsSectionProps {
   loading: boolean;
   onFilterChange: (filters: TransactionFilters) => void;
   onEditTransaction: (transaction: Transaction) => void;
+  onExportPDF: () => void;
   showEditForm?: boolean;
   setShowEditForm?: (show: boolean) => void;
 }

@@ -7,8 +7,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { generateTransactionReceipt } from "@/lib/receiptGenerator";
 import { cn } from "@/lib/utils";
-import { Edit2, Image, MoreVertical, Trash2 } from "lucide-react";
+import {
+  Download,
+  Edit2,
+  Image as ImageIcon,
+  MoreVertical,
+  Trash2,
+} from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -76,7 +83,7 @@ export function TransactionCard({
                   {transaction.category}
                 </Badge>
                 {transaction.image_url && (
-                  <Image className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <ImageIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                 )}
               </div>
 
@@ -115,6 +122,13 @@ export function TransactionCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onClick={() => generateTransactionReceipt(transaction)}
+                  className="cursor-pointer"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Receipt
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onEdit?.(transaction)}
                   className="cursor-pointer"

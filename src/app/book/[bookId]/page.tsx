@@ -17,8 +17,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
+import { generateStatementReceipt } from "@/lib/receiptGenerator";
 import { getMonthDateRange } from "@/lib/utils";
 import { Book } from "@/types/book";
 import { Transaction, TransactionFilters } from "@/types/transaction";
@@ -30,6 +32,7 @@ export default function BookDetailsPage() {
   const bookId = params?.bookId as string;
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { books, initialized: booksInitialized } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -200,57 +203,22 @@ export default function BookDetailsPage() {
     }
 
     try {
-      const { jsPDF } = await import("jspdf");
-      const autoTable = (await import("jspdf-autotable")).default;
+      const stats = {
+        income: totalIncome,
+        expense: totalExpense,
+        count: transactions.length,
+      };
 
-      const doc = new jsPDF();
-      doc.setFontSize(20);
-      doc.text(`${selectedBook.name} - Transaction Report`, 20, 20);
-      doc.setFontSize(12);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 35);
-      doc.text(
-        `${showAllData ? "All Data" : `Month: ${selectedMonth}`}`,
-        20,
-        45
+      const title = showAllData
+        ? `${selectedBook.name} - All Transactions`
+        : `${selectedBook.name} - ${selectedMonth}`;
+
+      generateStatementReceipt(
+        transactions,
+        title,
+        stats,
+        user?.user_metadata?.display_name || user?.email || "User"
       );
-      doc.text(`Total Transactions: ${pagination.totalCount}`, 20, 55);
-      doc.text(`Total Income: ৳${totalIncome.toLocaleString()}`, 20, 65);
-      doc.text(`Total Expenses: ৳${totalExpense.toLocaleString()}`, 20, 75);
-      doc.text(
-        `Net Balance: ৳${(totalIncome - totalExpense).toLocaleString()}`,
-        20,
-        85
-      );
-
-      const tableData = transactions.map((t) => [
-        t.date,
-        t.type.charAt(0).toUpperCase() + t.type.slice(1),
-        `৳${Number(t.amount).toLocaleString()}`,
-        t.category,
-        t.note || "",
-      ]);
-
-      autoTable(doc, {
-        head: [["Date", "Type", "Amount", "Category", "Note"]],
-        body: tableData,
-        startY: 95,
-        styles: {
-          fontSize: 8,
-          cellPadding: 3,
-        },
-        headStyles: {
-          fillColor: [59, 130, 246],
-          textColor: 255,
-        },
-        alternateRowStyles: {
-          fillColor: [241, 245, 249],
-        },
-      });
-
-      const filename = showAllData
-        ? `${selectedBook.name}-all-transactions.pdf`
-        : `${selectedBook.name}-${selectedMonth}-transactions.pdf`;
-      doc.save(filename);
 
       toast({
         title: "Export Successful",
@@ -364,6 +332,7 @@ export default function BookDetailsPage() {
             loading={transactionsLoading}
             onFilterChange={setFilters}
             onEditTransaction={handleEditTransaction}
+            onExportPDF={handleExportPDF}
             showEditForm={showEditForm}
             setShowEditForm={setShowEditForm}
           />
