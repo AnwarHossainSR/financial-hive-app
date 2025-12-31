@@ -55,6 +55,7 @@ export const TransactionsSection = ({
   loading,
   onFilterChange,
   onEditTransaction,
+  onExportPDF,
   showEditForm,
   setShowEditForm,
 }: TransactionsSectionProps) => {
@@ -74,7 +75,8 @@ export const TransactionsSection = ({
     return transactions.slice(startIndex, endIndex);
   }, [transactions, startIndex, endIndex]);
 
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({
@@ -96,7 +98,12 @@ export const TransactionsSection = ({
     const shouldShowHint =
       (transactions.length > 5 && endIndex < transactions.length) ||
       pagination.hasNextPage;
-    setShowScrollHint(shouldShowHint);
+
+    // Use requestAnimationFrame or microtask to avoid immediate cascading render warning
+    const timeout = setTimeout(() => {
+      setShowScrollHint(shouldShowHint);
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [transactions.length, endIndex, pagination.hasNextPage]);
 
   // Hide scroll hint after user scrolls
@@ -133,7 +140,7 @@ export const TransactionsSection = ({
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
-    setShowEditForm(true);
+    setShowEditForm?.(true);
     setSelectedTransaction(transaction);
   };
 
@@ -186,6 +193,17 @@ export const TransactionsSection = ({
             >
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Import</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportPDF}
+              disabled={transactions.length === 0}
+              className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all rounded-xl backdrop-blur-sm disabled:opacity-50"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Export PDF</span>
             </Button>
 
             <Button
@@ -258,7 +276,7 @@ export const TransactionsSection = ({
                 !loadingMore && (
                   <div className="text-center py-8">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      You've reached the end of your transactions
+                      You&apos;ve reached the end of your transactions
                     </p>
                   </div>
                 )}
@@ -484,7 +502,7 @@ export const TransactionsSection = ({
           {selectedTransaction && (
             <TransactionEditForm
               onSubmit={onEditTransaction}
-              onCancel={() => setShowEditForm(false)}
+              onCancel={() => setShowEditForm?.(false)}
               transaction={selectedTransaction}
             />
           )}

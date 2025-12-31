@@ -120,7 +120,7 @@ export function Header({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="rounded-lg">
-                  <Upload className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
