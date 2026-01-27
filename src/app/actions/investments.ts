@@ -74,7 +74,7 @@ export async function getInvestmentPlatformAction(
   }
 }
 
-export async function createInvestmentPlatformAction(
+export async function createNewInvestmentPlatformAction(
   userId: string,
   data: { name: string; description?: string },
 ) {
@@ -153,7 +153,10 @@ export async function deleteInvestmentPlatformAction(
 
 // --- Investment Projects Actions ---
 
-export async function createInvestmentProjectAction(userId: string, data: any) {
+export async function createNewInvestmentProjectAction(
+  userId: string,
+  data: any,
+) {
   try {
     // Validate that platform_id is provided (required field)
     if (!data.platform_id) {

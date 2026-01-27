@@ -1,6 +1,6 @@
 "use client";
 
-import { createInvestmentPlatformAction } from "@/app/actions/investments";
+import { createIsolatedInvestmentPlatformAction } from "@/app/actions/platform-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,11 +34,19 @@ export function CreatePlatformDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !user?.id) return;
+    console.log("🟡 CreatePlatformDialog handleSubmit called");
+    if (!name || !user?.id) {
+      console.log("❌ Missing name or user ID:", { name, userId: user?.id });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const { platform, error } = await createInvestmentPlatformAction(
+      console.log("📤 Calling createIsolatedInvestmentPlatformAction with:", {
+        name,
+        description,
+      });
+      const { platform, error } = await createIsolatedInvestmentPlatformAction(
         user.id,
         {
           name,
@@ -58,6 +66,7 @@ export function CreatePlatformDialog({
       setDescription("");
       router.refresh();
     } catch (error: any) {
+      console.error("❌ CreatePlatformDialog error:", error);
       toast({
         title: "Error",
         description: error.message,

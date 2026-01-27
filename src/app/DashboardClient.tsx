@@ -1,16 +1,32 @@
 "use client";
 
+import { getIsolatedInvestmentPlatformsAction } from "@/app/actions/platform-actions";
 import { BookSelector } from "@/components/BookSelector";
-import { CreateProjectDialog } from "@/components/CreateProjectDialog";
+import { CreatePlatformDialog } from "@/components/CreatePlatformDialog";
 import { Header } from "@/components/Header";
-import { InvestmentProjectCard } from "@/components/InvestmentProjectCard";
+import { PlatformCard } from "@/components/PlatformCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useInvestmentProjects } from "@/hooks/useInvestmentProjects";
-import { Plus, TrendingUp } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { InvestmentPlatform } from "@/types/investment";
+import { useQuery } from "@tanstack/react-query";
+import { Layers, Plus } from "lucide-react";
 
-export default function DashboardPage() {
-  const { projects, isLoading: projectsLoading } = useInvestmentProjects();
+export default function DashboardClient() {
+  const { user } = useAuth();
+
+  const { data: platforms = [], isLoading: platformsLoading } = useQuery({
+    queryKey: ["investment-platforms", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { platforms, error } = await getIsolatedInvestmentPlatformsAction(
+        user.id,
+      );
+      if (error) throw new Error(error);
+      return platforms;
+    },
+    enabled: !!user?.id,
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
@@ -45,15 +61,15 @@ export default function DashboardPage() {
               <h2 className="text-2xl font-bold tracking-tight text-foreground">
                 Investments
               </h2>
-              <CreateProjectDialog>
+              <CreatePlatformDialog>
                 <Button variant="outline" size="sm" className="hidden sm:flex">
                   <Plus className="w-4 h-4 mr-2" />
-                  New Project
+                  New Platform
                 </Button>
-              </CreateProjectDialog>
+              </CreatePlatformDialog>
             </div>
 
-            {projectsLoading ? (
+            {platformsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
                   <div
@@ -62,39 +78,40 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-            ) : projects.length > 0 ? (
+            ) : platforms.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projects.map((project) => (
-                  <InvestmentProjectCard key={project.id} project={project} />
+                {platforms.map((platform: InvestmentPlatform) => (
+                  <PlatformCard key={platform.id} platform={platform} />
                 ))}
 
                 {/* Add new card also in grid for easy access */}
-                <CreateProjectDialog>
+                <CreatePlatformDialog>
                   <Card className="h-full border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center p-6 space-y-2 min-h-[200px] text-muted-foreground hover:text-primary">
                     <div className="p-3 rounded-full bg-primary/10">
                       <Plus className="w-6 h-6" />
                     </div>
-                    <span className="font-semibold">Create New Project</span>
+                    <span className="font-semibold">Create New Platform</span>
                   </Card>
-                </CreateProjectDialog>
+                </CreatePlatformDialog>
               </div>
             ) : (
-              <CreateProjectDialog>
+              <CreatePlatformDialog>
                 <Card className="border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center p-12 space-y-4 text-muted-foreground hover:text-primary">
                   <div className="p-4 rounded-full bg-primary/10">
-                    <TrendingUp className="w-8 h-8" />
+                    <Layers className="w-8 h-8" />
                   </div>
                   <div className="text-center">
                     <h3 className="text-lg font-semibold">
-                      No Investment Projects
+                      No Investment Platforms
                     </h3>
                     <p className="text-sm opacity-80">
-                      Start tracking your investments today
+                      Create a platform (e.g., i-Farmer) to start tracking
+                      projects
                     </p>
                   </div>
-                  <Button variant="ghost">Create Project</Button>
+                  <Button variant="ghost">Create Platform</Button>
                 </Card>
-              </CreateProjectDialog>
+              </CreatePlatformDialog>
             )}
           </section>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  createInvestmentProjectAction,
+  createNewInvestmentProjectAction,
   deleteInvestmentProjectAction,
   getInvestmentProjectsAction,
   updateInvestmentProjectAction,
@@ -33,7 +33,7 @@ export const useInvestmentProjects = () => {
   const createProjectMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!user?.id) throw new Error("User not authenticated");
-      const { project, error } = await createInvestmentProjectAction(
+      const { project, error } = await createNewInvestmentProjectAction(
         user.id,
         data,
       );

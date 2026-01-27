@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,7 +69,7 @@ export const BookSelector = ({
       formData.name,
       formData.type,
       formData.description,
-      formData.is_default
+      formData.is_default,
     );
 
     setFormLoading(false);
@@ -254,7 +256,7 @@ export const BookSelector = ({
                       "group relative p-4 rounded-xl border border-border bg-white dark:bg-gray-900 bg-opacity-90 backdrop-blur-sm cursor-pointer transition-all duration-300 hover:shadow-xl hover:border-primary/50",
                       "animate-scale-in",
                       book.is_default &&
-                        "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-md"
+                        "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-md",
                     )}
                     onClick={() => {
                       onSelectBook(book);
