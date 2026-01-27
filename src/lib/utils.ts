@@ -24,7 +24,7 @@ export const formatDateForDisplay = (dateString: string) => {
 
 // Helper function to get current time in Bangladesh timezone (Asia/Dhaka)
 export const getBangladeshTime = (
-  date: Date | string | number | null = null
+  date: Date | string | number | null = null,
 ) => {
   const dateToUse = date ? new Date(date) : new Date();
   const bangladeshTime = toZonedTime(dateToUse, "Asia/Dhaka");
@@ -63,4 +63,15 @@ export const getMonthDateRange = (monthString: string) => {
   const endDate = endOfMonth(date).toISOString();
 
   return { startDate, endDate };
+};
+
+export const formatCurrency = (amount: number | string) => {
+  const numericAmount =
+    typeof amount === "string" ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat("en-BD", {
+    style: "currency",
+    currency: "BDT",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(numericAmount);
 };
