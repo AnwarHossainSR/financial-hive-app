@@ -42,6 +42,7 @@ export const useInvestmentProjects = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investment-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] }); // Refresh platform details if needed
       toast({
         title: "Project created",
         description: "Your investment project has been created.",
@@ -69,6 +70,7 @@ export const useInvestmentProjects = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investment-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
       toast({
         title: "Project updated",
         description: "Your investment project has been updated.",
@@ -95,6 +97,7 @@ export const useInvestmentProjects = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investment-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
       toast({
         title: "Project deleted",
         description: "Your investment project has been deleted.",
