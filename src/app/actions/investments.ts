@@ -11,6 +11,7 @@ export async function createInvestmentProjectAction(userId: string, data: any) {
       data: {
         ...data,
         user_id: userId,
+        platform_id: data.platform_id || null, // Handle optional platform
         total_profit_loss: 0,
         remaining_capital: 0,
         total_investment: 0,
@@ -34,6 +35,7 @@ export async function updateInvestmentProjectAction(
       where: { id: projectId },
       data: {
         ...data,
+        platform_id: data.platform_id, // Allow updating platform
         updated_at: new Date(),
       },
     });
@@ -77,6 +79,7 @@ export async function createInvestmentEntryAction(
         user_id: userId,
         amount: Number(data.amount),
         date: new Date(data.date),
+        image_url: data.image_url || null,
       },
     });
 
@@ -106,6 +109,7 @@ export async function updateInvestmentEntryAction(
         withdrawal_date: data.withdrawal_date
           ? new Date(data.withdrawal_date)
           : undefined,
+        image_url: data.image_url,
         updated_at: new Date(),
       },
     });
@@ -319,6 +323,7 @@ export async function getInvestmentProjectAction(
   try {
     const project = await prisma.investmentProject.findUnique({
       where: { id: projectId },
+      include: { platform: true },
       // In a real app, verify user_id matches or check permission (book ownership)
     });
 

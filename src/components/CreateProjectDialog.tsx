@@ -20,8 +20,10 @@ import { useState } from "react";
 
 export function CreateProjectDialog({
   children,
+  platformId,
 }: {
   children: React.ReactNode;
+  platformId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -37,6 +39,7 @@ export function CreateProjectDialog({
     await createProject({
       name,
       description,
+      platform_id: platformId,
     });
 
     setOpen(false);
