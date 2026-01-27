@@ -19,7 +19,15 @@ export async function createInvestmentProjectAction(userId: string, data: any) {
     });
 
     revalidatePath("/investments");
-    return { project, error: null };
+    return {
+      project: {
+        ...project,
+        total_profit_loss: Number(project.total_profit_loss),
+        remaining_capital: Number(project.remaining_capital),
+        total_investment: Number(project.total_investment),
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { project: null, error: error.message };
   }
@@ -42,7 +50,15 @@ export async function updateInvestmentProjectAction(
 
     revalidatePath("/investments");
     revalidatePath(`/investments/projects/${projectId}`);
-    return { project, error: null };
+    return {
+      project: {
+        ...project,
+        total_profit_loss: Number(project.total_profit_loss),
+        remaining_capital: Number(project.remaining_capital),
+        total_investment: Number(project.total_investment),
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { project: null, error: error.message };
   }
@@ -87,7 +103,14 @@ export async function createInvestmentEntryAction(
     await updateProjectTotals(projectId);
 
     revalidatePath(`/investments/projects/${projectId}`);
-    return { entry, error: null };
+    return {
+      entry: {
+        ...entry,
+        amount: Number(entry.amount),
+        profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { entry: null, error: error.message };
   }
@@ -118,7 +141,14 @@ export async function updateInvestmentEntryAction(
     await updateProjectTotals(entry.project_id);
 
     revalidatePath(`/investments/projects/${entry.project_id}`);
-    return { entry, error: null };
+    return {
+      entry: {
+        ...entry,
+        amount: Number(entry.amount),
+        profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { entry: null, error: error.message };
   }
@@ -164,7 +194,15 @@ export async function createBankStatementAction(
     });
 
     revalidatePath(`/investments/projects/${projectId}`);
-    return { statement, error: null };
+    return {
+      statement: {
+        ...statement,
+        total_capital: Number(statement.total_capital),
+        total_withdrawal: Number(statement.total_withdrawal),
+        balance: Number(statement.balance),
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { statement: null, error: error.message };
   }
@@ -217,7 +255,15 @@ export async function updateBankStatementAction(
     });
 
     revalidatePath(`/investments/projects/${statement.project_id}`);
-    return { statement, error: null };
+    return {
+      statement: {
+        ...statement,
+        total_capital: Number(statement.total_capital),
+        total_withdrawal: Number(statement.total_withdrawal),
+        balance: Number(statement.balance),
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { statement: null, error: error.message };
   }

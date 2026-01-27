@@ -90,7 +90,18 @@ export async function getInvestmentPlatformAction(platformId: string) {
 
     if (!platform) return { platform: null, error: "Platform not found" };
 
-    return { platform, error: null };
+    return {
+      platform: {
+        ...platform,
+        projects: platform.projects.map((p) => ({
+          ...p,
+          total_profit_loss: Number(p.total_profit_loss),
+          remaining_capital: Number(p.remaining_capital),
+          total_investment: Number(p.total_investment),
+        })),
+      },
+      error: null,
+    };
   } catch (error: any) {
     return { platform: null, error: error.message };
   }
