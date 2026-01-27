@@ -1,6 +1,6 @@
 "use client";
 
-import { getInvestmentPlatformAction } from "@/app/actions/platforms";
+import { getInvestmentPlatformAction } from "@/app/actions/investments";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,7 +15,10 @@ export const useInvestmentPlatform = (platformId: string) => {
     queryKey: ["investment-platform", platformId],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { platform, error } = await getInvestmentPlatformAction(platformId);
+      const { platform, error } = await getInvestmentPlatformAction(
+        platformId,
+        user.id,
+      );
       if (error) throw new Error(error);
       return platform;
     },

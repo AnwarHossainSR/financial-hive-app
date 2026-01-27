@@ -77,7 +77,13 @@ export default function ProjectDetailsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/investments">
+          <Link
+            href={
+              project.platform
+                ? `/investments/platforms/${project.platform.id}`
+                : "/investments"
+            }
+          >
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -108,45 +114,75 @@ export default function ProjectDetailsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 border-blue-200 dark:border-blue-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
               Total Investment
             </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-blue-200/50 dark:bg-blue-800/50 rounded-full">
+              <Wallet className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
               {formatCurrency(project.total_investment)}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 border-purple-200 dark:border-purple-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
               Remaining Capital
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-purple-200/50 dark:bg-purple-800/50 rounded-full">
+              <DollarSign className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
               {formatCurrency(project.remaining_capital)}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`bg-gradient-to-br border ${
+            project.total_profit_loss >= 0
+              ? "from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 border-emerald-200 dark:border-emerald-800"
+              : "from-rose-50 to-rose-100/50 dark:from-rose-950/30 dark:to-rose-900/10 border-rose-200 dark:border-rose-800"
+          }`}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle
+              className={`text-sm font-medium ${
+                project.total_profit_loss >= 0
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-rose-700 dark:text-rose-300"
+              }`}
+            >
               Total Profit/Loss
             </CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+            <div
+              className={`p-2 rounded-full ${
+                project.total_profit_loss >= 0
+                  ? "bg-emerald-200/50 dark:bg-emerald-800/50"
+                  : "bg-rose-200/50 dark:bg-rose-800/50"
+              }`}
+            >
+              <ArrowUpRight
+                className={`h-4 w-4 ${
+                  project.total_profit_loss >= 0
+                    ? "text-emerald-700 dark:text-emerald-300"
+                    : "text-rose-700 dark:text-rose-300"
+                }`}
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <div
               className={`text-2xl font-bold ${
                 project.total_profit_loss >= 0
-                  ? "text-green-600"
-                  : "text-red-600"
+                  ? "text-emerald-900 dark:text-emerald-100"
+                  : "text-rose-900 dark:text-rose-100"
               }`}
             >
               {formatCurrency(project.total_profit_loss)}

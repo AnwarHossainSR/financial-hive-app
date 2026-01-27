@@ -169,10 +169,10 @@ export function AddInvestmentEntryDialog({
 
             {/* Platform (Optional) */}
             <div className="grid gap-2">
-              <Label htmlFor="platform">Platform (Optional)</Label>
+              <Label htmlFor="platform">Source / Details (Optional)</Label>
               <Input
                 id="platform"
-                placeholder="e.g., Specific detail if needed"
+                placeholder="e.g., Bank name, person, or specific source"
                 value={platform}
                 onChange={(e) => setPlatform(e.target.value)}
               />

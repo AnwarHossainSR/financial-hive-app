@@ -1,6 +1,6 @@
 "use client";
 
-import { getInvestmentPlatformsAction } from "@/app/actions/platforms";
+import { getInvestmentPlatformsAction } from "@/app/actions/investments";
 import { CreatePlatformDialog } from "@/components/CreatePlatformDialog";
 import { PlatformCard } from "@/components/PlatformCard";
 import { Button } from "@/components/ui/button";

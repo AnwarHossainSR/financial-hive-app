@@ -3,15 +3,172 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+// --- Investment Platforms Actions ---
+
+export async function getInvestmentPlatformsAction(userId: string) {
+  try {
+    const platforms = await prisma.investmentPlatform.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: "desc" },
+      include: {
+        _count: {
+          select: { projects: true },
+        },
+      },
+    });
+
+    return {
+      platforms: platforms.map((p) => ({
+        ...p,
+        description: p.description || undefined,
+        created_at: p.created_at.toISOString(),
+        updated_at: p.updated_at.toISOString(),
+      })),
+      error: null,
+    };
+  } catch (error: any) {
+    return { platforms: [], error: error.message };
+  }
+}
+
+export async function getInvestmentPlatformAction(
+  platformId: string,
+  userId: string,
+) {
+  try {
+    const platform = await prisma.investmentPlatform.findUnique({
+      where: { id: platformId },
+      include: {
+        projects: {
+          orderBy: { created_at: "desc" },
+          include: {
+            _count: {
+              select: { entries: true },
+            },
+          },
+        },
+        _count: {
+          select: { projects: true },
+        },
+      },
+    });
+
+    if (!platform) return { platform: null, error: "Platform not found" };
+
+    return {
+      platform: {
+        ...platform,
+        description: platform.description || undefined,
+        projects: platform.projects.map((p) => ({
+          ...p,
+          description: p.description || undefined,
+          total_profit_loss: Number(p.total_profit_loss),
+          remaining_capital: Number(p.remaining_capital),
+          total_investment: Number(p.total_investment),
+        })),
+      },
+      error: null,
+    };
+  } catch (error: any) {
+    return { platform: null, error: error.message };
+  }
+}
+
+export async function createInvestmentPlatformAction(
+  userId: string,
+  data: { name: string; description?: string },
+) {
+  console.log("🟢 createInvestmentPlatformAction called with:", {
+    userId,
+    data,
+  });
+  try {
+    const platform = await prisma.investmentPlatform.create({
+      data: {
+        name: data.name,
+        description: data.description || null,
+        user_id: userId,
+      },
+    });
+
+    console.log("✅ Platform created successfully:", platform.id);
+    revalidatePath("/investments");
+    return {
+      platform: {
+        ...platform,
+        description: platform.description || undefined,
+      },
+      error: null,
+    };
+  } catch (error: any) {
+    console.error("❌ Platform creation error:", error.message);
+    return { platform: null, error: error.message };
+  }
+}
+
+export async function updateInvestmentPlatformAction(
+  platformId: string,
+  userId: string,
+  data: { name?: string; description?: string },
+) {
+  try {
+    const platform = await prisma.investmentPlatform.update({
+      where: { id: platformId },
+      data: {
+        name: data.name,
+        description: data.description,
+        updated_at: new Date(),
+      },
+    });
+
+    revalidatePath("/investments");
+    revalidatePath(`/investments/platforms/${platformId}`);
+    return {
+      platform: {
+        ...platform,
+        description: platform.description || undefined,
+      },
+      error: null,
+    };
+  } catch (error: any) {
+    return { platform: null, error: error.message };
+  }
+}
+
+export async function deleteInvestmentPlatformAction(
+  platformId: string,
+  userId: string,
+) {
+  try {
+    await prisma.investmentPlatform.delete({
+      where: { id: platformId },
+    });
+
+    revalidatePath("/investments");
+    return { success: true, error: null };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 // --- Investment Projects Actions ---
 
 export async function createInvestmentProjectAction(userId: string, data: any) {
   try {
+    // Validate that platform_id is provided (required field)
+    if (!data.platform_id) {
+      return {
+        project: null,
+        error:
+          "Platform is required. Please select a platform for this project.",
+      };
+    }
+
     const project = await prisma.investmentProject.create({
       data: {
         ...data,
         user_id: userId,
-        platform_id: data.platform_id || null, // Handle optional platform
+        platform_id: data.platform_id, // Required field
         total_profit_loss: 0,
         remaining_capital: 0,
         total_investment: 0,
@@ -19,6 +176,7 @@ export async function createInvestmentProjectAction(userId: string, data: any) {
     });
 
     revalidatePath("/investments");
+    revalidatePath(`/investments/platforms/${data.platform_id}`);
     return {
       project: {
         ...project,
@@ -335,12 +493,21 @@ async function updateProjectTotals(projectId: string) {
 
 // --- Fetching Actions ---
 
-export async function getInvestmentProjectsAction(userId: string) {
+export async function getInvestmentProjectsAction(
+  userId: string,
+  platformId?: string,
+) {
   try {
+    const where: any = { user_id: userId };
+    if (platformId) {
+      where.platform_id = platformId;
+    }
+
     const projects = await prisma.investmentProject.findMany({
-      where: { user_id: userId },
+      where,
       orderBy: { created_at: "desc" },
       include: {
+        platform: true,
         _count: {
           select: { entries: true },
         },
