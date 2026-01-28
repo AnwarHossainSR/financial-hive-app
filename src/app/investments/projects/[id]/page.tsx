@@ -1,18 +1,8 @@
 "use client";
 
 import { AddInvestmentEntryDialog } from "@/components/AddInvestmentEntryDialog";
+import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
 import { EditInvestmentEntryDialog } from "@/components/EditInvestmentEntryDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +34,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
 export default function ProjectDetailsPage() {
   const params = useParams();
@@ -55,6 +46,10 @@ export default function ProjectDetailsPage() {
     isLoading: isLoadingEntries,
     deleteEntry,
   } = useInvestmentEntries(projectId);
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (isLoadingProject) {
     return (
@@ -88,10 +83,15 @@ export default function ProjectDetailsPage() {
   }
 
   const handleDeleteEntry = async (entryId: string) => {
+    setIsDeleting(true);
     try {
       await deleteEntry(entryId);
+      setDeleteModalOpen(false);
+      setEntryToDelete(null);
     } catch (error) {
       console.error("Failed to delete entry:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -353,38 +353,17 @@ export default function ProjectDetailsPage() {
                               <Edit className="h-4 w-4" />
                             </Button>
                           </EditInvestmentEntryDialog>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete Entry
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete this entry?
-                                  This action cannot be undone and will update
-                                  your project totals.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteEntry(entry.id)}
-                                  className="bg-destructive hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => {
+                              setEntryToDelete(entry.id);
+                              setDeleteModalOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -395,6 +374,20 @@ export default function ProjectDetailsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {entryToDelete && (
+        <DeleteConfirmationModal
+          open={deleteModalOpen}
+          onOpenChange={setDeleteModalOpen}
+          onConfirmDelete={handleDeleteEntry}
+          isDeleting={isDeleting}
+          title="Delete Investment Entry"
+          description="Are you sure you want to delete this entry? This action cannot be undone and will update your project totals."
+          deleteButtonText="Delete Entry"
+          itemId={entryToDelete}
+        />
+      )}
     </div>
   );
 }
