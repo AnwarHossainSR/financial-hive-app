@@ -43,6 +43,7 @@ export function AddInvestmentEntryDialog({
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("Deposit");
   const [platform, setPlatform] = useState("");
+  const [profitLoss, setProfitLoss] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -88,6 +89,7 @@ export function AddInvestmentEntryDialog({
         amount: parseFloat(amount),
         investment_type: type,
         platform: platform || undefined,
+        profit_loss: profitLoss ? parseFloat(profitLoss) : null,
         notes: notes || undefined,
         image_url: imageUrl,
         status: "completed", // Default to completed for now
@@ -98,6 +100,7 @@ export function AddInvestmentEntryDialog({
       setAmount("");
       setType("Deposit");
       setPlatform("");
+      setProfitLoss("");
       setNotes("");
       setFile(null);
       setDate(getBangladeshTime());
@@ -164,6 +167,19 @@ export function AddInvestmentEntryDialog({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
+              />
+            </div>
+
+            {/* Profit/Loss */}
+            <div className="grid gap-2">
+              <Label htmlFor="profit-loss">Profit/Loss (Optional)</Label>
+              <Input
+                id="profit-loss"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={profitLoss}
+                onChange={(e) => setProfitLoss(e.target.value)}
               />
             </div>
 

@@ -8,6 +8,7 @@ import {
   getBankStatementsAction,
   getInvestmentEntriesAction,
   getInvestmentProjectAction,
+  updateInvestmentEntryAction,
 } from "@/app/actions/investments";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -90,6 +91,38 @@ export const useInvestmentEntries = (projectId: string) => {
     },
   });
 
+  const updateEntry = useMutation({
+    mutationFn: async ({ entryId, data }: { entryId: string; data: any }) => {
+      if (!user?.id) throw new Error("User not authenticated");
+      const { entry, error } = await updateInvestmentEntryAction(
+        entryId,
+        user.id,
+        data,
+      );
+      if (error) throw new Error(error);
+      return entry;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["investment-entries", projectId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["investment-project", projectId],
+      });
+      toast({
+        title: "Entry updated",
+        description: "Investment entry has been successfully updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteEntry = useMutation({
     mutationFn: async (entryId: string) => {
       if (!user?.id) throw new Error("User not authenticated");
@@ -126,6 +159,7 @@ export const useInvestmentEntries = (projectId: string) => {
     isLoading,
     error,
     createEntry: createEntry.mutateAsync,
+    updateEntry: updateEntry.mutateAsync,
     deleteEntry: deleteEntry.mutateAsync,
   };
 };
