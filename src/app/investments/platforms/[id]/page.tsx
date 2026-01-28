@@ -425,6 +425,7 @@ export default function PlatformDetailsPage() {
         description={`Are you sure you want to delete "${platform.name}"? This action cannot be undone and will delete all projects and data associated with this platform.`}
         deleteButtonText="Delete Platform"
         itemId={platform.id}
+        verificationText={platform.name}
       />
     </div>
   );
