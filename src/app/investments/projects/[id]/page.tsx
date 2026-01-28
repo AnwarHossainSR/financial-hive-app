@@ -75,8 +75,8 @@ export default function ProjectDetailsPage() {
           The project you are looking for does not exist or you do not have
           permission to view it.
         </p>
-        <Link href="/investments">
-          <Button>Back to Investments</Button>
+        <Link href="/">
+          <Button>Back to Home</Button>
         </Link>
       </div>
     );
@@ -104,7 +104,7 @@ export default function ProjectDetailsPage() {
             href={
               project.platform
                 ? `/investments/platforms/${project.platform.id}`
-                : "/investments"
+                : "/"
             }
           >
             <Button variant="ghost" size="icon">

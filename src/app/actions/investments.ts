@@ -92,7 +92,7 @@ export async function createNewInvestmentPlatformAction(
     });
 
     console.log("✅ Platform created successfully:", platform.id);
-    revalidatePath("/investments");
+    revalidatePath("/");
     return {
       platform: {
         ...platform,
@@ -121,7 +121,7 @@ export async function updateInvestmentPlatformAction(
       },
     });
 
-    revalidatePath("/investments");
+    revalidatePath("/");
     revalidatePath(`/investments/platforms/${platformId}`);
     return {
       platform: {
@@ -144,7 +144,7 @@ export async function deleteInvestmentPlatformAction(
       where: { id: platformId },
     });
 
-    revalidatePath("/investments");
+    revalidatePath("/");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -178,7 +178,7 @@ export async function createNewInvestmentProjectAction(
       },
     });
 
-    revalidatePath("/investments");
+    revalidatePath("/");
     revalidatePath(`/investments/platforms/${data.platform_id}`);
     return {
       project: {
@@ -209,7 +209,7 @@ export async function updateInvestmentProjectAction(
       },
     });
 
-    revalidatePath("/investments");
+    revalidatePath("/");
     revalidatePath(`/investments/projects/${projectId}`);
     return {
       project: {
@@ -234,7 +234,7 @@ export async function deleteInvestmentProjectAction(
       where: { id: projectId },
     });
 
-    revalidatePath("/investments");
+    revalidatePath("/");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };

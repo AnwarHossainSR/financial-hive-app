@@ -105,9 +105,9 @@ export default function PlatformDetailsPage() {
           The platform you are looking for does not exist or you do not have
           permission to view it.
         </p>
-        <Link href="/investments">
+        <Link href="/">
           <Button variant="ghost" className="mt-4">
-            Back to Investments
+            Back to Home
           </Button>
         </Link>
       </div>
@@ -119,7 +119,7 @@ export default function PlatformDetailsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/investments">
+          <Link href="/">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -242,7 +242,7 @@ export default function PlatformDetailsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {(platform.projects || []).map((project: InvestmentProject) => (
+            {(platform.projects || []).map((project: any) => (
               <Card
                 key={project.id}
                 className="group hover:shadow-lg transition-all duration-200 border-2 hover:border-primary/50 cursor-pointer"
