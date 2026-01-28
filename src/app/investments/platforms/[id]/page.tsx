@@ -2,10 +2,19 @@
 
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
 import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
+import { EditPlatformDialog } from "@/components/EditPlatformDialog";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useInvestmentPlatform } from "@/hooks/useInvestmentPlatform";
 import { useInvestmentProjects } from "@/hooks/useInvestmentProjects";
 import { formatCurrency } from "@/lib/utils";
@@ -16,6 +25,7 @@ import {
   ArrowUpRight,
   Edit,
   Plus,
+  Settings,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -29,13 +39,19 @@ export default function PlatformDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const platformId = params.id as string;
-  const { platform, isLoading } = useInvestmentPlatform(platformId);
+  const { platform, isLoading, deletePlatform } =
+    useInvestmentPlatform(platformId);
   const { deleteProject } = useInvestmentProjects();
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] =
     useState<InvestmentProject | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Platform management state
+  const [platformEditOpen, setPlatformEditOpen] = useState(false);
+  const [platformDeleteOpen, setPlatformDeleteOpen] = useState(false);
+  const [isDeletingPlatform, setIsDeletingPlatform] = useState(false);
 
   // Calculate aggregate stats from all projects
   const aggregateStats = useMemo(() => {
@@ -74,6 +90,19 @@ export default function PlatformDetailsPage() {
       console.error("Failed to delete project:", error);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDeletePlatform = async (id: string) => {
+    setIsDeletingPlatform(true);
+    try {
+      await deletePlatform(id);
+      setPlatformDeleteOpen(false);
+      // Navigation to home is handled in the hook's onSuccess
+    } catch (error) {
+      console.error("Failed to delete platform:", error);
+    } finally {
+      setIsDeletingPlatform(false);
     }
   };
 
@@ -135,12 +164,37 @@ export default function PlatformDetailsPage() {
             )}
           </div>
         </div>
-        <CreateProjectDialog platformId={platform.id}>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span>New Project</span>
-          </Button>
-        </CreateProjectDialog>
+        <div className="flex gap-2">
+          <CreateProjectDialog platformId={platform.id}>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              <span>New Project</span>
+            </Button>
+          </CreateProjectDialog>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Platform Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setPlatformEditOpen(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Platform
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setPlatformDeleteOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Platform
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Aggregate Stats Cards */}
@@ -338,7 +392,7 @@ export default function PlatformDetailsPage() {
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Investment Project Modal */}
       {projectToDelete && (
         <DeleteConfirmationModal
           open={deleteModalOpen}
@@ -351,6 +405,27 @@ export default function PlatformDetailsPage() {
           itemId={projectToDelete.id}
         />
       )}
+
+      {/* Edit Platform Dialog */}
+      <EditPlatformDialog
+        platform={platform}
+        open={platformEditOpen}
+        onOpenChange={setPlatformEditOpen}
+      >
+        <span />
+      </EditPlatformDialog>
+
+      {/* Delete Platform Modal */}
+      <DeleteConfirmationModal
+        open={platformDeleteOpen}
+        onOpenChange={setPlatformDeleteOpen}
+        onConfirmDelete={handleDeletePlatform}
+        isDeleting={isDeletingPlatform}
+        title="Delete Platform"
+        description={`Are you sure you want to delete "${platform.name}"? This action cannot be undone and will delete all projects and data associated with this platform.`}
+        deleteButtonText="Delete Platform"
+        itemId={platform.id}
+      />
     </div>
   );
 }
