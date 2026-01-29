@@ -183,6 +183,8 @@ export async function createNewInvestmentProjectAction(
     return {
       project: {
         ...project,
+        total_profit: Number(project.total_profit),
+        total_loss: Number(project.total_loss),
         total_profit_loss: Number(project.total_profit_loss),
         remaining_capital: Number(project.remaining_capital),
         total_investment: Number(project.total_investment),
@@ -214,6 +216,8 @@ export async function updateInvestmentProjectAction(
     return {
       project: {
         ...project,
+        total_profit: Number(project.total_profit),
+        total_loss: Number(project.total_loss),
         total_profit_loss: Number(project.total_profit_loss),
         remaining_capital: Number(project.remaining_capital),
         total_investment: Number(project.total_investment),
@@ -480,44 +484,65 @@ async function updateProjectTotals(projectId: string) {
   });
 
   let totalInvestment = 0;
-  let totalProfitLoss = 0;
+  let totalProfit = 0;
+  let totalLoss = 0;
   let totalOutflow = 0;
 
   entries.forEach((entry) => {
     const amt = Number(entry.amount);
     const type = entry.investment_type;
-    const pl = entry.profit_loss ? Number(entry.profit_loss) : 0;
+    const plField =
+      entry.profit_loss !== null ? Number(entry.profit_loss) : null;
+    const principal = entry.principal ? Number(entry.principal) : 0;
     const withdrawnAmount = entry.withdrawal_amount
       ? Number(entry.withdrawal_amount)
       : 0;
 
-    // 1. Accumulate Total Profit/Loss (Independent performance tracking)
-    totalProfitLoss += pl;
-
-    // 2. Accumulate Total Investment (Capital Inflow)
+    // 1. Total Investment (Initial Capital Basis)
     if (type === "Deposit" || type === "Reinvestment") {
-      totalInvestment += amt;
+      totalInvestment += Math.max(principal, amt);
+    } else if (type === "Profit" && totalInvestment === 0) {
+      totalInvestment += principal;
     }
 
-    // 3. Accumulate Outflow (Capital Outflow)
-    // If it's a dedicated outflow type entry
+    // 2. Total Profit & Total Loss
+    if (plField !== null) {
+      if (plField >= 0) totalProfit += plField;
+      else totalLoss += Math.abs(plField);
+    } else {
+      // Fallback for missing P/L field based on transaction type
+      if (type === "Profit") totalProfit += amt;
+      else if (type === "Loss" || type === "Fee") totalLoss += amt;
+    }
+
+    // 3. Outflow / Remaining Capital logic
     if (type === "Withdrawal" || type === "Capital Return") {
-      // If withdrawal_amount field is used, it takes precedence as the exact capital out
-      // otherwise we use the entry amount.
       totalOutflow += withdrawnAmount > 0 ? withdrawnAmount : amt;
     } else {
-      // For other entry types (like Deposit or Profit), if they were partially/fully withdrawn
       totalOutflow += withdrawnAmount;
+      if (entry.status === "withdrawn" && withdrawnAmount === 0) {
+        const entryPL =
+          plField !== null
+            ? plField
+            : type === "Profit"
+              ? amt
+              : type === "Loss"
+                ? -amt
+                : 0;
+        totalOutflow += principal + entryPL;
+      }
     }
   });
 
-  // Remaining Capital = Inflow (Deposits/Reinvest) + Profit/Loss (Gains) - Outflow (Withdrawals/Returns)
+  const totalProfitLoss = totalProfit - totalLoss;
   const remainingCapital = totalInvestment + totalProfitLoss - totalOutflow;
 
   await prisma.investmentProject.update({
     where: { id: projectId },
     data: {
       total_investment: totalInvestment,
+      total_profit: totalProfit,
+      total_loss: totalLoss,
       total_profit_loss: totalProfitLoss,
       remaining_capital: Math.max(0, remainingCapital),
     },
@@ -551,6 +576,8 @@ export async function getInvestmentProjectsAction(
       projects: projects.map((p) => ({
         ...p,
         description: p.description || undefined,
+        total_profit: Number(p.total_profit),
+        total_loss: Number(p.total_loss),
         total_profit_loss: Number(p.total_profit_loss),
         remaining_capital: Number(p.remaining_capital),
         total_investment: Number(p.total_investment),
@@ -578,6 +605,8 @@ export async function getInvestmentProjectAction(
     return {
       project: {
         ...project,
+        total_profit: Number(project.total_profit),
+        total_loss: Number(project.total_loss),
         total_profit_loss: Number(project.total_profit_loss),
         remaining_capital: Number(project.remaining_capital),
         total_investment: Number(project.total_investment),

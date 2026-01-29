@@ -255,6 +255,13 @@ export function AddInvestmentEntryDialog({
     }
   }, [expectedProfit, profitReceived]);
 
+  // Auto-fill Profit Received from Amount if type is 'Profit'
+  useEffect(() => {
+    if (type === "Profit" && amount && !profitReceived) {
+      setProfitReceived(amount);
+    }
+  }, [type, amount, profitReceived]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
