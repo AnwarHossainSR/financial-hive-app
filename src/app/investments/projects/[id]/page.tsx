@@ -228,12 +228,39 @@ export default function ProjectDetailsPage() {
                   <TableHead className="font-semibold">Date</TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Amount</TableHead>
+                  <TableHead className="font-semibold hidden xl:table-cell">
+                    Principal
+                  </TableHead>
+                  <TableHead className="font-semibold hidden xl:table-cell">
+                    Duration
+                  </TableHead>
+                  <TableHead className="font-semibold hidden 2xl:table-cell">
+                    Interest Rate
+                  </TableHead>
+                  <TableHead className="font-semibold hidden lg:table-cell">
+                    Investment Date
+                  </TableHead>
+                  <TableHead className="font-semibold hidden lg:table-cell">
+                    Maturity Date
+                  </TableHead>
+                  <TableHead className="font-semibold hidden xl:table-cell">
+                    Expected Profit
+                  </TableHead>
+                  <TableHead className="font-semibold hidden xl:table-cell">
+                    Profit Received
+                  </TableHead>
+                  <TableHead className="font-semibold hidden xl:table-cell">
+                    Profit Pending
+                  </TableHead>
                   <TableHead className="font-semibold">Profit/Loss</TableHead>
                   <TableHead className="font-semibold hidden md:table-cell">
-                    Platform
+                    Profit Status
                   </TableHead>
                   <TableHead className="font-semibold hidden lg:table-cell">
                     Status
+                  </TableHead>
+                  <TableHead className="font-semibold hidden 2xl:table-cell">
+                    Remarks
                   </TableHead>
                   <TableHead className="font-semibold hidden lg:table-cell">
                     Invoice
@@ -246,7 +273,7 @@ export default function ProjectDetailsPage() {
               <TableBody>
                 {isLoadingEntries ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={17} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         Loading entries...
@@ -256,7 +283,7 @@ export default function ProjectDetailsPage() {
                 ) : entries.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={17}
                       className="text-center py-12 text-muted-foreground"
                     >
                       <div className="flex flex-col items-center gap-2">
@@ -296,6 +323,45 @@ export default function ProjectDetailsPage() {
                       <TableCell className="font-semibold">
                         {formatCurrency(entry.amount)}
                       </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {entry.principal
+                          ? formatCurrency(entry.principal)
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {entry.duration || "-"}
+                      </TableCell>
+                      <TableCell className="hidden 2xl:table-cell">
+                        {entry.interest_rate ? `${entry.interest_rate}%` : "-"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {entry.investment_date
+                          ? format(
+                              new Date(entry.investment_date),
+                              "MMM d, yyyy",
+                            )
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {entry.maturity_date
+                          ? format(new Date(entry.maturity_date), "MMM d, yyyy")
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {entry.expected_profit
+                          ? formatCurrency(entry.expected_profit)
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {entry.profit_received
+                          ? formatCurrency(entry.profit_received)
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {entry.profit_pending
+                          ? formatCurrency(entry.profit_pending)
+                          : "-"}
+                      </TableCell>
                       <TableCell
                         className={`font-semibold ${
                           (entry.profit_loss || 0) >= 0
@@ -317,12 +383,30 @@ export default function ProjectDetailsPage() {
                         )}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {entry.platform || "-"}
+                        {entry.profit_status ? (
+                          <Badge
+                            variant={
+                              entry.profit_status === "received"
+                                ? "default"
+                                : entry.profit_status === "partial"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                            className="capitalize"
+                          >
+                            {entry.profit_status}
+                          </Badge>
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <Badge variant="outline" className="capitalize">
                           {entry.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="hidden 2xl:table-cell max-w-[200px] truncate">
+                        {entry.remarks || "-"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         {entry.image_url ? (
