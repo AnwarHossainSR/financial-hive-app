@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useInvestmentProject = (projectId: string) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -37,7 +37,7 @@ export const useInvestmentProject = (projectId: string) => {
     enabled: !!user?.id && !!projectId,
   });
 
-  return { project, isLoading, error };
+  return { project, isLoading: authLoading || isLoading, error };
 };
 
 export const useInvestmentEntries = (projectId: string) => {
