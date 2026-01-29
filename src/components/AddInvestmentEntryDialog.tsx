@@ -144,23 +144,26 @@ export function AddInvestmentEntryDialog({
 
   const loadDemoData = () => {
     // Demo data based on user request:
-    // #1, Mar 27 2025, #77209, Premium Shariah Livestock Farm 8, Active, 79,500, 14 Months, 21.0% - 24.0%
-    setInvestmentDate("2025-03-27T00:00");
-    setPlatform("Premium Shariah Livestock Farm 8 (Order #77209)");
-    setStatus("active");
-    setPrincipal("79500");
-    setAmount("80000"); // Capital Added
-    setDuration("14 Months");
-    setInterestRate("21.0 - 24.0");
-    // Maturity and Expected Profit will auto-calculate
-    setExpectedProfit("18000"); // From Expected P/L column
-    setProfitStatus("none");
-    setRemarks("Order ID: 77209");
+    // 2	Friday, April 11, 2025	78682	"Cattle Farm 19 (Contract Farming)"	Closed	100,000৳	5 Months	7.50%	Wednesday, October 15, 2025	107,500৳	7,500৳	107,500৳	7,500৳	Yes	Download	100,000৳	107,500৳
+    setInvestmentDate("2025-04-11T00:00");
+    setPlatform("Cattle Farm 19 (Contract Farming) | Order #78682");
+    setStatus("completed");
+    setPrincipal("100000");
+    setAmount("100000"); // Capital Added
+    setDuration("5 Months");
+    setInterestRate("7.50");
+    setMaturityDate("2025-10-15T00:00");
+    setExpectedProfit("7500");
+    setProfitReceived("7500");
+    setProfitPending("0");
+    setProfitStatus("received");
+    setRemarks("Order ID: 78682");
     setType("Deposit");
+    setWithdrawalAmount("100000");
 
     toast({
       title: "Demo Data Loaded",
-      description: "Sample sheet data has been loaded.",
+      description: "Cattle Farm 19 data loaded successfully.",
     });
   };
 
