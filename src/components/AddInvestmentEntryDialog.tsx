@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useInvestmentEntries } from "@/hooks/useInvestmentDetails";
 import { createClient } from "@/lib/supabase/client";
 import { getBangladeshTime } from "@/lib/utils";
-import { Loader2, Upload, X } from "lucide-react";
+import { Clipboard, Loader2, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const INVESTMENT_TYPES = ["Deposit", "Withdrawal", "Profit", "Loss", "Fee"];
@@ -56,6 +56,113 @@ export function AddInvestmentEntryDialog({
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState("active");
+
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+
+  const parseDate = (dateStr: string) => {
+    if (!dateStr || dateStr === "-") return "";
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 16);
+    }
+    return "";
+  };
+
+  const handleImport = () => {
+    if (!importText) return;
+
+    // Remove any newlines and split by pipe or tab
+    const cleanText = importText.replace(/[\n\r]/g, "");
+
+    // Determine separator (prefer pipe if present, else tab, else comma)
+    let separator = "\t";
+    if (cleanText.includes("|")) separator = "|";
+    else if (cleanText.includes(",")) separator = ",";
+
+    const parts = cleanText.split(separator).map((p) => p.trim());
+
+    // Schema Mapping based on user provided sheet:
+    // 0: # (Index), 1: Order Date, 2: Order ID, 3: Project Name, 4: Status
+    // 5: Investment (Principal), 6: Duration, 7: ROI (%), 8: Maturity Date
+    // 9: Expected Return, 10: Expected P/L (Profit), 11: Return Amount
+    // 12: Profit/Loss, 13: Successful Completion, 14: Invoice, 15: Capital Added, 16: Withdrawal
+
+    if (parts.length >= 10) {
+      // Numeric fields - remove currency symbols (৳), commas, and %
+      const parseAmount = (val: string) => {
+        if (!val || val === "-" || val === "NO" || val === "Download")
+          return "";
+        return val.replace(/[^0-9.-]/g, "");
+      };
+
+      // Map fields
+      if (parts[1]) setInvestmentDate(parseDate(parts[1]));
+
+      // Construct details from Project Name and Order ID
+      const details =
+        `${parts[3] || ""} ${parts[2] ? `(Order #${parts[2]})` : ""}`.trim();
+      if (details) setPlatform(details);
+
+      if (parts[4]) setStatus(parts[4].toLowerCase() as any);
+      if (parts[5]) setPrincipal(parseAmount(parts[5]));
+      if (parts[6]) setDuration(parts[6]);
+      if (parts[7]) setInterestRate(parts[7].replace(/%/g, "").trim());
+
+      if (parts[8]) setMaturityDate(parseDate(parts[8]));
+
+      // Expected Profit is column 10 (Expected P/L)
+      if (parts[10]) setExpectedProfit(parseAmount(parts[10]));
+
+      // Capital Added (Amount) is column 15. If empty, fallback to Investment (5)
+      const capAdded = parseAmount(parts[15]);
+      const investment = parseAmount(parts[5]);
+      if (capAdded && parseFloat(capAdded) > 0) {
+        setAmount(capAdded);
+      } else {
+        setAmount(investment);
+      }
+
+      setType("Deposit");
+      setProfitStatus("none");
+
+      toast({
+        title: "Data Imported",
+        description:
+          "Form fields have been populated from the pasted sheet data.",
+      });
+      setShowImport(false);
+    } else {
+      toast({
+        title: "Import Failed",
+        description:
+          "Could not parse the data format. Please check the structure.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadDemoData = () => {
+    // Demo data based on user request:
+    // #1, Mar 27 2025, #77209, Premium Shariah Livestock Farm 8, Active, 79,500, 14 Months, 21.0% - 24.0%
+    setInvestmentDate("2025-03-27T00:00");
+    setPlatform("Premium Shariah Livestock Farm 8 (Order #77209)");
+    setStatus("active");
+    setPrincipal("79500");
+    setAmount("80000"); // Capital Added
+    setDuration("14 Months");
+    setInterestRate("21.0 - 24.0");
+    // Maturity and Expected Profit will auto-calculate
+    setExpectedProfit("18000"); // From Expected P/L column
+    setProfitStatus("none");
+    setRemarks("Order ID: 77209");
+    setType("Deposit");
+
+    toast({
+      title: "Demo Data Loaded",
+      description: "Sample sheet data has been loaded.",
+    });
+  };
 
   // New fields
   const [principal, setPrincipal] = useState("");
@@ -243,7 +350,52 @@ export function AddInvestmentEntryDialog({
               details.
             </DialogDescription>
           </DialogHeader>
+
           <div className="grid gap-4 py-4">
+            {/* Import Section */}
+            <div className="bg-muted/50 p-4 rounded-lg border">
+              <div className="flex items-center justify-between mb-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImport(!showImport)}
+                  className="flex items-center gap-2"
+                >
+                  <Clipboard className="w-4 h-4" />
+                  {showImport ? "Hide Import" : "Import / Paste Data"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadDemoData}
+                  className="text-xs text-primary"
+                >
+                  Load Demo Data
+                </Button>
+              </div>
+
+              {showImport && (
+                <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                  <Textarea
+                    placeholder="Paste row data here (tab or pipe separated)...&#10;Example: July 2026 | Platform | ... | 100000 | 24 Months | 21-24"
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    className="h-20 text-xs font-mono"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleImport}
+                    className="w-full"
+                  >
+                    Parse & Fill Fields
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* Basic Information Section */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground">
