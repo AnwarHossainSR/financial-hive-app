@@ -36,15 +36,6 @@ const ENTRY_STATUS_OPTIONS = [
   "withdrawn",
   "paused",
 ];
-const DURATION_OPTIONS = [
-  "3 Months",
-  "6 Months",
-  "9 Months",
-  "12 Months",
-  "18 Months",
-  "24 Months",
-  "36 Months",
-];
 
 interface AddInvestmentEntryDialogProps {
   children: React.ReactNode;
@@ -357,19 +348,21 @@ export function AddInvestmentEntryDialog({
 
                 {/* Duration */}
                 <div className="grid gap-2">
-                  <Label htmlFor="duration">Duration</Label>
-                  <Select value={duration} onValueChange={setDuration}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select duration" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATION_OPTIONS.map((d) => (
-                        <SelectItem key={d} value={d}>
-                          {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="duration">Duration (Months)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min="1"
+                    placeholder="e.g., 12"
+                    value={duration ? parseInt(duration.split(" ")[0]) : ""}
+                    onChange={(e) => {
+                      const months = e.target.value;
+                      setDuration(months ? `${months} Months` : "");
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter number of months (e.g., 3, 6, 12, 24)
+                  </p>
                 </div>
               </div>
 
@@ -382,6 +375,11 @@ export function AddInvestmentEntryDialog({
                   value={interestRate}
                   onChange={(e) => setInterestRate(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter a fixed rate (e.g., &quot;24&quot;) or a range (e.g.,
+                  &quot;21-24&quot;). Ranges use the average for profit
+                  calculation.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
