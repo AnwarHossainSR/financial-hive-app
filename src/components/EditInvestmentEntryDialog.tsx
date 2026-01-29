@@ -27,7 +27,15 @@ import { format } from "date-fns";
 import { Loader2, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const INVESTMENT_TYPES = ["Deposit", "Withdrawal", "Profit", "Loss", "Fee"];
+const INVESTMENT_TYPES = [
+  "Deposit",
+  "Withdrawal",
+  "Capital Return",
+  "Reinvestment",
+  "Profit",
+  "Loss",
+  "Fee",
+];
 const PROFIT_STATUS_OPTIONS = ["received", "pending", "partial", "none"];
 const ENTRY_STATUS_OPTIONS = [
   "pending",
@@ -158,8 +166,9 @@ export function EditInvestmentEntryDialog({
       }
 
       if (!isNaN(principalAmount) && !isNaN(rate) && !isNaN(months)) {
-        // Calculate expected profit: (principal * rate * months) / (12 * 100)
-        const profit = (principalAmount * rate * months) / (12 * 100);
+        // Calculate expected profit: principal * (rate / 100)
+        // User confirmed flat rate for the duration is preferred.
+        const profit = principalAmount * (rate / 100);
         setExpectedProfit(profit.toFixed(2));
       }
     }
@@ -171,20 +180,22 @@ export function EditInvestmentEntryDialog({
       const expected = parseFloat(expectedProfit);
       const received = parseFloat(profitReceived);
       if (!isNaN(expected) && !isNaN(received)) {
-        const pending = expected - received;
+        // Auto-calculate profit/loss (Actual earnings)
+        setProfitLoss(received.toFixed(2));
+
+        // Auto-calculate profit pending
+        const pending = Math.max(0, expected - received);
         setProfitPending(pending.toFixed(2));
 
-        // Auto-calculate profit/loss
-        const profitLossValue = received - expected;
-        setProfitLoss(profitLossValue.toFixed(2));
-
         // Auto-update profit status
-        if (received >= expected) {
+        if (received >= expected && expected > 0) {
           setProfitStatus("received");
         } else if (received > 0) {
           setProfitStatus("partial");
-        } else {
+        } else if (expected > 0) {
           setProfitStatus("pending");
+        } else {
+          setProfitStatus("none");
         }
       }
     }

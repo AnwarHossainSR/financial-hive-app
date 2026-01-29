@@ -479,43 +479,47 @@ async function updateProjectTotals(projectId: string) {
     where: { project_id: projectId },
   });
 
-  const totalInvestment = entries.reduce(
-    (sum, entry) => sum + Number(entry.amount),
-    0,
-  );
+  let totalInvestment = 0;
+  let totalProfitLoss = 0;
+  let totalOutflow = 0;
 
-  const totalProfitLoss = entries.reduce(
-    (sum, entry) => sum + (entry.profit_loss ? Number(entry.profit_loss) : 0),
-    0,
-  );
+  entries.forEach((entry) => {
+    const amt = Number(entry.amount);
+    const type = entry.investment_type;
+    const pl = entry.profit_loss ? Number(entry.profit_loss) : 0;
+    const withdrawnAmount = entry.withdrawal_amount
+      ? Number(entry.withdrawal_amount)
+      : 0;
 
-  // Remaining capital logic depends on withdrawals.
-  // Assuming remaining capital = total investment + profit - withdrawals
-  // OR strictly based on active entries.
-  // Let's assume remaining capital = sum of (amount + (profit_loss or 0)) for non-withdrawn entries?
-  // Or simpler: Total Investment is sum of all deposits.
-  // Remaining Capital is Total Investment + Total P/L - Withdrawals.
+    // 1. Accumulate Total Profit/Loss (Independent performance tracking)
+    totalProfitLoss += pl;
 
-  // Let's look at the spreadsheet.
-  // "Remaining Capital" seems to be the current value of the portfolio.
-  // "Total Investment" is the initial input.
-  // "Total Profit/Loss" is the gain/loss.
+    // 2. Accumulate Total Investment (Capital Inflow)
+    if (type === "Deposit" || type === "Reinvestment") {
+      totalInvestment += amt;
+    }
 
-  // Let's implement basic calculation:
-  // Total Investment = Sum of amounts (for all entries)
-  // Total Profit/Loss = Sum of profit_loss (for all entries)
-  // Remaining Capital = Total Investment + Total Profit/Loss (assuming no withdrawals tracked at project level yet,
-  // or we need to subtract withdrawn amounts. The spreadsheet has "Total Withdraw" separately in Bank Statement).
+    // 3. Accumulate Outflow (Capital Outflow)
+    // If it's a dedicated outflow type entry
+    if (type === "Withdrawal" || type === "Capital Return") {
+      // If withdrawal_amount field is used, it takes precedence as the exact capital out
+      // otherwise we use the entry amount.
+      totalOutflow += withdrawnAmount > 0 ? withdrawnAmount : amt;
+    } else {
+      // For other entry types (like Deposit or Profit), if they were partially/fully withdrawn
+      totalOutflow += withdrawnAmount;
+    }
+  });
 
-  // Let's keep it simple: Remaining Capital = Total Investment + Total P/L (Net Value)
-  const remainingCapital = totalInvestment + totalProfitLoss;
+  // Remaining Capital = Inflow (Deposits/Reinvest) + Profit/Loss (Gains) - Outflow (Withdrawals/Returns)
+  const remainingCapital = totalInvestment + totalProfitLoss - totalOutflow;
 
   await prisma.investmentProject.update({
     where: { id: projectId },
     data: {
       total_investment: totalInvestment,
       total_profit_loss: totalProfitLoss,
-      remaining_capital: remainingCapital,
+      remaining_capital: Math.max(0, remainingCapital),
     },
   });
 }
