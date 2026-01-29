@@ -20,17 +20,18 @@ model Profile {
 }
 
 model Book {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String
-  type            BookType        @default(personal)
-  owner_id        String          @db.Uuid
-  description     String?
-  is_default      Boolean         @default(false)
-  created_at      DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime        @default(now()) @db.Timestamptz(6)
-  members         BookMember[]
-  transactions    Transaction[]
-  monthly_budgets MonthlyBudget[]
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  type               BookType            @default(personal)
+  owner_id           String              @db.Uuid
+  description        String?
+  is_default         Boolean             @default(false)
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime            @default(now()) @db.Timestamptz(6)
+  members            BookMember[]
+  transactions       Transaction[]
+  monthly_budgets    MonthlyBudget[]
+  investmentProjects InvestmentProject[]
 
   @@map("books")
 }
@@ -134,4 +135,117 @@ enum NotificationType {
   error
 
   @@map("notification_type")
+}
+
+model InvestmentProject {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String              @db.Uuid
+  name              String
+  description       String?
+  total_profit_loss Decimal             @default(0) @db.Decimal(15, 2)
+  remaining_capital Decimal             @default(0) @db.Decimal(15, 2)
+  total_investment  Decimal             @default(0) @db.Decimal(15, 2)
+  status            ProjectStatus       @default(active)
+  start_date        DateTime            @default(now()) @db.Timestamptz(6)
+  end_date          DateTime?           @db.Timestamptz(6)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  entries           InvestmentEntry[]
+  bank_statements   BankStatement[]
+  book              Book?               @relation(fields: [bookId], references: [id])
+  bookId            String?             @db.Uuid
+  platform_id       String?             @db.Uuid
+  platform          InvestmentPlatform? @relation(fields: [platform_id], references: [id], onDelete: SetNull)
+
+  @@map("investment_projects")
+}
+
+model InvestmentPlatform {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String              @db.Uuid
+  name        String
+  description String?
+  created_at  DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime            @default(now()) @db.Timestamptz(6)
+  projects    InvestmentProject[]
+
+  @@map("investment_platforms")
+}
+
+enum ProjectStatus {
+  active
+  completed
+  paused
+
+  @@map("project_status")
+}
+
+model InvestmentEntry {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id      String      @db.Uuid
+  user_id         String      @db.Uuid
+  date            DateTime    @db.Timestamptz(6)
+  platform        String? // Keeping for backwards compatibility or alternative grouping
+  investment_type String
+  amount          Decimal     @db.Decimal(15, 2)
+  status          EntryStatus @default(pending)
+  profit_loss     Decimal?    @db.Decimal(15, 2)
+  withdrawal_date DateTime?   @db.Timestamptz(6)
+  notes           String?
+  image_url       String?
+
+  // New fields from screenshot
+  principal               Decimal?      @db.Decimal(15, 2)
+  duration                String? // e.g., "24 Months", "6 Months"
+  interest_rate           String? // e.g., "21.96 - 24.96" or "24%"
+  profit_calculation_date DateTime?     @db.Timestamptz(6)
+  investment_date         DateTime?     @db.Timestamptz(6)
+  maturity_date           DateTime?     @db.Timestamptz(6)
+  expected_profit         Decimal?      @db.Decimal(15, 2)
+  profit_received         Decimal?      @default(0) @db.Decimal(15, 2)
+  profit_pending          Decimal?      @db.Decimal(15, 2)
+  profit_status           ProfitStatus? @default(none)
+  remarks                 String?
+  withdrawal_amount       Decimal?      @db.Decimal(15, 2)
+
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at DateTime          @default(now()) @db.Timestamptz(6)
+  project    InvestmentProject @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("investment_entries")
+}
+
+enum EntryStatus {
+  pending
+  active
+  completed
+  withdrawn
+  paused
+
+  @@map("entry_status")
+}
+
+enum ProfitStatus {
+  received
+  pending
+  partial
+  none
+
+  @@map("profit_status")
+}
+
+model BankStatement {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id       String            @db.Uuid
+  user_id          String            @db.Uuid
+  date             DateTime          @db.Timestamptz(6)
+  total_capital    Decimal           @db.Decimal(15, 2)
+  total_withdrawal Decimal           @db.Decimal(15, 2)
+  balance          Decimal           @db.Decimal(15, 2)
+  notes            String?
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @default(now()) @db.Timestamptz(6)
+  project          InvestmentProject @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("bank_statements")
 }
