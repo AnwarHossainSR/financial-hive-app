@@ -2,7 +2,7 @@
 
 import { AddInvestmentEntryDialog } from "@/components/AddInvestmentEntryDialog";
 import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
-import { EditInvestmentEntryDialog } from "@/components/EditInvestmentEntryDialog";
+import { InvestmentEntryDetailsDialog } from "@/components/InvestmentEntryDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +24,7 @@ import {
   ArrowDownRight,
   ArrowLeft,
   ArrowUpRight,
-  Download,
-  Edit,
+  Eye,
   Plus,
   Trash2,
   TrendingDown,
@@ -220,50 +219,22 @@ export default function ProjectDetailsPage() {
           </AddInvestmentEntryDialog>
         </div>
 
-        <Card className="border-2">
+        <Card className="border shadow-sm">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Date</TableHead>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="font-semibold w-[140px]">
+                    Date
+                  </TableHead>
                   <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Amount</TableHead>
-                  <TableHead className="font-semibold hidden xl:table-cell">
-                    Principal
-                  </TableHead>
-                  <TableHead className="font-semibold hidden xl:table-cell">
-                    Duration
-                  </TableHead>
-                  <TableHead className="font-semibold hidden 2xl:table-cell">
-                    Interest Rate
-                  </TableHead>
-                  <TableHead className="font-semibold hidden lg:table-cell">
-                    Investment Date
-                  </TableHead>
-                  <TableHead className="font-semibold hidden lg:table-cell">
-                    Maturity Date
-                  </TableHead>
-                  <TableHead className="font-semibold hidden xl:table-cell">
-                    Expected Profit
-                  </TableHead>
-                  <TableHead className="font-semibold hidden xl:table-cell">
-                    Profit Received
-                  </TableHead>
-                  <TableHead className="font-semibold hidden xl:table-cell">
-                    Profit Pending
-                  </TableHead>
                   <TableHead className="font-semibold">Profit/Loss</TableHead>
                   <TableHead className="font-semibold hidden md:table-cell">
-                    Profit Status
-                  </TableHead>
-                  <TableHead className="font-semibold hidden lg:table-cell">
                     Status
                   </TableHead>
-                  <TableHead className="font-semibold hidden 2xl:table-cell">
-                    Remarks
-                  </TableHead>
                   <TableHead className="font-semibold hidden lg:table-cell">
-                    Invoice
+                    Remarks
                   </TableHead>
                   <TableHead className="font-semibold text-right">
                     Actions
@@ -273,7 +244,7 @@ export default function ProjectDetailsPage() {
               <TableBody>
                 {isLoadingEntries ? (
                   <TableRow>
-                    <TableCell colSpan={17} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         Loading entries...
@@ -283,7 +254,7 @@ export default function ProjectDetailsPage() {
                 ) : entries.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={17}
+                      colSpan={7}
                       className="text-center py-12 text-muted-foreground"
                     >
                       <div className="flex flex-col items-center gap-2">
@@ -301,7 +272,7 @@ export default function ProjectDetailsPage() {
                       key={entry.id}
                       className="hover:bg-muted/30 transition-colors"
                     >
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-nowrap">
                         {format(new Date(entry.date), "MMM d, yyyy")}
                       </TableCell>
                       <TableCell>
@@ -322,45 +293,6 @@ export default function ProjectDetailsPage() {
                       </TableCell>
                       <TableCell className="font-semibold">
                         {formatCurrency(entry.amount)}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {entry.principal
-                          ? formatCurrency(entry.principal)
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {entry.duration || "-"}
-                      </TableCell>
-                      <TableCell className="hidden 2xl:table-cell">
-                        {entry.interest_rate ? `${entry.interest_rate}%` : "-"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {entry.investment_date
-                          ? format(
-                              new Date(entry.investment_date),
-                              "MMM d, yyyy",
-                            )
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {entry.maturity_date
-                          ? format(new Date(entry.maturity_date), "MMM d, yyyy")
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {entry.expected_profit
-                          ? formatCurrency(entry.expected_profit)
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {entry.profit_received
-                          ? formatCurrency(entry.profit_received)
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {entry.profit_pending
-                          ? formatCurrency(entry.profit_pending)
-                          : "-"}
                       </TableCell>
                       <TableCell
                         className={`font-semibold ${
@@ -383,64 +315,36 @@ export default function ProjectDetailsPage() {
                         )}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {entry.profit_status ? (
-                          <Badge
-                            variant={
-                              entry.profit_status === "received"
-                                ? "default"
-                                : entry.profit_status === "partial"
-                                  ? "secondary"
-                                  : "outline"
-                            }
-                            className="capitalize"
-                          >
-                            {entry.profit_status}
-                          </Badge>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
                         <Badge variant="outline" className="capitalize">
                           {entry.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden 2xl:table-cell max-w-[200px] truncate">
+                      <TableCell className="hidden lg:table-cell max-w-[250px] truncate text-muted-foreground">
                         {entry.remarks || "-"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {entry.image_url ? (
-                          <a
-                            href={entry.image_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1 text-xs font-medium"
-                          >
-                            <Download className="w-3 h-3" />
-                            View
-                          </a>
-                        ) : (
-                          "-"
-                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <EditInvestmentEntryDialog
+                          <InvestmentEntryDetailsDialog
                             projectId={projectId}
                             entry={entry}
+                            onDelete={(id) => {
+                              setEntryToDelete(id);
+                              setDeleteModalOpen(true);
+                            }}
                           >
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          </EditInvestmentEntryDialog>
+                          </InvestmentEntryDetailsDialog>
+
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => {
                               setEntryToDelete(entry.id);
                               setDeleteModalOpen(true);
