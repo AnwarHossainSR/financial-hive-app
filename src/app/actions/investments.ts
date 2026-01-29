@@ -269,6 +269,19 @@ export async function createInvestmentEntryAction(
         ...entry,
         amount: Number(entry.amount),
         profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
+        principal: entry.principal ? Number(entry.principal) : null,
+        expected_profit: entry.expected_profit
+          ? Number(entry.expected_profit)
+          : null,
+        profit_received: entry.profit_received
+          ? Number(entry.profit_received)
+          : null,
+        profit_pending: entry.profit_pending
+          ? Number(entry.profit_pending)
+          : null,
+        withdrawal_amount: entry.withdrawal_amount
+          ? Number(entry.withdrawal_amount)
+          : null,
       },
       error: null,
     };
@@ -307,6 +320,19 @@ export async function updateInvestmentEntryAction(
         ...entry,
         amount: Number(entry.amount),
         profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
+        principal: entry.principal ? Number(entry.principal) : null,
+        expected_profit: entry.expected_profit
+          ? Number(entry.expected_profit)
+          : null,
+        profit_received: entry.profit_received
+          ? Number(entry.profit_received)
+          : null,
+        profit_pending: entry.profit_pending
+          ? Number(entry.profit_pending)
+          : null,
+        withdrawal_amount: entry.withdrawal_amount
+          ? Number(entry.withdrawal_amount)
+          : null,
       },
       error: null,
     };
@@ -585,6 +611,13 @@ export async function getInvestmentEntriesAction(
         ...e,
         amount: Number(e.amount),
         profit_loss: e.profit_loss ? Number(e.profit_loss) : null,
+        principal: e.principal ? Number(e.principal) : null,
+        expected_profit: e.expected_profit ? Number(e.expected_profit) : null,
+        profit_received: e.profit_received ? Number(e.profit_received) : null,
+        profit_pending: e.profit_pending ? Number(e.profit_pending) : null,
+        withdrawal_amount: e.withdrawal_amount
+          ? Number(e.withdrawal_amount)
+          : null,
       })),
       total,
       error: null,
