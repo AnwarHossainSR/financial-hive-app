@@ -143,7 +143,7 @@ export default function ProjectDetailsPage() {
           <div className="absolute inset-0 bg-black/10 dark:bg-black/20" />
           <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-semibold text-white/90">
-              Total Investment
+              Invested Amount
             </CardTitle>
             <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-full">
               <Wallet className="h-5 w-5 text-white" />
@@ -308,19 +308,19 @@ export default function ProjectDetailsPage() {
                       </TableCell>
                       <TableCell
                         className={`font-semibold ${
-                          (entry.profit_loss || 0) >= 0
+                          (entry.profit_received || 0) >= 0
                             ? "text-green-600 dark:text-green-400"
                             : "text-red-600 dark:text-red-400"
                         }`}
                       >
-                        {entry.profit_loss ? (
+                        {Number(entry.profit_received || 0) > 0 ||
+                        entry.investment_type === "Profit" ? (
                           <span className="flex items-center gap-1">
-                            {entry.profit_loss >= 0 ? (
-                              <ArrowUpRight className="h-3 w-3" />
-                            ) : (
-                              <ArrowDownRight className="h-3 w-3" />
+                            <ArrowUpRight className="h-3 w-3" />
+                            {formatCurrency(
+                              Number(entry.profit_received || 0) ||
+                                Number(entry.amount),
                             )}
-                            {formatCurrency(entry.profit_loss)}
                           </span>
                         ) : (
                           "-"

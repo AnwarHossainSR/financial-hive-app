@@ -61,7 +61,6 @@ export function EditInvestmentEntryDialog({
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("Deposit");
   const [platform, setPlatform] = useState("");
-  const [profitLoss, setProfitLoss] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -79,7 +78,6 @@ export function EditInvestmentEntryDialog({
   const [profitPending, setProfitPending] = useState("");
   const [profitStatus, setProfitStatus] = useState("none");
   const [remarks, setRemarks] = useState("");
-  const [withdrawalAmount, setWithdrawalAmount] = useState("");
 
   const { updateEntry } = useInvestmentEntries(projectId);
   const { toast } = useToast();
@@ -95,7 +93,6 @@ export function EditInvestmentEntryDialog({
       setAmount(entry.amount.toString());
       setType(entry.investment_type);
       setPlatform(entry.platform || "");
-      setProfitLoss(entry.profit_loss ? entry.profit_loss.toString() : "");
       setNotes(entry.notes || "");
       setFile(null);
       setStatus(entry.status || "active");
@@ -133,9 +130,6 @@ export function EditInvestmentEntryDialog({
       );
       setProfitStatus(entry.profit_status || "none");
       setRemarks(entry.remarks || "");
-      setWithdrawalAmount(
-        entry.withdrawal_amount ? entry.withdrawal_amount.toString() : "",
-      );
     }
   }, [open, entry]);
 
@@ -180,9 +174,6 @@ export function EditInvestmentEntryDialog({
       const expected = parseFloat(expectedProfit);
       const received = parseFloat(profitReceived);
       if (!isNaN(expected) && !isNaN(received)) {
-        // Auto-calculate profit/loss (Actual earnings)
-        setProfitLoss(received.toFixed(2));
-
         // Auto-calculate profit pending
         const pending = Math.max(0, expected - received);
         setProfitPending(pending.toFixed(2));
@@ -247,7 +238,6 @@ export function EditInvestmentEntryDialog({
           amount: parseFloat(amount),
           investment_type: type,
           platform: platform || undefined,
-          profit_loss: profitLoss ? parseFloat(profitLoss) : null,
           notes: notes || undefined,
           image_url: imageUrl,
           status: status as any,
@@ -265,9 +255,6 @@ export function EditInvestmentEntryDialog({
           profit_pending: profitPending ? parseFloat(profitPending) : null,
           profit_status: profitStatus as any,
           remarks: remarks || null,
-          withdrawal_amount: withdrawalAmount
-            ? parseFloat(withdrawalAmount)
-            : null,
         },
       });
 
@@ -532,23 +519,6 @@ export function EditInvestmentEntryDialog({
                     Auto-calculated: Expected - Received
                   </p>
                 </div>
-
-                {/* Profit/Loss (Read-only) */}
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-profit-loss">Profit/Loss</Label>
-                  <Input
-                    id="edit-profit-loss"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={profitLoss}
-                    readOnly
-                    className="bg-muted"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Auto-calculated: Received - Expected
-                  </p>
-                </div>
               </div>
 
               <div className="grid gap-2">
@@ -574,21 +544,6 @@ export function EditInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Additional Information
               </h3>
-
-              <div className="grid gap-2">
-                {/* Withdrawal Amount */}
-                <Label htmlFor="edit-withdrawal-amount">
-                  Withdrawal Amount
-                </Label>
-                <Input
-                  id="edit-withdrawal-amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={withdrawalAmount}
-                  onChange={(e) => setWithdrawalAmount(e.target.value)}
-                />
-              </div>
 
               {/* Notes */}
               <div className="grid gap-2">

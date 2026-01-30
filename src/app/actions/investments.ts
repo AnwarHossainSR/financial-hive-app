@@ -491,46 +491,40 @@ async function updateProjectTotals(projectId: string) {
   entries.forEach((entry) => {
     const amt = Number(entry.amount);
     const type = entry.investment_type;
-    const plField =
-      entry.profit_loss !== null ? Number(entry.profit_loss) : null;
     const principal = entry.principal ? Number(entry.principal) : 0;
-    const withdrawnAmount = entry.withdrawal_amount
+    const received = entry.profit_received ? Number(entry.profit_received) : 0;
+    const withdrawn = entry.withdrawal_amount
       ? Number(entry.withdrawal_amount)
       : 0;
 
-    // 1. Total Investment (Initial Capital Basis)
+    // 1. Total Investment
     if (type === "Deposit" || type === "Reinvestment") {
-      totalInvestment += Math.max(principal, amt);
-    } else if (type === "Profit" && totalInvestment === 0) {
+      totalInvestment += Math.max(amt, principal);
+    } else if (principal > 0) {
+      // Allow principal on other types (like a Withdrawal entry for a whole project)
+      // to count as the investment basis if no deposits exist.
+      // But we should be careful not to double count if there are multiple entries.
+      // For simplicity, we'll only count principal from non-deposit entries if it's explicitly provided.
       totalInvestment += principal;
     }
 
-    // 2. Total Profit & Total Loss
-    if (plField !== null) {
-      if (plField >= 0) totalProfit += plField;
-      else totalLoss += Math.abs(plField);
-    } else {
-      // Fallback for missing P/L field based on transaction type
-      if (type === "Profit") totalProfit += amt;
-      else if (type === "Loss" || type === "Fee") totalLoss += amt;
+    // 2. Total Profit
+    if (type === "Profit") {
+      totalProfit += Math.max(amt, received);
+    } else if (received > 0) {
+      totalProfit += received;
     }
 
-    // 3. Outflow / Remaining Capital logic
+    // 3. Total Loss
+    if (type === "Loss" || type === "Fee") {
+      totalLoss += amt;
+    }
+
+    // 4. Total Outflow
     if (type === "Withdrawal" || type === "Capital Return") {
-      totalOutflow += withdrawnAmount > 0 ? withdrawnAmount : amt;
-    } else {
-      totalOutflow += withdrawnAmount;
-      if (entry.status === "withdrawn" && withdrawnAmount === 0) {
-        const entryPL =
-          plField !== null
-            ? plField
-            : type === "Profit"
-              ? amt
-              : type === "Loss"
-                ? -amt
-                : 0;
-        totalOutflow += principal + entryPL;
-      }
+      totalOutflow += Math.max(amt, withdrawn);
+    } else if (withdrawn > 0) {
+      totalOutflow += withdrawn;
     }
   });
 

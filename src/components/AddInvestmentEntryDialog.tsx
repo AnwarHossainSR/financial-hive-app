@@ -59,7 +59,6 @@ export function AddInvestmentEntryDialog({
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("Deposit");
   const [platform, setPlatform] = useState("");
-  const [profitLoss, setProfitLoss] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -167,7 +166,7 @@ export function AddInvestmentEntryDialog({
     setProfitStatus("received");
     setRemarks("Order ID: 78682");
     setType("Deposit");
-    setWithdrawalAmount("100000");
+    setProfitStatus("none");
 
     toast({
       title: "Demo Data Loaded",
@@ -187,7 +186,6 @@ export function AddInvestmentEntryDialog({
   const [profitPending, setProfitPending] = useState("");
   const [profitStatus, setProfitStatus] = useState("none");
   const [remarks, setRemarks] = useState("");
-  const [withdrawalAmount, setWithdrawalAmount] = useState("");
 
   const { createEntry } = useInvestmentEntries(projectId);
   const { toast } = useToast();
@@ -234,9 +232,6 @@ export function AddInvestmentEntryDialog({
       const expected = parseFloat(expectedProfit);
       const received = parseFloat(profitReceived);
       if (!isNaN(expected) && !isNaN(received)) {
-        // Auto-calculate profit/loss (Actual earnings)
-        setProfitLoss(received.toFixed(2));
-
         // Auto-calculate profit pending
         const pending = Math.max(0, expected - received);
         setProfitPending(pending.toFixed(2));
@@ -299,7 +294,6 @@ export function AddInvestmentEntryDialog({
         amount: parseFloat(amount),
         investment_type: type,
         platform: platform || undefined,
-        profit_loss: profitLoss ? parseFloat(profitLoss) : null,
         notes: notes || undefined,
         image_url: imageUrl,
         status: status as any,
@@ -317,9 +311,6 @@ export function AddInvestmentEntryDialog({
         profit_pending: profitPending ? parseFloat(profitPending) : null,
         profit_status: profitStatus as any,
         remarks: remarks || null,
-        withdrawal_amount: withdrawalAmount
-          ? parseFloat(withdrawalAmount)
-          : null,
       });
 
       setOpen(false);
@@ -340,7 +331,6 @@ export function AddInvestmentEntryDialog({
     setAmount("");
     setType("Deposit");
     setPlatform("");
-    setProfitLoss("");
     setNotes("");
     setFile(null);
     setDate(getBangladeshTime());
@@ -356,7 +346,6 @@ export function AddInvestmentEntryDialog({
     setProfitPending("");
     setProfitStatus("none");
     setRemarks("");
-    setWithdrawalAmount("");
   };
 
   return (
@@ -654,23 +643,6 @@ export function AddInvestmentEntryDialog({
                     Auto-calculated: Expected - Received
                   </p>
                 </div>
-
-                {/* Profit/Loss (Read-only) */}
-                <div className="grid gap-2">
-                  <Label htmlFor="profit-loss">Profit/Loss</Label>
-                  <Input
-                    id="profit-loss"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={profitLoss}
-                    readOnly
-                    className="bg-muted"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Auto-calculated: Received - Expected
-                  </p>
-                </div>
               </div>
 
               <div className="grid gap-2">
@@ -696,19 +668,6 @@ export function AddInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Additional Information
               </h3>
-
-              <div className="grid gap-2">
-                {/* Withdrawal Amount */}
-                <Label htmlFor="withdrawal-amount">Withdrawal Amount</Label>
-                <Input
-                  id="withdrawal-amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={withdrawalAmount}
-                  onChange={(e) => setWithdrawalAmount(e.target.value)}
-                />
-              </div>
 
               {/* Notes */}
               <div className="grid gap-2">
