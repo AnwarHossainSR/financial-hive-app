@@ -142,6 +142,8 @@ model InvestmentProject {
   user_id           String              @db.Uuid
   name              String
   description       String?
+  total_profit      Decimal             @default(0) @db.Decimal(15, 2)
+  total_loss        Decimal             @default(0) @db.Decimal(15, 2)
   total_profit_loss Decimal             @default(0) @db.Decimal(15, 2)
   remaining_capital Decimal             @default(0) @db.Decimal(15, 2)
   total_investment  Decimal             @default(0) @db.Decimal(15, 2)

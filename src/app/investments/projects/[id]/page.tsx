@@ -57,7 +57,8 @@ export default function ProjectDetailsPage() {
           <div className="h-8 w-8 rounded-full bg-muted/20 animate-pulse" />
           <div className="h-8 w-48 bg-muted/20 rounded animate-pulse" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="h-32 rounded-lg border bg-muted/20 animate-pulse" />
           <div className="h-32 rounded-lg border bg-muted/20 animate-pulse" />
           <div className="h-32 rounded-lg border bg-muted/20 animate-pulse" />
           <div className="h-32 rounded-lg border bg-muted/20 animate-pulse" />
@@ -136,13 +137,13 @@ export default function ProjectDetailsPage() {
       </div>
 
       {/* Enhanced Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {/* Total Investment Card */}
         <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 dark:from-indigo-600 dark:via-purple-600 dark:to-pink-600">
           <div className="absolute inset-0 bg-black/10 dark:bg-black/20" />
           <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-semibold text-white/90">
-              Total Investment
+              Invested Amount
             </CardTitle>
             <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-full">
               <Wallet className="h-5 w-5 text-white" />
@@ -175,34 +176,41 @@ export default function ProjectDetailsPage() {
           </CardContent>
         </Card>
 
-        {/* Profit/Loss Card */}
-        <Card
-          className={`relative overflow-hidden border-0 shadow-lg ${
-            project.total_profit_loss >= 0
-              ? "bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 dark:from-emerald-600 dark:via-green-600 dark:to-teal-600"
-              : "bg-gradient-to-br from-rose-500 via-red-500 to-pink-500 dark:from-rose-600 dark:via-red-600 dark:to-pink-600"
-          }`}
-        >
+        {/* Total Profit Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 dark:from-emerald-600 dark:via-green-600 dark:to-teal-600">
           <div className="absolute inset-0 bg-black/10 dark:bg-black/20" />
           <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-semibold text-white/90">
-              Total Profit/Loss
+              Total Profit
             </CardTitle>
             <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-full">
-              {project.total_profit_loss >= 0 ? (
-                <TrendingUp className="h-5 w-5 text-white" />
-              ) : (
-                <TrendingDown className="h-5 w-5 text-white" />
-              )}
+              <TrendingUp className="h-5 w-5 text-white" />
             </div>
           </CardHeader>
           <CardContent className="relative">
             <div className="text-3xl font-bold text-white">
-              {formatCurrency(project.total_profit_loss)}
+              {formatCurrency(project.total_profit)}
             </div>
-            <p className="text-xs text-white/70 mt-1">
-              {project.total_profit_loss >= 0 ? "Profit" : "Loss"}
-            </p>
+            <p className="text-xs text-white/70 mt-1">Earnings received</p>
+          </CardContent>
+        </Card>
+
+        {/* Total Loss Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-rose-500 via-red-500 to-pink-500 dark:from-rose-600 dark:via-red-600 dark:to-pink-600">
+          <div className="absolute inset-0 bg-black/10 dark:bg-black/20" />
+          <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-semibold text-white/90">
+              Total Loss / Fees
+            </CardTitle>
+            <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-full">
+              <TrendingDown className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative">
+            <div className="text-3xl font-bold text-white">
+              {formatCurrency(project.total_loss)}
+            </div>
+            <p className="text-xs text-white/70 mt-1">Expenses & losses</p>
           </CardContent>
         </Card>
       </div>
@@ -296,19 +304,19 @@ export default function ProjectDetailsPage() {
                       </TableCell>
                       <TableCell
                         className={`font-semibold ${
-                          (entry.profit_loss || 0) >= 0
+                          (entry.profit_received || 0) >= 0
                             ? "text-green-600 dark:text-green-400"
                             : "text-red-600 dark:text-red-400"
                         }`}
                       >
-                        {entry.profit_loss ? (
+                        {Number(entry.profit_received || 0) > 0 ||
+                        entry.investment_type === "Profit" ? (
                           <span className="flex items-center gap-1">
-                            {entry.profit_loss >= 0 ? (
-                              <ArrowUpRight className="h-3 w-3" />
-                            ) : (
-                              <ArrowDownRight className="h-3 w-3" />
+                            <ArrowUpRight className="h-3 w-3" />
+                            {formatCurrency(
+                              Number(entry.profit_received || 0) ||
+                                Number(entry.amount),
                             )}
-                            {formatCurrency(entry.profit_loss)}
                           </span>
                         ) : (
                           "-"

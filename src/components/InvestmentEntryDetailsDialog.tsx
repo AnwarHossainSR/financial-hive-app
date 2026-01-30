@@ -89,23 +89,17 @@ export function InvestmentEntryDetailsDialog({
           {/* Top Summary Card */}
           <div className="p-4 rounded-lg bg-muted/30 border grid grid-cols-2 gap-4">
             <InfoRow
-              label="Investment Amount"
+              label="Total Amount"
               value={formatCurrency(entry.amount)}
               icon={CreditCard}
               className="text-primary"
             />
             <InfoRow
-              label="Current Profit/Loss"
+              label="Profit Received"
               value={
-                <span
-                  className={
-                    (entry.profit_loss || 0) >= 0
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }
-                >
-                  {entry.profit_loss
-                    ? formatCurrency(entry.profit_loss)
+                <span className="text-green-600 dark:text-green-400">
+                  {entry.profit_received
+                    ? formatCurrency(entry.profit_received)
                     : "0.00"}
                 </span>
               }

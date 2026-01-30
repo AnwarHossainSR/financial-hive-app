@@ -5,18 +5,18 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/generateSupabaseTypes.js && next start",
+    "start": "bun scripts/generateSupabaseTypes.js && next start",
     "lint": "eslint .",
     "supebase:link": "npx supabase link",
-    "generate-types": "node scripts/generateSupabaseTypes.js",
+    "generate-types": "bun scripts/generateSupabaseTypes.js",
     "migrate-and-types": "npx supabase db push && npm run generate-types",
     "migration:create": "npx supabase migration new create_employees_table",
     "migration:push": "npx supabase db push --yes",
     "migration:up": "npx supabase migration up",
-    "reset:db": "node scripts/resetDatabase.js --YES",
-    "reset:db:force": "AUTOMATED_RESET=true node scripts/resetDatabase.js",
+    "reset:db": "bun scripts/resetDatabase.js --YES",
+    "reset:db:force": "AUTOMATED_RESET=true bun scripts/resetDatabase.js",
     "migration:link": "npx supabase link",
-    "db:seed": "node scripts/seed.js",
+    "db:seed": "bun scripts/seed.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -81,7 +81,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
     "@types/lodash": "^4.17.14",
-    "@types/node": "^20.17.11",
     "@types/papaparse": "^5.3.15",
     "@types/pg": "^8.16.0",
     "@types/react": "19.2.7",
