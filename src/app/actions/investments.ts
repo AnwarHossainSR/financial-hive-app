@@ -62,6 +62,8 @@ export async function getInvestmentPlatformAction(
         projects: platform.projects.map((p) => ({
           ...p,
           description: p.description || undefined,
+          total_profit: Number(p.total_profit),
+          total_loss: Number(p.total_loss),
           total_profit_loss: Number(p.total_profit_loss),
           remaining_capital: Number(p.remaining_capital),
           total_investment: Number(p.total_investment),
@@ -701,6 +703,8 @@ export async function getInvestmentAnalyticsAction(projectId: string) {
         totalProfitLoss: Number(project.total_profit_loss),
         remainingCapital: Number(project.remaining_capital),
         totalInvestment: Number(project.total_investment),
+        totalProfit: Number(project.total_profit),
+        totalLoss: Number(project.total_loss),
         roi:
           Number(project.total_investment) > 0
             ? (Number(project.total_profit_loss) /
