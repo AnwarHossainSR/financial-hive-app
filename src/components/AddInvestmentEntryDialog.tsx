@@ -58,6 +58,7 @@ export function AddInvestmentEntryDialog({
   const [date, setDate] = useState(getBangladeshTime());
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("Deposit");
+  const [demoIndex, setDemoIndex] = useState(0);
   const [platform, setPlatform] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -150,27 +151,57 @@ export function AddInvestmentEntryDialog({
   };
 
   const loadDemoData = () => {
-    // Demo data based on user request:
-    // 2	Friday, April 11, 2025	78682	"Cattle Farm 19 (Contract Farming)"	Closed	100,000৳	5 Months	7.50%	Wednesday, October 15, 2025	107,500৳	7,500৳	107,500৳	7,500৳	Yes	Download	100,000৳	107,500৳
-    setInvestmentDate("2025-04-11T00:00");
-    setPlatform("Cattle Farm 19 (Contract Farming) | Order #78682");
-    setStatus("completed");
-    setPrincipal("100000");
-    setAmount("100000"); // Capital Added
-    setDuration("5 Months");
-    setInterestRate("7.50");
-    setMaturityDate("2025-10-15T00:00");
-    setExpectedProfit("7500");
-    setProfitReceived("7500");
-    setProfitPending("0");
-    setProfitStatus("received");
-    setRemarks("Order ID: 78682");
+    //     {
+    //   name: "Cattle Farm 19 (Contract Farming)",
+    //   orderId: "78682",
+    //   date: "2025-04-11T00:00",
+    //   status: "completed",
+    //   principal: "100000",
+    //   duration: "5 Months",
+    //   rate: "7.50",
+    //   maturity: "2025-10-15T00:00",
+    //   profit: "7500",
+    //   received: "7500",
+    //   pStatus: "received",
+    // },
+    const demos = [
+      {
+        name: "Combined Fish Farm 13 (Shariah)",
+        orderId: "93315",
+        date: "2025-10-16T00:00",
+        status: "active",
+        principal: "100000",
+        duration: "9 Months",
+        rate: "13.5% - 15.5%",
+        maturity: "2026-07-21T00:00",
+        profit: "14500", // Midpoint of 13.5%-15.5%
+        received: "0",
+        pStatus: "pending",
+      },
+    ];
+
+    const data = demos[demoIndex % demos.length];
+
+    setInvestmentDate(data.date);
+    setPlatform(`${data.name} | Order #${data.orderId}`);
+    setStatus(data.status);
+    setPrincipal(data.principal);
+    setAmount(data.principal);
+    setDuration(data.duration);
+    setInterestRate(data.rate);
+    setMaturityDate(data.maturity);
+    setExpectedProfit(data.profit);
+    setProfitReceived(data.received);
+    setProfitPending(data.received === "0" ? data.profit : "0");
+    setProfitStatus(data.pStatus as any);
+    setRemarks(`Order ID: ${data.orderId}`);
     setType("Deposit");
-    setProfitStatus("none");
+
+    setDemoIndex((prev) => prev + 1);
 
     toast({
       title: "Demo Data Loaded",
-      description: "Cattle Farm 19 data loaded successfully.",
+      description: `${data.name} data loaded successfully.`,
     });
   };
 
