@@ -525,6 +525,16 @@ async function updateProjectTotals(projectId: string) {
       totalOutflow += Math.max(amt, withdrawn);
     } else if (withdrawn > 0) {
       totalOutflow += withdrawn;
+    } else if (entry.status === "withdrawn") {
+      // If a regular entry (Deposit/Profit) is marked as withdrawn in a single-entry project
+      // count its full basis as outflow
+      const entryBasis =
+        type === "Deposit" || type === "Reinvestment"
+          ? Math.max(amt, principal)
+          : 0;
+      const entryEarnings =
+        type === "Profit" ? Math.max(amt, received) : received;
+      totalOutflow += entryBasis + entryEarnings;
     }
   });
 

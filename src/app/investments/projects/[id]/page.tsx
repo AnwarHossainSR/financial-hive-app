@@ -189,9 +189,7 @@ export default function ProjectDetailsPage() {
           </CardHeader>
           <CardContent className="relative">
             <div className="text-3xl font-bold text-white">
-              {project.status === "completed"
-                ? formatCurrency(project.total_profit)
-                : "N/A"}
+              {formatCurrency(project.total_profit)}
             </div>
             <p className="text-xs text-white/70 mt-1">Earnings received</p>
           </CardContent>
@@ -210,9 +208,7 @@ export default function ProjectDetailsPage() {
           </CardHeader>
           <CardContent className="relative">
             <div className="text-3xl font-bold text-white">
-              {project.status === "completed"
-                ? formatCurrency(project.total_loss)
-                : "N/A"}
+              {formatCurrency(project.total_loss)}
             </div>
             <p className="text-xs text-white/70 mt-1">Expenses & losses</p>
           </CardContent>
