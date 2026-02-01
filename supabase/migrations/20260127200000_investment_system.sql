@@ -48,16 +48,23 @@ CREATE TABLE "public"."investment_entries" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "project_id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "date" TIMESTAMPTZ(6) NOT NULL,
-    "investment_type" TEXT NOT NULL,
-    "amount" DECIMAL(15,2) NOT NULL,
-    "status" "public"."entry_status" NOT NULL DEFAULT 'pending',
-    "principal" DECIMAL(15,2),
+    "order_no" INTEGER,
+    "order_date" TIMESTAMPTZ(6) NOT NULL,
+    "order_id" TEXT,
+    "investment_type" TEXT NOT NULL DEFAULT 'Investment',
+    "status" "public"."entry_status" NOT NULL DEFAULT 'active',
+    "investment_amount" DECIMAL(15,2) NOT NULL,
+    "duration_months" INTEGER,
+    "roi_min" DECIMAL(5,2),
+    "roi_max" DECIMAL(5,2),
+    "maturity_date" TIMESTAMPTZ(6),
+    "expected_return" DECIMAL(15,2),
     "expected_profit" DECIMAL(15,2),
-    "profit_received" DECIMAL(15,2) DEFAULT 0,
+    "return_amount" DECIMAL(15,2),
+    "actual_profit" DECIMAL(15,2),
+    "capital_added" DECIMAL(15,2),
     "withdrawal_amount" DECIMAL(15,2),
-    "profit_loss" DECIMAL(15,2),
-    "withdrawal_date" TIMESTAMPTZ(6),
+    "is_completed" BOOLEAN DEFAULT false,
     "notes" TEXT,
     "image_url" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -141,26 +148,14 @@ BEGIN
     FOR entry_record IN 
         SELECT * FROM investment_entries WHERE project_id = project_uuid
     LOOP
-        CASE entry_record.investment_type
-            WHEN 'Deposit', 'Investment' THEN
-                total_inv := total_inv + COALESCE(GREATEST(entry_record.amount, COALESCE(entry_record.principal, 0)), 0);
-            WHEN 'Profit' THEN
-                total_prof := total_prof + COALESCE(entry_record.amount, 0);
-            WHEN 'Loss', 'Fee' THEN
-                total_loss_val := total_loss_val + COALESCE(entry_record.amount, 0);
-            WHEN 'Withdrawal' THEN
-                total_outflow := total_outflow + COALESCE(entry_record.amount, 0);
-        END CASE;
+        -- Total Investment (Capital Added)
+        total_inv := total_inv + COALESCE(entry_record.capital_added, entry_record.investment_amount, 0);
         
-        -- Add profit_received to total profit
-        IF COALESCE(entry_record.profit_received, 0) > 0 THEN
-            total_prof := total_prof + entry_record.profit_received;
-        END IF;
+        -- Total Profit (Actual Profit)
+        total_prof := total_prof + COALESCE(entry_record.actual_profit, 0);
         
-        -- Add withdrawal_amount to outflow
-        IF COALESCE(entry_record.withdrawal_amount, 0) > 0 THEN
-            total_outflow := total_outflow + entry_record.withdrawal_amount;
-        END IF;
+        -- Total Outflow (Withdrawals)
+        total_outflow := total_outflow + COALESCE(entry_record.withdrawal_amount, 0);
     END LOOP;
     
     UPDATE investment_projects SET
@@ -174,7 +169,31 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 7. Create triggers for automatic calculation
+-- 7. Create function to auto-calculate expected values
+CREATE OR REPLACE FUNCTION calculate_entry_values()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Calculate maturity date if duration is provided
+    IF NEW.duration_months IS NOT NULL AND NEW.order_date IS NOT NULL THEN
+        NEW.maturity_date := NEW.order_date + INTERVAL '1 month' * NEW.duration_months;
+    END IF;
+    
+    -- Calculate expected profit and return based on ROI
+    IF NEW.investment_amount IS NOT NULL AND NEW.roi_min IS NOT NULL THEN
+        NEW.expected_profit := NEW.investment_amount * (NEW.roi_min / 100);
+        NEW.expected_return := NEW.investment_amount + NEW.expected_profit;
+    END IF;
+    
+    -- Set capital_added to investment_amount if not provided
+    IF NEW.capital_added IS NULL THEN
+        NEW.capital_added := NEW.investment_amount;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8. Create triggers for automatic calculation
 CREATE OR REPLACE FUNCTION trigger_calculate_project_totals()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -187,6 +206,10 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER investment_entry_auto_calculate_trigger
+    BEFORE INSERT OR UPDATE ON investment_entries
+    FOR EACH ROW EXECUTE FUNCTION calculate_entry_values();
 
 CREATE TRIGGER investment_entry_totals_trigger
     AFTER INSERT OR UPDATE OR DELETE ON investment_entries
