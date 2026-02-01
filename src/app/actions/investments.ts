@@ -42,6 +42,16 @@ export async function getInvestmentPlatformAction(
         projects: {
           orderBy: { created_at: "desc" },
           include: {
+            entries: {
+              select: {
+                id: true,
+                maturity_date: true,
+                order_date: true,
+                duration_months: true,
+                status: true,
+              },
+              orderBy: { order_date: "desc" },
+            },
             _count: {
               select: { entries: true },
             },
@@ -67,6 +77,7 @@ export async function getInvestmentPlatformAction(
           total_profit_loss: Number(p.total_profit_loss),
           remaining_capital: Number(p.remaining_capital),
           total_investment: Number(p.total_investment),
+          investment_entries: p.entries,
         })),
       },
       error: null,
