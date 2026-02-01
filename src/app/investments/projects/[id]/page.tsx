@@ -1,8 +1,6 @@
 "use client";
 
-import { AddInvestmentEntryDialog } from "@/components/AddInvestmentEntryDialog";
-import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
-import { InvestmentEntryDetailsDialog } from "@/components/InvestmentEntryDetailsDialog";
+import { InvestmentEntryModal } from "@/components/InvestmentEntryModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,9 +44,9 @@ export default function ProjectDetailsPage() {
     deleteEntry,
   } = useInvestmentEntries(projectId);
 
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"add" | "edit" | "view">("add");
+  const [selectedEntry, setSelectedEntry] = useState<any>(null);
 
   if (isLoadingProject) {
     return (
@@ -83,15 +81,10 @@ export default function ProjectDetailsPage() {
   }
 
   const handleDeleteEntry = async (entryId: string) => {
-    setIsDeleting(true);
     try {
       await deleteEntry(entryId);
-      setDeleteModalOpen(false);
-      setEntryToDelete(null);
     } catch (error) {
       console.error("Failed to delete entry:", error);
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -219,12 +212,14 @@ export default function ProjectDetailsPage() {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xl md:text-2xl font-bold">Investment Entries</h2>
-          <AddInvestmentEntryDialog projectId={projectId}>
-            <Button size="sm" className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Entry</span>
-            </Button>
-          </AddInvestmentEntryDialog>
+          <Button size="sm" className="gap-2" onClick={() => {
+            setModalMode("add");
+            setSelectedEntry(null);
+            setModalOpen(true);
+          }}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Entry</span>
+          </Button>
         </div>
 
         <Card className="border shadow-sm">
@@ -361,33 +356,17 @@ export default function ProjectDetailsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <InvestmentEntryDetailsDialog
-                              projectId={projectId}
-                              entry={entry}
-                              onDelete={(id) => {
-                                setEntryToDelete(id);
-                                setDeleteModalOpen(true);
-                              }}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </InvestmentEntryDetailsDialog>
-
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
                               onClick={() => {
-                                setEntryToDelete(entry.id);
-                                setDeleteModalOpen(true);
+                                setSelectedEntry(entry);
+                                setModalMode("view");
+                                setModalOpen(true);
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -401,19 +380,15 @@ export default function ProjectDetailsPage() {
         </Card>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {entryToDelete && (
-        <DeleteConfirmationModal
-          open={deleteModalOpen}
-          onOpenChange={setDeleteModalOpen}
-          onConfirmDelete={handleDeleteEntry}
-          isDeleting={isDeleting}
-          title="Delete Investment Entry"
-          description="Are you sure you want to delete this entry? This action cannot be undone and will update your project totals."
-          deleteButtonText="Delete Entry"
-          itemId={entryToDelete}
-        />
-      )}
+      {/* Investment Entry Modal */}
+      <InvestmentEntryModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        projectId={projectId}
+        entry={selectedEntry}
+        mode={modalMode}
+        onDelete={handleDeleteEntry}
+      />
     </div>
   );
 }
