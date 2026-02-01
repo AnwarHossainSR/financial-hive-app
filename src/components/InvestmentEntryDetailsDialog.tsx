@@ -89,17 +89,17 @@ export function InvestmentEntryDetailsDialog({
           {/* Top Summary Card */}
           <div className="p-4 rounded-lg bg-muted/30 border grid grid-cols-2 gap-4">
             <InfoRow
-              label="Total Amount"
-              value={formatCurrency(entry.amount)}
+              label="Investment Amount"
+              value={formatCurrency(entry.investment_amount || entry.amount || 0)}
               icon={CreditCard}
               className="text-primary"
             />
             <InfoRow
-              label="Profit Received"
+              label="Actual Profit"
               value={
                 <span className="text-green-600 dark:text-green-400">
-                  {entry.profit_received
-                    ? formatCurrency(entry.profit_received)
+                  {entry.actual_profit
+                    ? formatCurrency(entry.actual_profit)
                     : "0.00"}
                 </span>
               }
@@ -109,34 +109,32 @@ export function InvestmentEntryDetailsDialog({
 
           <Separator />
 
-          {/* Investment Terms */}
+          {/* Order Information */}
           <div>
             <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-primary" />
-              Investment Terms
+              Order Information
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <InfoRow
-                label="Principal"
-                value={
-                  entry.principal ? formatCurrency(entry.principal) : undefined
-                }
-              />
-              <InfoRow label="Duration" value={entry.duration} />
-              <InfoRow
-                label="Interest Rate"
-                value={
-                  entry.interest_rate ? `${entry.interest_rate}%` : undefined
-                }
-                icon={Percent}
+                label="Order No"
+                value={entry.order_no}
               />
               <InfoRow
-                label="Start Date"
+                label="Order Date"
                 value={
-                  entry.investment_date
-                    ? format(new Date(entry.investment_date), "PP")
+                  entry.order_date
+                    ? format(new Date(entry.order_date), "PP")
                     : undefined
                 }
+              />
+              <InfoRow
+                label="Order ID"
+                value={entry.order_id}
+              />
+              <InfoRow
+                label="Duration"
+                value={entry.duration_months ? `${entry.duration_months} months` : undefined}
               />
               <InfoRow
                 label="Maturity Date"
@@ -147,11 +145,11 @@ export function InvestmentEntryDetailsDialog({
                 }
               />
               <InfoRow
-                label="Calc. Date"
+                label="Completion"
                 value={
-                  entry.profit_calculation_date
-                    ? format(new Date(entry.profit_calculation_date), "PP")
-                    : undefined
+                  <Badge variant={entry.is_completed ? "default" : "outline"} className="text-xs">
+                    {entry.is_completed ? "Completed" : "Pending"}
+                  </Badge>
                 }
               />
             </div>
@@ -159,13 +157,35 @@ export function InvestmentEntryDetailsDialog({
 
           <Separator />
 
-          {/* Performance Metrics */}
+          {/* Investment Terms */}
           <div>
             <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-primary" />
-              Performance Metrics
+              <Percent className="w-4 h-4 text-primary" />
+              Investment Terms
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <InfoRow
+                label="ROI Min"
+                value={
+                  entry.roi_min ? `${entry.roi_min}%` : undefined
+                }
+                icon={Percent}
+              />
+              <InfoRow
+                label="ROI Max"
+                value={
+                  entry.roi_max ? `${entry.roi_max}%` : undefined
+                }
+                icon={Percent}
+              />
+              <InfoRow
+                label="Expected Return"
+                value={
+                  entry.expected_return
+                    ? formatCurrency(entry.expected_return)
+                    : undefined
+                }
+              />
               <InfoRow
                 label="Expected Profit"
                 value={
@@ -175,45 +195,54 @@ export function InvestmentEntryDetailsDialog({
                 }
               />
               <InfoRow
-                label="Profit Received"
+                label="Return Amount"
                 value={
-                  entry.profit_received
-                    ? formatCurrency(entry.profit_received)
+                  entry.return_amount
+                    ? formatCurrency(entry.return_amount)
                     : undefined
                 }
               />
               <InfoRow
-                label="Profit Pending"
+                label="Capital Added"
                 value={
-                  entry.profit_pending
-                    ? formatCurrency(entry.profit_pending)
+                  entry.capital_added
+                    ? formatCurrency(entry.capital_added)
                     : undefined
-                }
-              />
-              <InfoRow
-                label="Profit Status"
-                value={
-                  entry.profit_status ? (
-                    <Badge variant="outline" className="capitalize text-xs">
-                      {entry.profit_status}
-                    </Badge>
-                  ) : undefined
                 }
               />
             </div>
           </div>
 
-          {(entry.remarks || entry.image_url) && <Separator />}
+          <Separator />
+
+          {/* Withdrawal Information */}
+          {entry.withdrawal_amount && (
+            <>
+              <div>
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  Withdrawal Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <InfoRow
+                    label="Withdrawal Amount"
+                    value={formatCurrency(entry.withdrawal_amount)}
+                  />
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
 
           {/* Additional Info */}
           <div className="grid gap-4">
-            {entry.remarks && (
+            {entry.notes && (
               <div className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Remarks / Notes
+                  Notes
                 </span>
                 <p className="text-sm text-muted-foreground bg-muted/20 p-2 rounded border">
-                  {entry.remarks}
+                  {entry.notes}
                 </p>
               </div>
             )}

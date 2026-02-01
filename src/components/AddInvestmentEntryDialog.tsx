@@ -65,11 +65,11 @@ export function AddInvestmentEntryDialog({
     if (investmentAmount && roiMin) {
       const amount = parseFloat(investmentAmount);
       const roi = parseFloat(roiMin);
-      
+
       if (!isNaN(amount) && !isNaN(roi)) {
         const expectedProfit = amount * (roi / 100);
         const expectedReturn = amount + expectedProfit;
-        
+
         // Auto-fill calculated values
         setCapitalAdded(amount.toString());
         // Note: expected_profit and expected_return will be calculated by database triggers
@@ -120,7 +120,9 @@ export function AddInvestmentEntryDialog({
         return_amount: returnAmount ? parseFloat(returnAmount) : null,
         actual_profit: actualProfit ? parseFloat(actualProfit) : null,
         capital_added: capitalAdded ? parseFloat(capitalAdded) : null,
-        withdrawal_amount: withdrawalAmount ? parseFloat(withdrawalAmount) : null,
+        withdrawal_amount: withdrawalAmount
+          ? parseFloat(withdrawalAmount)
+          : null,
         is_completed: isCompleted,
         status: status as any,
         notes: notes || null,
@@ -166,7 +168,8 @@ export function AddInvestmentEntryDialog({
           <DialogHeader>
             <DialogTitle>Add Investment Entry</DialogTitle>
             <DialogDescription>
-              Record a new investment entry with order details and ROI information.
+              Record a new investment entry with order details and ROI
+              information.
             </DialogDescription>
           </DialogHeader>
 
@@ -176,8 +179,8 @@ export function AddInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Order Information
               </h3>
-              
-              <div className="grid grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="order-no">Order No</Label>
                   <Input
@@ -188,18 +191,18 @@ export function AddInvestmentEntryDialog({
                     onChange={(e) => setOrderNo(e.target.value)}
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="order-date">Order Date *</Label>
                   <Input
                     id="order-date"
-                    type="datetime-local"
+                    type="date"
                     value={orderDate}
                     onChange={(e) => setOrderDate(e.target.value)}
                     required
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="order-id">Order ID</Label>
                   <Input
@@ -217,7 +220,7 @@ export function AddInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Investment Details
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="investment-amount">Investment Amount *</Label>
@@ -231,7 +234,7 @@ export function AddInvestmentEntryDialog({
                     required
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="duration">Duration (Months)</Label>
                   <Input
@@ -243,7 +246,7 @@ export function AddInvestmentEntryDialog({
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="roi-min">ROI Min (%) *</Label>
@@ -259,7 +262,7 @@ export function AddInvestmentEntryDialog({
                     Used for profit calculation
                   </p>
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="roi-max">ROI Max (%)</Label>
                   <Input
@@ -279,7 +282,7 @@ export function AddInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Returns & Profit
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="return-amount">Return Amount</Label>
@@ -292,7 +295,7 @@ export function AddInvestmentEntryDialog({
                     onChange={(e) => setReturnAmount(e.target.value)}
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="actual-profit">Actual Profit</Label>
                   <Input
@@ -305,7 +308,7 @@ export function AddInvestmentEntryDialog({
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="capital-added">Capital Added</Label>
@@ -316,7 +319,9 @@ export function AddInvestmentEntryDialog({
                     placeholder="80000"
                     value={capitalAdded}
                     onChange={(e) => setCapitalAdded(e.target.value)}
-                    className={investmentAmount && !capitalAdded ? "bg-blue-50" : ""}
+                    className={
+                      investmentAmount && !capitalAdded ? "bg-blue-50" : ""
+                    }
                   />
                   {investmentAmount && !capitalAdded && (
                     <p className="text-xs text-blue-600">
@@ -324,7 +329,7 @@ export function AddInvestmentEntryDialog({
                     </p>
                   )}
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="withdrawal">Withdrawal</Label>
                   <Input
@@ -344,7 +349,7 @@ export function AddInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Status
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="status">Status</Label>
@@ -361,7 +366,7 @@ export function AddInvestmentEntryDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="flex items-center space-x-2 pt-6">
                   <input
                     type="checkbox"
@@ -380,7 +385,7 @@ export function AddInvestmentEntryDialog({
               <h3 className="text-sm font-semibold text-muted-foreground">
                 Additional Information
               </h3>
-              
+
               <div className="grid gap-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
@@ -423,7 +428,7 @@ export function AddInvestmentEntryDialog({
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button type="submit" disabled={isUploading}>
               {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
