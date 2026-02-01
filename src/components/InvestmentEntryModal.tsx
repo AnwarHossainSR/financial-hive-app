@@ -629,6 +629,7 @@ export function InvestmentEntryModal({
         title="Delete Investment Entry"
         description="Are you sure you want to delete this investment entry? This action cannot be undone."
         deleteButtonText="Delete Entry"
+        verificationText="DELETE"
       />
     </Dialog>
   );

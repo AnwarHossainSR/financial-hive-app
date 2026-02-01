@@ -622,6 +622,7 @@ export default function PlatformDetailsPage() {
           description={`Are you sure you want to delete "${projectToDelete.name}"? This action cannot be undone and will delete all associated entries.`}
           deleteButtonText="Delete Project"
           itemId={projectToDelete.id}
+          verificationText={projectToDelete.name}
         />
       )}
 
