@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Layers, Plus } from "lucide-react";
 
 export default function DashboardClient() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   const { data: platforms = [], isLoading: platformsLoading } = useQuery({
     queryKey: ["investment-platforms", user?.id],
@@ -25,8 +25,21 @@ export default function DashboardClient() {
       if (error) throw new Error(error);
       return platforms;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !loading,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800">
