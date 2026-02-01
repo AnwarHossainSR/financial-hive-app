@@ -60,6 +60,23 @@ export function AddInvestmentEntryDialog({
   const { toast } = useToast();
   const supabase = createClient();
 
+  // Auto-calculate expected profit and return when investment amount and ROI change
+  useEffect(() => {
+    if (investmentAmount && roiMin) {
+      const amount = parseFloat(investmentAmount);
+      const roi = parseFloat(roiMin);
+      
+      if (!isNaN(amount) && !isNaN(roi)) {
+        const expectedProfit = amount * (roi / 100);
+        const expectedReturn = amount + expectedProfit;
+        
+        // Auto-fill calculated values
+        setCapitalAdded(amount.toString());
+        // Note: expected_profit and expected_return will be calculated by database triggers
+      }
+    }
+  }, [investmentAmount, roiMin]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -229,7 +246,7 @@ export function AddInvestmentEntryDialog({
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="roi-min">ROI Min (%)</Label>
+                  <Label htmlFor="roi-min">ROI Min (%) *</Label>
                   <Input
                     id="roi-min"
                     type="number"
@@ -238,6 +255,9 @@ export function AddInvestmentEntryDialog({
                     value={roiMin}
                     onChange={(e) => setRoiMin(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Used for profit calculation
+                  </p>
                 </div>
                 
                 <div className="grid gap-2">
@@ -296,7 +316,13 @@ export function AddInvestmentEntryDialog({
                     placeholder="80000"
                     value={capitalAdded}
                     onChange={(e) => setCapitalAdded(e.target.value)}
+                    className={investmentAmount && !capitalAdded ? "bg-blue-50" : ""}
                   />
+                  {investmentAmount && !capitalAdded && (
+                    <p className="text-xs text-blue-600">
+                      Auto-filled from investment amount
+                    </p>
+                  )}
                 </div>
                 
                 <div className="grid gap-2">
