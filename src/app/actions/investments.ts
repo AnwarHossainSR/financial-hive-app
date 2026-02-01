@@ -80,10 +80,6 @@ export async function createNewInvestmentPlatformAction(
   userId: string,
   data: { name: string; description?: string },
 ) {
-  console.log("🟢 createInvestmentPlatformAction called with:", {
-    userId,
-    data,
-  });
   try {
     const platform = await prisma.investmentPlatform.create({
       data: {
@@ -93,7 +89,6 @@ export async function createNewInvestmentPlatformAction(
       },
     });
 
-    console.log("✅ Platform created successfully:", platform.id);
     revalidatePath("/");
     return {
       platform: {
@@ -103,7 +98,6 @@ export async function createNewInvestmentPlatformAction(
       error: null,
     };
   } catch (error: any) {
-    console.error("❌ Platform creation error:", error.message);
     return { platform: null, error: error.message };
   }
 }
@@ -160,12 +154,10 @@ export async function createNewInvestmentProjectAction(
   data: any,
 ) {
   try {
-    // Validate that platform_id is provided (required field)
     if (!data.platform_id) {
       return {
         project: null,
-        error:
-          "Platform is required. Please select a platform for this project.",
+        error: "Platform is required. Please select a platform for this project.",
       };
     }
 
@@ -173,7 +165,10 @@ export async function createNewInvestmentProjectAction(
       data: {
         ...data,
         user_id: userId,
-        platform_id: data.platform_id, // Required field
+        platform_id: data.platform_id,
+        // Initial values - will be calculated by triggers
+        total_profit: 0,
+        total_loss: 0,
         total_profit_loss: 0,
         remaining_capital: 0,
         total_investment: 0,
@@ -208,7 +203,7 @@ export async function updateInvestmentProjectAction(
       where: { id: projectId },
       data: {
         ...data,
-        platform_id: data.platform_id, // Allow updating platform
+        platform_id: data.platform_id,
         updated_at: new Date(),
       },
     });
@@ -257,37 +252,32 @@ export async function createInvestmentEntryAction(
   try {
     const entry = await prisma.investmentEntry.create({
       data: {
-        ...data,
         project_id: projectId,
         user_id: userId,
+        investment_type: data.investment_type,
         amount: Number(data.amount),
         date: new Date(data.date),
+        status: data.status || 'pending',
+        principal: data.principal ? Number(data.principal) : null,
+        expected_profit: data.expected_profit ? Number(data.expected_profit) : null,
+        profit_received: data.profit_received ? Number(data.profit_received) : 0,
+        withdrawal_amount: data.withdrawal_amount ? Number(data.withdrawal_amount) : null,
+        withdrawal_date: data.withdrawal_date ? new Date(data.withdrawal_date) : null,
+        notes: data.notes || null,
         image_url: data.image_url || null,
       },
     });
-
-    // Update project totals
-    await updateProjectTotals(projectId);
 
     revalidatePath(`/investments/projects/${projectId}`);
     return {
       entry: {
         ...entry,
         amount: Number(entry.amount),
-        profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
         principal: entry.principal ? Number(entry.principal) : null,
-        expected_profit: entry.expected_profit
-          ? Number(entry.expected_profit)
-          : null,
-        profit_received: entry.profit_received
-          ? Number(entry.profit_received)
-          : null,
-        profit_pending: entry.profit_pending
-          ? Number(entry.profit_pending)
-          : null,
-        withdrawal_amount: entry.withdrawal_amount
-          ? Number(entry.withdrawal_amount)
-          : null,
+        expected_profit: entry.expected_profit ? Number(entry.expected_profit) : null,
+        profit_received: entry.profit_received ? Number(entry.profit_received) : null,
+        withdrawal_amount: entry.withdrawal_amount ? Number(entry.withdrawal_amount) : null,
+        profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
       },
       error: null,
     };
@@ -305,40 +295,31 @@ export async function updateInvestmentEntryAction(
     const entry = await prisma.investmentEntry.update({
       where: { id: entryId },
       data: {
-        ...data,
+        investment_type: data.investment_type,
         amount: data.amount ? Number(data.amount) : undefined,
-        profit_loss: data.profit_loss ? Number(data.profit_loss) : undefined,
+        status: data.status,
+        principal: data.principal ? Number(data.principal) : undefined,
+        expected_profit: data.expected_profit ? Number(data.expected_profit) : undefined,
+        profit_received: data.profit_received ? Number(data.profit_received) : undefined,
+        withdrawal_amount: data.withdrawal_amount ? Number(data.withdrawal_amount) : undefined,
         date: data.date ? new Date(data.date) : undefined,
-        withdrawal_date: data.withdrawal_date
-          ? new Date(data.withdrawal_date)
-          : undefined,
+        withdrawal_date: data.withdrawal_date ? new Date(data.withdrawal_date) : undefined,
+        notes: data.notes,
         image_url: data.image_url,
         updated_at: new Date(),
       },
     });
-
-    // Update project totals
-    await updateProjectTotals(entry.project_id);
 
     revalidatePath(`/investments/projects/${entry.project_id}`);
     return {
       entry: {
         ...entry,
         amount: Number(entry.amount),
-        profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
         principal: entry.principal ? Number(entry.principal) : null,
-        expected_profit: entry.expected_profit
-          ? Number(entry.expected_profit)
-          : null,
-        profit_received: entry.profit_received
-          ? Number(entry.profit_received)
-          : null,
-        profit_pending: entry.profit_pending
-          ? Number(entry.profit_pending)
-          : null,
-        withdrawal_amount: entry.withdrawal_amount
-          ? Number(entry.withdrawal_amount)
-          : null,
+        expected_profit: entry.expected_profit ? Number(entry.expected_profit) : null,
+        profit_received: entry.profit_received ? Number(entry.profit_received) : null,
+        withdrawal_amount: entry.withdrawal_amount ? Number(entry.withdrawal_amount) : null,
+        profit_loss: entry.profit_loss ? Number(entry.profit_loss) : null,
       },
       error: null,
     };
@@ -356,9 +337,7 @@ export async function deleteInvestmentEntryAction(
       where: { id: entryId },
     });
 
-    // Update project totals
-    await updateProjectTotals(entry.project_id);
-
+    // Trigger will automatically calculate project totals
     revalidatePath(`/investments/projects/${entry.project_id}`);
     return { success: true, error: null };
   } catch (error: any) {
@@ -407,42 +386,26 @@ export async function updateBankStatementAction(
   data: any,
 ) {
   try {
-    // Calculate balance if capital or withdrawal changed
-    let balanceUpdate = {};
-    if (data.total_capital || data.total_withdrawal) {
-      // We need to fetch current values if not provided, but for simplicity
-      // let's assume the UI sends both or we do a read-before-write.
-      // Better: let's do a read first if needed, or rely on client sending partials correctly.
-      // Actually, easiest is to just calculate balance in the update if both provided,
-      // or re-fetch. Let's do a re-fetch to be safe if only one is provided.
-      const current = await prisma.bankStatement.findUnique({
-        where: { id: statementId },
-      });
-      if (current) {
-        const capital =
-          data.total_capital !== undefined
-            ? Number(data.total_capital)
-            : Number(current.total_capital);
-        const withdrawal =
-          data.total_withdrawal !== undefined
-            ? Number(data.total_withdrawal)
-            : Number(current.total_withdrawal);
-        balanceUpdate = { balance: capital - withdrawal };
-      }
+    const current = await prisma.bankStatement.findUnique({
+      where: { id: statementId },
+    });
+    
+    if (!current) {
+      return { statement: null, error: "Statement not found" };
     }
+
+    const capital = data.total_capital !== undefined ? Number(data.total_capital) : Number(current.total_capital);
+    const withdrawal = data.total_withdrawal !== undefined ? Number(data.total_withdrawal) : Number(current.total_withdrawal);
+    const balance = capital - withdrawal;
 
     const statement = await prisma.bankStatement.update({
       where: { id: statementId },
       data: {
         ...data,
-        total_capital: data.total_capital
-          ? Number(data.total_capital)
-          : undefined,
-        total_withdrawal: data.total_withdrawal
-          ? Number(data.total_withdrawal)
-          : undefined,
+        total_capital: data.total_capital ? Number(data.total_capital) : undefined,
+        total_withdrawal: data.total_withdrawal ? Number(data.total_withdrawal) : undefined,
+        balance: balance,
         date: data.date ? new Date(data.date) : undefined,
-        ...balanceUpdate,
         updated_at: new Date(),
       },
     });
@@ -480,79 +443,15 @@ export async function deleteBankStatementAction(
 
 // --- Helper Functions ---
 
+// Simplified helper - calculations now handled by database triggers
 async function updateProjectTotals(projectId: string) {
-  const entries = await prisma.investmentEntry.findMany({
-    where: { project_id: projectId },
-  });
-
-  let totalInvestment = 0;
-  let totalProfit = 0;
-  let totalLoss = 0;
-  let totalOutflow = 0;
-
-  entries.forEach((entry) => {
-    const amt = Number(entry.amount);
-    const type = entry.investment_type;
-    const principal = entry.principal ? Number(entry.principal) : 0;
-    const received = entry.profit_received ? Number(entry.profit_received) : 0;
-    const withdrawn = entry.withdrawal_amount
-      ? Number(entry.withdrawal_amount)
-      : 0;
-
-    // 1. Total Investment
-    if (type === "Deposit" || type === "Reinvestment") {
-      totalInvestment += Math.max(amt, principal);
-    } else if (principal > 0) {
-      // Allow principal on other types (like a Withdrawal entry for a whole project)
-      // to count as the investment basis if no deposits exist.
-      // But we should be careful not to double count if there are multiple entries.
-      // For simplicity, we'll only count principal from non-deposit entries if it's explicitly provided.
-      totalInvestment += principal;
-    }
-
-    // 2. Total Profit
-    if (type === "Profit") {
-      totalProfit += Math.max(amt, received);
-    } else if (received > 0) {
-      totalProfit += received;
-    }
-
-    // 3. Total Loss
-    if (type === "Loss" || type === "Fee") {
-      totalLoss += amt;
-    }
-
-    // 4. Total Outflow
-    if (type === "Withdrawal" || type === "Capital Return") {
-      totalOutflow += Math.max(amt, withdrawn);
-    } else if (withdrawn > 0) {
-      totalOutflow += withdrawn;
-    } else if (entry.status === "withdrawn") {
-      // If a regular entry (Deposit/Profit) is marked as withdrawn in a single-entry project
-      // count its full basis as outflow
-      const entryBasis =
-        type === "Deposit" || type === "Reinvestment"
-          ? Math.max(amt, principal)
-          : 0;
-      const entryEarnings =
-        type === "Profit" ? Math.max(amt, received) : received;
-      totalOutflow += entryBasis + entryEarnings;
-    }
-  });
-
-  const totalProfitLoss = totalProfit - totalLoss;
-  const remainingCapital = totalInvestment + totalProfitLoss - totalOutflow;
-
-  await prisma.investmentProject.update({
-    where: { id: projectId },
-    data: {
-      total_investment: totalInvestment,
-      total_profit: totalProfit,
-      total_loss: totalLoss,
-      total_profit_loss: totalProfitLoss,
-      remaining_capital: Math.max(0, remainingCapital),
-    },
-  });
+  // The database trigger will automatically calculate totals
+  // We just need to trigger a recalculation by calling the function
+  try {
+    await prisma.$executeRaw`SELECT calculate_project_totals(${projectId}::uuid)`;
+  } catch (error) {
+    console.error('Error updating project totals:', error);
+  }
 }
 
 // --- Fetching Actions ---
@@ -603,7 +502,6 @@ export async function getInvestmentProjectAction(
     const project = await prisma.investmentProject.findUnique({
       where: { id: projectId },
       include: { platform: true },
-      // In a real app, verify user_id matches or check permission (book ownership)
     });
 
     if (!project) return { project: null, error: "Project not found" };
@@ -627,13 +525,11 @@ export async function getInvestmentProjectAction(
 export async function getInvestmentEntriesAction(
   projectId: string,
   pagination: { page: number; limit: number } = { page: 0, limit: 50 },
-  filters?: { status?: string; platform?: string },
+  filters?: { status?: string },
 ) {
   try {
     const where: any = { project_id: projectId };
     if (filters?.status) where.status = filters.status;
-    if (filters?.platform)
-      where.platform = { contains: filters.platform, mode: "insensitive" };
 
     const [entries, total] = await Promise.all([
       prisma.investmentEntry.findMany({
@@ -649,14 +545,11 @@ export async function getInvestmentEntriesAction(
       entries: entries.map((e) => ({
         ...e,
         amount: Number(e.amount),
-        profit_loss: e.profit_loss ? Number(e.profit_loss) : null,
         principal: e.principal ? Number(e.principal) : null,
         expected_profit: e.expected_profit ? Number(e.expected_profit) : null,
         profit_received: e.profit_received ? Number(e.profit_received) : null,
-        profit_pending: e.profit_pending ? Number(e.profit_pending) : null,
-        withdrawal_amount: e.withdrawal_amount
-          ? Number(e.withdrawal_amount)
-          : null,
+        withdrawal_amount: e.withdrawal_amount ? Number(e.withdrawal_amount) : null,
+        profit_loss: e.profit_loss ? Number(e.profit_loss) : null,
       })),
       total,
       error: null,
@@ -689,9 +582,6 @@ export async function getBankStatementsAction(projectId: string) {
 
 export async function getInvestmentAnalyticsAction(projectId: string) {
   try {
-    // We can add specific aggregation queries here if needed beyond what's on the project model
-    // For now, the project model has the aggregated totals.
-    // Let's return project details + some potentially expensive calcs if needed.
     const project = await prisma.investmentProject.findUnique({
       where: { id: projectId },
     });
@@ -705,12 +595,9 @@ export async function getInvestmentAnalyticsAction(projectId: string) {
         totalInvestment: Number(project.total_investment),
         totalProfit: Number(project.total_profit),
         totalLoss: Number(project.total_loss),
-        roi:
-          Number(project.total_investment) > 0
-            ? (Number(project.total_profit_loss) /
-                Number(project.total_investment)) *
-              100
-            : 0,
+        roi: Number(project.total_investment) > 0
+          ? (Number(project.total_profit_loss) / Number(project.total_investment)) * 100
+          : 0,
       },
       error: null,
     };

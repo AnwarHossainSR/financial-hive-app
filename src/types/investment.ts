@@ -1,5 +1,4 @@
 export type ProjectStatus = "active" | "completed" | "paused";
-
 export type EntryStatus = "pending" | "active" | "completed" | "withdrawn";
 
 export interface InvestmentPlatform {
@@ -19,6 +18,8 @@ export interface InvestmentProject {
   user_id: string;
   name: string;
   description?: string;
+  total_profit: number;
+  total_loss: number;
   total_profit_loss: number;
   remaining_capital: number;
   total_investment: number;
@@ -39,10 +40,13 @@ export interface InvestmentEntry {
   project_id: string;
   user_id: string;
   date: string;
-  platform?: string; // Kept for backwards compatibility
   investment_type: string;
   amount: number;
   status: EntryStatus;
+  principal?: number;
+  expected_profit?: number;
+  profit_received?: number;
+  withdrawal_amount?: number;
   profit_loss?: number;
   withdrawal_date?: string;
   notes?: string;
@@ -68,5 +72,19 @@ export interface ProjectAnalytics {
   totalProfitLoss: number;
   remainingCapital: number;
   totalInvestment: number;
+  totalProfit: number;
+  totalLoss: number;
   roi: number;
 }
+
+// Investment Types
+export const INVESTMENT_TYPES = [
+  'Deposit',
+  'Investment', 
+  'Profit',
+  'Loss',
+  'Fee',
+  'Withdrawal'
+] as const;
+
+export type InvestmentType = typeof INVESTMENT_TYPES[number];

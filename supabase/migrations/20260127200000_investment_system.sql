@@ -1,11 +1,19 @@
--- Consolidated Investment System Migration
--- Covers: Enums, Platforms, Projects, Entries, Bank Statements, RLS, and Storage
+-- Complete Investment System Migration
+-- Drop everything first, then create clean structure
 
--- 1. Create Enums
+-- 1. Drop existing investment tables and types
+DROP TABLE IF EXISTS "public"."bank_statements" CASCADE;
+DROP TABLE IF EXISTS "public"."investment_entries" CASCADE;
+DROP TABLE IF EXISTS "public"."investment_projects" CASCADE;
+DROP TABLE IF EXISTS "public"."investment_platforms" CASCADE;
+DROP TYPE IF EXISTS "public"."entry_status" CASCADE;
+DROP TYPE IF EXISTS "public"."project_status" CASCADE;
+
+-- 2. Create Enums
 CREATE TYPE "public"."project_status" AS ENUM ('active', 'completed', 'paused');
 CREATE TYPE "public"."entry_status" AS ENUM ('pending', 'active', 'completed', 'withdrawn');
 
--- 2. Create Tables
+-- 3. Create Tables
 CREATE TABLE "public"."investment_platforms" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "user_id" UUID NOT NULL,
@@ -13,16 +21,17 @@ CREATE TABLE "public"."investment_platforms" (
     "description" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "investment_platforms_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "public"."investment_projects" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "user_id" UUID NOT NULL,
-    "platform_id" UUID NOT NULL,
+    "platform_id" UUID,
     "name" TEXT NOT NULL,
     "description" TEXT,
+    "total_profit" DECIMAL(15,2) NOT NULL DEFAULT 0,
+    "total_loss" DECIMAL(15,2) NOT NULL DEFAULT 0,
     "total_profit_loss" DECIMAL(15,2) NOT NULL DEFAULT 0,
     "remaining_capital" DECIMAL(15,2) NOT NULL DEFAULT 0,
     "total_investment" DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -32,7 +41,6 @@ CREATE TABLE "public"."investment_projects" (
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "bookId" UUID,
-
     CONSTRAINT "investment_projects_pkey" PRIMARY KEY ("id")
 );
 
@@ -41,17 +49,19 @@ CREATE TABLE "public"."investment_entries" (
     "project_id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
     "date" TIMESTAMPTZ(6) NOT NULL,
-    "platform" TEXT, -- Made optional since we have platform_id in projects
     "investment_type" TEXT NOT NULL,
     "amount" DECIMAL(15,2) NOT NULL,
     "status" "public"."entry_status" NOT NULL DEFAULT 'pending',
+    "principal" DECIMAL(15,2),
+    "expected_profit" DECIMAL(15,2),
+    "profit_received" DECIMAL(15,2) DEFAULT 0,
+    "withdrawal_amount" DECIMAL(15,2),
     "profit_loss" DECIMAL(15,2),
     "withdrawal_date" TIMESTAMPTZ(6),
-    "image_url" TEXT,
     "notes" TEXT,
+    "image_url" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "investment_entries_pkey" PRIMARY KEY ("id")
 );
 
@@ -66,11 +76,10 @@ CREATE TABLE "public"."bank_statements" (
     "notes" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "bank_statements_pkey" PRIMARY KEY ("id")
 );
 
--- 3. Add Foreign Key Constraints
+-- 4. Add Foreign Key Constraints
 ALTER TABLE "public"."investment_platforms" 
   ADD CONSTRAINT "investment_platforms_user_id_fkey" 
   FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") 
@@ -84,7 +93,7 @@ ALTER TABLE "public"."investment_projects"
 ALTER TABLE "public"."investment_projects" 
   ADD CONSTRAINT "investment_projects_platform_id_fkey" 
   FOREIGN KEY ("platform_id") REFERENCES "public"."investment_platforms"("id") 
-  ON DELETE CASCADE ON UPDATE CASCADE;
+  ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "public"."investment_projects" 
   ADD CONSTRAINT "investment_projects_bookId_fkey" 
@@ -106,48 +115,117 @@ ALTER TABLE "public"."bank_statements"
   FOREIGN KEY ("project_id") REFERENCES "public"."investment_projects"("id") 
   ON DELETE CASCADE ON UPDATE CASCADE;
 
--- 4. Create Indexes
-CREATE INDEX IF NOT EXISTS "idx_investment_platforms_user_id" ON "public"."investment_platforms"("user_id");
-CREATE INDEX IF NOT EXISTS "idx_investment_projects_platform_id" ON "public"."investment_projects"("platform_id");
-CREATE INDEX IF NOT EXISTS "idx_investment_projects_user_id" ON "public"."investment_projects"("user_id");
-CREATE INDEX IF NOT EXISTS "idx_investment_entries_project_id" ON "public"."investment_entries"("project_id");
-CREATE INDEX IF NOT EXISTS "idx_investment_entries_user_id" ON "public"."investment_entries"("user_id");
+ALTER TABLE "public"."bank_statements" 
+  ADD CONSTRAINT "bank_statements_user_id_fkey" 
+  FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") 
+  ON DELETE CASCADE ON UPDATE CASCADE;
 
--- 5. Enable Row Level Security (RLS)
+-- 5. Create Indexes
+CREATE INDEX "idx_investment_platforms_user_id" ON "public"."investment_platforms"("user_id");
+CREATE INDEX "idx_investment_projects_platform_id" ON "public"."investment_projects"("platform_id");
+CREATE INDEX "idx_investment_projects_user_id" ON "public"."investment_projects"("user_id");
+CREATE INDEX "idx_investment_entries_project_id" ON "public"."investment_entries"("project_id");
+CREATE INDEX "idx_investment_entries_user_id" ON "public"."investment_entries"("user_id");
+CREATE INDEX "idx_bank_statements_project_id" ON "public"."bank_statements"("project_id");
+
+-- 6. Create automated calculation function
+CREATE OR REPLACE FUNCTION calculate_project_totals(project_uuid UUID)
+RETURNS void AS $$
+DECLARE
+    total_inv DECIMAL(15,2) := 0;
+    total_prof DECIMAL(15,2) := 0;
+    total_loss_val DECIMAL(15,2) := 0;
+    total_outflow DECIMAL(15,2) := 0;
+    entry_record RECORD;
+BEGIN
+    FOR entry_record IN 
+        SELECT * FROM investment_entries WHERE project_id = project_uuid
+    LOOP
+        CASE entry_record.investment_type
+            WHEN 'Deposit', 'Investment' THEN
+                total_inv := total_inv + COALESCE(GREATEST(entry_record.amount, COALESCE(entry_record.principal, 0)), 0);
+            WHEN 'Profit' THEN
+                total_prof := total_prof + COALESCE(entry_record.amount, 0);
+            WHEN 'Loss', 'Fee' THEN
+                total_loss_val := total_loss_val + COALESCE(entry_record.amount, 0);
+            WHEN 'Withdrawal' THEN
+                total_outflow := total_outflow + COALESCE(entry_record.amount, 0);
+        END CASE;
+        
+        -- Add profit_received to total profit
+        IF COALESCE(entry_record.profit_received, 0) > 0 THEN
+            total_prof := total_prof + entry_record.profit_received;
+        END IF;
+        
+        -- Add withdrawal_amount to outflow
+        IF COALESCE(entry_record.withdrawal_amount, 0) > 0 THEN
+            total_outflow := total_outflow + entry_record.withdrawal_amount;
+        END IF;
+    END LOOP;
+    
+    UPDATE investment_projects SET
+        total_investment = total_inv,
+        total_profit = total_prof,
+        total_loss = total_loss_val,
+        total_profit_loss = total_prof - total_loss_val,
+        remaining_capital = GREATEST(0, total_inv + (total_prof - total_loss_val) - total_outflow),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = project_uuid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 7. Create triggers for automatic calculation
+CREATE OR REPLACE FUNCTION trigger_calculate_project_totals()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM calculate_project_totals(OLD.project_id);
+        RETURN OLD;
+    ELSE
+        PERFORM calculate_project_totals(NEW.project_id);
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER investment_entry_totals_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON investment_entries
+    FOR EACH ROW EXECUTE FUNCTION trigger_calculate_project_totals();
+
+-- 8. Enable Row Level Security (RLS)
 ALTER TABLE "public"."investment_platforms" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."investment_projects" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."investment_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."bank_statements" ENABLE ROW LEVEL SECURITY;
 
--- 6. Create RLS Policies
--- Platforms
+-- 9. Create RLS Policies
 CREATE POLICY "Users can view their own platforms" ON "public"."investment_platforms" FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can create their own platforms" ON "public"."investment_platforms" FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own platforms" ON "public"."investment_platforms" FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own platforms" ON "public"."investment_platforms" FOR DELETE USING (auth.uid() = user_id);
 
--- Projects
 CREATE POLICY "Users can view their own projects" ON "public"."investment_projects" FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can create their own projects" ON "public"."investment_projects" FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own projects" ON "public"."investment_projects" FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own projects" ON "public"."investment_projects" FOR DELETE USING (auth.uid() = user_id);
 
--- Entries
 CREATE POLICY "Users can view their own entries" ON "public"."investment_entries" FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can create their own entries" ON "public"."investment_entries" FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own entries" ON "public"."investment_entries" FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own entries" ON "public"."investment_entries" FOR DELETE USING (auth.uid() = user_id);
 
--- Bank Statements
 CREATE POLICY "Users can view their own bank statements" ON "public"."bank_statements" FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can create their own bank statements" ON "public"."bank_statements" FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own bank statements" ON "public"."bank_statements" FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own bank statements" ON "public"."bank_statements" FOR DELETE USING (auth.uid() = user_id);
 
--- 7. Storage Bucket and Policies
+-- 10. Storage Bucket and Policies
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('investment_documents', 'investment_documents', true) 
 ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Auth Upload" ON storage.objects;
 
 CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id = 'investment_documents' );
 CREATE POLICY "Auth Upload" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'investment_documents' AND auth.role() = 'authenticated' );
