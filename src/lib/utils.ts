@@ -34,6 +34,7 @@ export const getBangladeshTime = (
 // Categories from TransactionForm
 export const INCOME_CATEGORIES = [
   "Salary",
+  "Encashment",
   "Freelance",
   "Investment",
   "Business",
