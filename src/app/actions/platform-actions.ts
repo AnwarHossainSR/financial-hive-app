@@ -43,6 +43,14 @@ export async function getIsolatedInvestmentPlatformsAction(userId: string) {
       where: { user_id: userId },
       orderBy: { created_at: "desc" },
       include: {
+        projects: {
+          select: {
+            total_investment: true,
+            total_profit_loss: true,
+            remaining_capital: true,
+            status: true,
+          },
+        },
         _count: {
           select: { projects: true },
         },
@@ -55,6 +63,12 @@ export async function getIsolatedInvestmentPlatformsAction(userId: string) {
         description: p.description || undefined,
         created_at: p.created_at.toISOString(),
         updated_at: p.updated_at.toISOString(),
+        projects: p.projects.map((project) => ({
+          total_investment: Number(project.total_investment),
+          total_profit_loss: Number(project.total_profit_loss),
+          remaining_capital: Number(project.remaining_capital),
+          status: project.status,
+        })),
       })),
       error: null,
     };

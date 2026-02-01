@@ -281,7 +281,7 @@ export default function ProjectDetailsPage() {
                       className="hover:bg-muted/30 transition-colors"
                     >
                       <TableCell className="font-medium whitespace-nowrap">
-                        {format(new Date(entry.date), "MMM d, yyyy")}
+                        {entry.order_date ? format(new Date(entry.order_date), "MMM d, yyyy") : "-"}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -300,23 +300,19 @@ export default function ProjectDetailsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold">
-                        {formatCurrency(entry.amount)}
+                        {formatCurrency(entry.investment_amount || entry.amount || 0)}
                       </TableCell>
                       <TableCell
                         className={`font-semibold ${
-                          (entry.profit_received || 0) >= 0
+                          (entry.actual_profit || 0) >= 0
                             ? "text-green-600 dark:text-green-400"
                             : "text-red-600 dark:text-red-400"
                         }`}
                       >
-                        {Number(entry.profit_received || 0) > 0 ||
-                        entry.investment_type === "Profit" ? (
+                        {Number(entry.actual_profit || 0) > 0 ? (
                           <span className="flex items-center gap-1">
                             <ArrowUpRight className="h-3 w-3" />
-                            {formatCurrency(
-                              Number(entry.profit_received || 0) ||
-                                Number(entry.amount),
-                            )}
+                            {formatCurrency(Number(entry.actual_profit || 0))}
                           </span>
                         ) : (
                           "-"
@@ -328,7 +324,7 @@ export default function ProjectDetailsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell max-w-[250px] truncate text-muted-foreground">
-                        {entry.remarks || "-"}
+                        {entry.notes || "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
