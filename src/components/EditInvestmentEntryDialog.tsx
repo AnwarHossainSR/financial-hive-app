@@ -85,7 +85,7 @@ export function EditInvestmentEntryDialog({
   useEffect(() => {
     if (open && entry) {
       const entryDate = new Date(entry.order_date);
-      const formattedDate = format(entryDate, "yyyy-MM-dd'T'HH:mm");
+      const formattedDate = format(entryDate, "yyyy-MM-dd");
 
       setOrderNo(entry.order_no?.toString() || "");
       setOrderDate(formattedDate);

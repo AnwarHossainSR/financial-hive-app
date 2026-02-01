@@ -40,7 +40,7 @@ export function AddInvestmentEntryDialog({
 }: AddInvestmentEntryDialogProps) {
   const [open, setOpen] = useState(false);
   const [orderNo, setOrderNo] = useState("");
-  const [orderDate, setOrderDate] = useState(getBangladeshTime());
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [orderId, setOrderId] = useState("");
   const [investmentAmount, setInvestmentAmount] = useState("");
   const [durationMonths, setDurationMonths] = useState("");
@@ -144,7 +144,7 @@ export function AddInvestmentEntryDialog({
 
   const resetForm = () => {
     setOrderNo("");
-    setOrderDate(getBangladeshTime());
+    setOrderDate(new Date().toISOString().split('T')[0]);
     setOrderId("");
     setInvestmentAmount("");
     setDurationMonths("");
