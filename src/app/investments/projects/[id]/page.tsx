@@ -232,17 +232,21 @@ export default function ProjectDetailsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-semibold w-[140px]">
+                  <TableHead className="font-semibold w-[100px]">
+                    Order No
+                  </TableHead>
+                  <TableHead className="font-semibold w-[120px]">
                     Date
                   </TableHead>
-                  <TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">Amount</TableHead>
-                  <TableHead className="font-semibold">Profit/Loss</TableHead>
+                  <TableHead className="font-semibold hidden sm:table-cell">ROI</TableHead>
+                  <TableHead className="font-semibold">Expected</TableHead>
+                  <TableHead className="font-semibold">Actual P&L</TableHead>
                   <TableHead className="font-semibold hidden md:table-cell">
                     Status
                   </TableHead>
                   <TableHead className="font-semibold hidden lg:table-cell">
-                    Remarks
+                    Maturity
                   </TableHead>
                   <TableHead className="font-semibold text-right">
                     Actions
@@ -252,7 +256,7 @@ export default function ProjectDetailsPage() {
               <TableBody>
                 {isLoadingEntries ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center gap-2">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         Loading entries...
@@ -262,7 +266,7 @@ export default function ProjectDetailsPage() {
                 ) : entries.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={9}
                       className="text-center py-12 text-muted-foreground"
                     >
                       <div className="flex flex-col items-center gap-2">
@@ -275,91 +279,121 @@ export default function ProjectDetailsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  entries.map((entry: any) => (
-                    <TableRow
-                      key={entry.id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {entry.order_date ? format(new Date(entry.order_date), "MMM d, yyyy") : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            entry.investment_type === "Deposit"
-                              ? "default"
-                              : entry.investment_type === "Withdrawal"
-                                ? "secondary"
-                                : entry.investment_type === "Profit"
-                                  ? "default"
-                                  : "destructive"
-                          }
-                          className="font-medium"
-                        >
-                          {entry.investment_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        {formatCurrency(entry.investment_amount || entry.amount || 0)}
-                      </TableCell>
-                      <TableCell
-                        className={`font-semibold ${
-                          (entry.actual_profit || 0) >= 0
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
+                  entries.map((entry: any) => {
+                    const daysLeft = entry.maturity_date 
+                      ? Math.ceil((new Date(entry.maturity_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                      : null;
+                    
+                    return (
+                      <TableRow
+                        key={entry.id}
+                        className="hover:bg-muted/30 transition-colors"
                       >
-                        {Number(entry.actual_profit || 0) > 0 ? (
-                          <span className="flex items-center gap-1">
-                            <ArrowUpRight className="h-3 w-3" />
-                            {formatCurrency(Number(entry.actual_profit || 0))}
-                          </span>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant="outline" className="capitalize">
-                          {entry.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell max-w-[250px] truncate text-muted-foreground">
-                        {entry.notes || "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <InvestmentEntryDetailsDialog
-                            projectId={projectId}
-                            entry={entry}
-                            onDelete={(id) => {
-                              setEntryToDelete(id);
-                              setDeleteModalOpen(true);
-                            }}
+                        <TableCell className="font-medium">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            #{entry.order_no || '-'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">
+                          {entry.order_date ? format(new Date(entry.order_date), "MMM d, yyyy") : "-"}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {formatCurrency(entry.investment_amount || 0)}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <div className="flex items-center gap-1">
+                            {entry.roi_min && (
+                              <Badge variant="secondary" className="text-xs">
+                                {entry.roi_min}%{entry.roi_max && entry.roi_max !== entry.roi_min ? `-${entry.roi_max}%` : ''}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium text-blue-600 dark:text-blue-400">
+                          {entry.expected_profit ? formatCurrency(entry.expected_profit) : '-'}
+                        </TableCell>
+                        <TableCell
+                          className={`font-semibold ${
+                            (entry.actual_profit || 0) >= 0
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {Number(entry.actual_profit || 0) !== 0 ? (
+                            <span className="flex items-center gap-1">
+                              {Number(entry.actual_profit || 0) > 0 ? (
+                                <ArrowUpRight className="h-3 w-3" />
+                              ) : (
+                                <ArrowDownRight className="h-3 w-3" />
+                              )}
+                              {formatCurrency(Math.abs(Number(entry.actual_profit || 0)))}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge 
+                            variant={entry.status === 'active' ? 'default' : entry.status === 'completed' ? 'secondary' : 'outline'} 
+                            className="capitalize"
                           >
+                            {entry.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {entry.maturity_date ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(entry.maturity_date), "MMM d, yyyy")}
+                              </span>
+                              {daysLeft !== null && (
+                                <Badge 
+                                  variant={daysLeft <= 7 ? "destructive" : daysLeft <= 30 ? "secondary" : "outline"}
+                                  className="text-xs w-fit"
+                                >
+                                  {daysLeft > 0 ? `${daysLeft}d left` : `${Math.abs(daysLeft)}d over`}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <InvestmentEntryDetailsDialog
+                              projectId={projectId}
+                              entry={entry}
+                              onDelete={(id) => {
+                                setEntryToDelete(id);
+                                setDeleteModalOpen(true);
+                              }}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </InvestmentEntryDetailsDialog>
+
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                setEntryToDelete(entry.id);
+                                setDeleteModalOpen(true);
+                              }}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          </InvestmentEntryDetailsDialog>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => {
-                              setEntryToDelete(entry.id);
-                              setDeleteModalOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
