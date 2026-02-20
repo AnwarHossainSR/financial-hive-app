@@ -34,6 +34,7 @@ export const getBangladeshTime = (
 // Categories from TransactionForm
 export const INCOME_CATEGORIES = [
   "Salary",
+  "Bonus",
   "Encashment",
   "Freelance",
   "Investment",
@@ -53,6 +54,7 @@ export const EXPENSE_CATEGORIES = [
   "Travel",
   "Bike Maintenance",
   "Home Rent",
+  "Donations",
   "Other",
 ];
 
