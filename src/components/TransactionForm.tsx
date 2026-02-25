@@ -74,7 +74,7 @@ export function TransactionForm({
               className={cn(
                 "flex-1 transition-all duration-200 h-10 rounded-xl",
                 type === "income" &&
-                  "bg-income hover:bg-income text-income-foreground shadow-lg shadow-income/20"
+                  "bg-income hover:bg-income text-income-foreground shadow-lg shadow-income/20",
               )}
             >
               Income
@@ -86,7 +86,7 @@ export function TransactionForm({
               className={cn(
                 "flex-1 transition-all duration-200 h-10 rounded-xl",
                 type === "expense" &&
-                  "bg-expense hover:bg-expense text-expense-foreground shadow-lg shadow-expense/20"
+                  "bg-expense hover:bg-expense text-expense-foreground shadow-lg shadow-expense/20",
               )}
             >
               Expense
@@ -180,13 +180,13 @@ export function TransactionForm({
         </div>
 
         {/* Form Actions */}
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
           {onCancel && (
             <Button
               type="button"
               variant="ghost"
               onClick={onCancel}
-              className="flex-1 rounded-xl h-11 hover:bg-slate-100 dark:hover:bg-gray-800 transition-all font-medium"
+              className="w-full sm:flex-1 rounded-xl h-11 hover:bg-slate-100 dark:hover:bg-gray-800 transition-all font-medium"
             >
               Cancel
             </Button>
@@ -194,10 +194,10 @@ export function TransactionForm({
           <Button
             type="submit"
             className={cn(
-              "flex-[2] rounded-xl h-11 font-semibold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg",
+              "w-full sm:flex-[2] rounded-xl h-11 font-semibold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg",
               type === "income"
                 ? "bg-income hover:bg-income/90 shadow-income/20"
-                : "bg-expense hover:bg-expense/90 shadow-expense/20"
+                : "bg-expense hover:bg-expense/90 shadow-expense/20",
             )}
             disabled={!amount || !category}
           >

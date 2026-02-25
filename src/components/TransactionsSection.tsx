@@ -91,7 +91,7 @@ export const TransactionsSection = ({
 
   // Check if any filters are applied
   const hasFiltersApplied = Object.values(filters).some(
-    (value) => value !== undefined && value !== ""
+    (value) => value !== undefined && value !== "",
   );
 
   // Show scroll hint when there are more transactions to load or scroll
@@ -176,7 +176,7 @@ export const TransactionsSection = ({
               className={cn(
                 "border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all rounded-xl backdrop-blur-sm",
                 hasFiltersApplied &&
-                  "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600"
+                  "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600",
               )}
             >
               <Filter className="w-4 h-4 mr-2" />
@@ -402,18 +402,18 @@ export const TransactionsSection = ({
                         </SelectItem>
                       ))
                     : filters.type === "expense"
-                    ? EXPENSE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))
-                    : [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].map(
-                        (cat) => (
+                      ? EXPENSE_CATEGORIES.map((cat) => (
                           <SelectItem key={cat} value={cat}>
                             {cat}
                           </SelectItem>
-                        )
-                      )}
+                        ))
+                      : [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].map(
+                          (cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ),
+                        )}
                 </SelectContent>
               </Select>
             </div>
@@ -494,7 +494,7 @@ export const TransactionsSection = ({
       </Dialog>
 
       <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
-        <DialogContent className="max-w-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent">
               Edit Transaction

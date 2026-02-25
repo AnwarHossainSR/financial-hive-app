@@ -314,7 +314,7 @@ export const BookSelector = ({
 
       {/* Create Book Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-md sm:max-w-lg bg-white dark:bg-gray-800 rounded-lg shadow-card">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-md sm:max-w-lg max-h-[90dvh] overflow-y-auto bg-white dark:bg-gray-800 rounded-lg shadow-card">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl text-foreground">
               Create New Book
@@ -410,19 +410,19 @@ export const BookSelector = ({
               />
             </div>
 
-            <div className="flex justify-end space-x-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowCreateDialog(false)}
-                className="border-border text-foreground hover:bg-primary/10 rounded-lg"
+                className="w-full sm:w-auto border-border text-foreground hover:bg-primary/10 rounded-lg"
                 disabled={formLoading}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
+                className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
                 disabled={formLoading}
               >
                 {formLoading ? (
@@ -441,7 +441,7 @@ export const BookSelector = ({
 
       {/* Edit Book Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-md sm:max-w-lg bg-white dark:bg-gray-800 rounded-lg shadow-card">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-md sm:max-w-lg max-h-[90dvh] overflow-y-auto bg-white dark:bg-gray-800 rounded-lg shadow-card">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl text-foreground">
               Edit Book
@@ -543,31 +543,31 @@ export const BookSelector = ({
               />
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Button
                 type="button"
                 variant="destructive"
                 onClick={handleDeleteBook}
-                className="flex items-center space-x-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg"
                 disabled={formLoading}
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Book</span>
               </Button>
 
-              <div className="flex space-x-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowEditDialog(false)}
-                  className="border-border text-foreground hover:bg-primary/10 rounded-lg"
+                  className="w-full sm:w-auto border-border text-foreground hover:bg-primary/10 rounded-lg"
                   disabled={formLoading}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
+                  className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
                   disabled={formLoading}
                 >
                   {formLoading ? (
