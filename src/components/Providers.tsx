@@ -12,11 +12,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000,
+            staleTime: 2 * 60 * 1000, // data stays fresh for 2 minutes
+            gcTime: 10 * 60 * 1000, // cache kept for 10 minutes (instant back-navigation)
             retry: 1,
+            refetchOnWindowFocus: false,
           },
         },
-      })
+      }),
   );
 
   return (

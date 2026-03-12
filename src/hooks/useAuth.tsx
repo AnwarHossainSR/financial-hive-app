@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -27,7 +28,7 @@ interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    displayName?: string
+    displayName?: string,
   ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -42,6 +43,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track whether we've already ensured the profile exists so we don't
+  // repeat the Prisma upsert on every periodic session refresh.
+  const profileInitialized = useRef(false);
 
   const createOrUpdateProfile = useCallback(async (user: User) => {
     try {
@@ -72,24 +76,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (sessionError) throw sessionError;
 
-      if (session) {
-        // Double check user with the server to ensure session is valid
-        const {
-          data: { user: verifiedUser },
-          error: userError,
-        } = await getSupabase().auth.getUser();
+      if (session?.user) {
+        // Resolve loading immediately using the local session — no network call needed.
+        // getSession() reads from localStorage so it's near-instant.
+        setSession(session);
+        setUser(session.user);
 
-        if (verifiedUser && !userError) {
-          setSession(session);
-          setUser(verifiedUser);
-          await createOrUpdateProfile(verifiedUser);
-        } else {
-          setSession(null);
-          setUser(null);
+        // Verify the token with Supabase and sync the profile in the background
+        // so it never blocks the initial render or data fetching.
+        if (!profileInitialized.current) {
+          getSupabase()
+            .auth.getUser()
+            .then(({ data: { user: verifiedUser }, error: userError }) => {
+              if (verifiedUser && !userError) {
+                setUser(verifiedUser);
+                profileInitialized.current = true;
+                createOrUpdateProfile(verifiedUser).catch(console.error);
+              }
+            })
+            .catch(console.error);
         }
       } else {
         setSession(null);
         setUser(null);
+        profileInitialized.current = false;
       }
     } catch (error) {
       console.error("Session check failed:", error);
@@ -118,6 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (event === "SIGNED_OUT") {
               setSession(null);
               setUser(null);
+              profileInitialized.current = false;
               setLoading(false);
               return;
             }
@@ -135,7 +146,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             setLoading(false);
-          }
+          },
         );
 
         subscription = data.subscription;
@@ -150,13 +161,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     initializeAuth();
 
     // Periodic session refresh (every 5 minutes)
-    const refreshInterval = setInterval(() => {
-      if (mounted) {
-        checkSession().catch((error) => {
-          console.error("Periodic session check failed:", error);
-        });
-      }
-    }, 5 * 60 * 1000);
+    const refreshInterval = setInterval(
+      () => {
+        if (mounted) {
+          checkSession().catch((error) => {
+            console.error("Periodic session check failed:", error);
+          });
+        }
+      },
+      5 * 60 * 1000,
+    );
 
     return () => {
       mounted = false;
@@ -201,7 +215,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       }
     },
-    [createOrUpdateProfile]
+    [createOrUpdateProfile],
   );
 
   const signIn = useCallback(
@@ -230,7 +244,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       }
     },
-    [createOrUpdateProfile]
+    [createOrUpdateProfile],
   );
 
   const resetPassword = useCallback(async (email: string) => {
