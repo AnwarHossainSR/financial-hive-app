@@ -163,6 +163,10 @@ export default function PlatformDetailsPage() {
           bValue = b.name.toLowerCase();
       }
 
+      const aCompleted = a.status === 'completed' ? 1 : 0;
+      const bCompleted = b.status === 'completed' ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+
       if (sortOrder === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
@@ -483,127 +487,127 @@ export default function PlatformDetailsPage() {
               return (
                 <Card
                   key={project.id}
-                  className={`group hover:shadow-xl transition-all duration-300 border-0 shadow-lg cursor-pointer overflow-hidden relative ${
-                    project.status === "completed" 
-                      ? "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 opacity-75" 
+                  className={`group hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden relative ${
+                    project.status === "completed"
+                      ? "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 opacity-75"
                       : "bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 hover:scale-[1.02]"
                   }`}
-                  onClick={() =>
-                    router.push(`/investments/projects/${project.id}`)
-                  }
                 >
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500" />
-                  
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg truncate font-bold">
-                          {project.name}
-                        </CardTitle>
-                        {project.description && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {project.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge
-                          variant={
-                            project.status === "active" ? "default" : "secondary"
-                          }
-                          className={`shrink-0 ${
-                            project.status === "completed" ? "bg-gray-400 text-white" : ""
-                          }`}
-                        >
-                          {project.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-4 pb-12">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                          {formatCurrency(project.total_investment)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Investment</div>
-                      </div>
-                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <div className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {formatCurrency(project.remaining_capital)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Current</div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-center p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg">
-                      <div className={`text-lg font-bold flex items-center justify-center gap-1 ${
-                        profitLoss >= 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}>
-                        {profitLoss >= 0 ? (
-                          <ArrowUpRight className="h-4 w-4" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4" />
-                        )}
-                        {formatCurrency(profitLoss)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {roi >= 0 ? '+' : ''}{roi.toFixed(1)}% ROI
-                      </div>
-                    </div>
+                  {/* Clickable upper area — navigates to project details */}
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/investments/projects/${project.id}`)}
+                  >
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500" />
 
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                      {/* Days countdown - bottom left */}
-                      {daysLeft !== null && (
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
-                          project.status === "completed" 
-                            ? "bg-gray-200 text-gray-600" 
-                            : daysLeft <= 7 
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" 
-                              : daysLeft <= 30 
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" 
-                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        }`}>
-                          <Clock className="h-3 w-3" />
-                          {project.status === "completed" 
-                            ? "Completed" 
-                            : daysLeft > 0 
-                              ? `${daysLeft} days left` 
-                              : `${Math.abs(daysLeft)} days over`
-                          }
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg truncate font-bold">
+                            {project.name}
+                          </CardTitle>
+                          {project.description && (
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                              {project.description}
+                            </p>
+                          )}
                         </div>
-                      )}
-                      
-                      {/* Edit/Delete buttons - bottom right */}
-                      <div className="flex gap-1">
-                        <EditProjectDialog project={project}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 bg-white/80 hover:bg-white shadow-sm"
-                            onClick={(e) => e.stopPropagation()}
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge
+                            variant={
+                              project.status === "active" ? "default" : "secondary"
+                            }
+                            className={`shrink-0 ${
+                              project.status === "completed" ? "bg-gray-400 text-white" : ""
+                            }`}
                           >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        </EditProjectDialog>
+                            {project.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4 pb-14">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(project.total_investment)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Investment</div>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                          <div className="text-sm font-semibold text-green-600 dark:text-green-400">
+                            {formatCurrency(project.remaining_capital)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Current</div>
+                        </div>
+                      </div>
+
+                      <div className="text-center p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg">
+                        <div className={`text-lg font-bold flex items-center justify-center gap-1 ${
+                          profitLoss >= 0
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}>
+                          {profitLoss >= 0 ? (
+                            <ArrowUpRight className="h-4 w-4" />
+                          ) : (
+                            <ArrowDownRight className="h-4 w-4" />
+                          )}
+                          {formatCurrency(profitLoss)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {roi >= 0 ? '+' : ''}{roi.toFixed(1)}% ROI
+                        </div>
+                      </div>
+                    </CardContent>
+                  </div>
+
+                  {/* Bottom bar — outside click zone */}
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                    {daysLeft !== null && (
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                        project.status === "completed"
+                          ? "bg-gray-200 text-gray-600"
+                          : daysLeft <= 7
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : daysLeft <= 30
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      }`}>
+                        <Clock className="h-3 w-3" />
+                        {project.status === "completed"
+                          ? "Completed"
+                          : daysLeft > 0
+                            ? `${daysLeft} days left`
+                            : `${Math.abs(daysLeft)} days over`
+                        }
+                      </div>
+                    )}
+
+                    <div className="flex gap-1 ml-auto">
+                      <EditProjectDialog project={project}>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 bg-white/80 hover:bg-red-50 shadow-sm text-red-600 hover:text-red-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToDelete(project);
-                            setDeleteModalOpen(true);
-                          }}
+                          className="h-8 w-8 bg-white/80 hover:bg-white shadow-sm"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Edit className="h-3 w-3" />
                         </Button>
-                      </div>
+                      </EditProjectDialog>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 bg-white/80 hover:bg-red-50 shadow-sm text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setProjectToDelete(project);
+                          setDeleteModalOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               );
             })}
