@@ -48,65 +48,63 @@ export function TransactionCard({
       )}
     >
       <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 flex-1">
-            {/* Amount Display */}
-            <div className="flex-shrink-0">
-              <div
+        <div className="flex items-center gap-3">
+          {/* Amount Display */}
+          <div className="flex-shrink-0">
+            <div
+              className={cn(
+                "text-xl font-bold transition-colors whitespace-nowrap",
+                isIncome
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-500 dark:text-red-400"
+              )}
+            >
+              {isIncome ? "+" : "-"}৳
+              {Math.abs(transaction.amount).toLocaleString("en-US", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}
+            </div>
+          </div>
+
+          {/* Transaction Details */}
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex items-center space-x-2 mb-1">
+              <Badge
+                variant="secondary"
                 className={cn(
-                  "text-xl font-bold transition-colors",
+                  "text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap",
                   isIncome
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-red-500 dark:text-red-400"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                    : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
                 )}
               >
-                {isIncome ? "+" : "-"}৳
-                {Math.abs(transaction.amount).toLocaleString("en-US", {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2,
-                })}
-              </div>
-            </div>
-
-            {/* Transaction Details */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "text-xs font-medium px-2 py-0.5 rounded-md",
-                    isIncome
-                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
-                      : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
-                  )}
-                >
-                  {transaction.category}
-                </Badge>
-                {transaction.image_url && (
-                  <ImageIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                )}
-              </div>
-
-              {transaction.note && (
-                <p className="text-sm text-gray-600 dark:text-gray-300 truncate mb-1">
-                  {transaction.note}
-                </p>
+                {transaction.category}
+              </Badge>
+              {transaction.image_url && (
+                <ImageIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
               )}
-
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {new Date(transaction.date).toLocaleString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                  timeZone: "Asia/Dhaka", // This forces Bangladesh timezone display
-                })}{" "}
-                BD
-              </p>
             </div>
+
+            {transaction.note && (
+              <p className="text-sm text-gray-600 dark:text-gray-300 truncate mb-1 max-w-full">
+                {transaction.note}
+              </p>
+            )}
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              {new Date(transaction.date).toLocaleString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+                timeZone: "Asia/Dhaka",
+              })}{" "}
+              BD
+            </p>
           </div>
 
           {/* Action Menu */}
