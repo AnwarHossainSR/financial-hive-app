@@ -55,6 +55,7 @@ const TRANSACTION_CATEGORIES = [
   "Investment",
   "Income",
   "Transfer",
+  "Marriage",
   "Other",
 ];
 
