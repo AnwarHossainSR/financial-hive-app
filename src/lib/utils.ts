@@ -55,6 +55,7 @@ export const EXPENSE_CATEGORIES = [
   "Bike Maintenance",
   "Home Rent",
   "Donations",
+  "Marriage",
   "Other",
 ];
 
