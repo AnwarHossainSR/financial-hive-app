@@ -38,7 +38,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { TransactionEditForm } from "./TransactionEditForm";
 
-const ITEM_HEIGHT = 120;
+// Fixed row slot (card + gap) so virtual-scroll offsets stay exact
+const ITEM_HEIGHT = 92;
 const CONTAINER_HEIGHT = 600;
 const OVERSCAN = 10;
 
@@ -239,14 +240,14 @@ export const TransactionsSection = ({
               onScroll={handleScrollWithHint}
             >
               <div style={{ height: startIndex * ITEM_HEIGHT }} />
-              <div className="px-6 space-y-3">
+              <div className="px-3 pt-3 sm:px-6">
                 {visibleTransactions.map((transaction, index) => (
                   <div
                     key={transaction.id}
-                    className="transform transition-all duration-200 hover:scale-[1.02] opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
+                    className="pb-3 opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
                     style={{
                       animationDelay: `${(index % 10) * 50}ms`,
-                      minHeight: ITEM_HEIGHT,
+                      height: ITEM_HEIGHT,
                     }}
                   >
                     <TransactionCard

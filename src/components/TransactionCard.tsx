@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { CategoryTags } from "@/components/CategoryTags";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -7,15 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getCategoryIcon } from "@/lib/categoryIcons";
 import { generateTransactionReceipt } from "@/lib/receiptGenerator";
-import { cn } from "@/lib/utils";
-import {
-  Download,
-  Edit2,
-  Image as ImageIcon,
-  MoreVertical,
-  Trash2,
-} from "lucide-react";
+import { cn, parseCategories } from "@/lib/utils";
+import { Download, Edit2, MoreVertical, Paperclip, Trash2 } from "lucide-react";
+import { createElement } from "react";
 
 interface Transaction {
   id: string;
@@ -33,140 +29,160 @@ interface TransactionCardProps {
   onDelete?: (transaction: Transaction) => void;
 }
 
+const TIME_ZONE = "Asia/Dhaka";
+
+const formatShortDate = (date: Date) => {
+  const sameYear =
+    date.toLocaleString("en-US", { year: "numeric", timeZone: TIME_ZONE }) ===
+    new Date().toLocaleString("en-US", {
+      year: "numeric",
+      timeZone: TIME_ZONE,
+    });
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    timeZone: TIME_ZONE,
+  });
+};
+
+const formatTime = (date: Date) =>
+  date.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: TIME_ZONE,
+  });
+
+const formatFullDate = (date: Date) =>
+  `${date.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: TIME_ZONE,
+  })} BD`;
+
 export function TransactionCard({
   transaction,
   onEdit,
   onDelete,
 }: TransactionCardProps) {
   const isIncome = transaction.type === "income";
+  const date = new Date(transaction.date);
+  const categoryIcon = getCategoryIcon(
+    parseCategories(transaction.category)[0],
+    transaction.type,
+  );
 
   return (
     <Card
       className={cn(
-        "group border-0 shadow-sm hover:shadow-md bg-white dark:bg-gray-800/90 rounded-xl overflow-hidden transition-all duration-300 backdrop-blur-sm",
-        "hover:scale-[1.01] hover:-translate-y-0.5"
+        "group h-full rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-200",
+        "hover:border-gray-200 hover:shadow-md dark:border-gray-700/60 dark:bg-gray-800/90 dark:hover:border-gray-600",
       )}
     >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          {/* Amount Display */}
-          <div className="flex-shrink-0">
-            <div
-              className={cn(
-                "text-xl font-bold transition-colors whitespace-nowrap",
-                isIncome
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-red-500 dark:text-red-400"
-              )}
-            >
-              {isIncome ? "+" : "-"}৳
-              {Math.abs(transaction.amount).toLocaleString("en-US", {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 2,
-              })}
-            </div>
-          </div>
+      <CardContent className="flex h-full items-center gap-3 p-3 sm:gap-4 sm:px-4">
+        {/* Category Icon */}
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11",
+            isIncome
+              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+              : "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",
+          )}
+        >
+          {createElement(categoryIcon, { className: "h-5 w-5" })}
+        </div>
 
-          {/* Transaction Details */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="flex items-center space-x-2 mb-1">
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap",
-                  isIncome
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
-                    : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
-                )}
-              >
-                {transaction.category}
-              </Badge>
-              {transaction.image_url && (
-                <ImageIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-              )}
-            </div>
-
-            {transaction.note && (
-              <p className="text-sm text-gray-600 dark:text-gray-300 truncate mb-1 max-w-full">
+        {/* Note + Categories */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {transaction.note ? (
+              <p className="truncate text-sm font-medium leading-5 text-gray-900 dark:text-gray-100 sm:text-[15px]">
                 {transaction.note}
               </p>
+            ) : (
+              <p className="truncate text-sm italic leading-5 text-gray-400 dark:text-gray-500">
+                No note
+              </p>
             )}
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-              {new Date(transaction.date).toLocaleString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-                timeZone: "Asia/Dhaka",
-              })}{" "}
-              BD
-            </p>
+            {transaction.image_url && (
+              <Paperclip className="h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500" />
+            )}
           </div>
-
-          {/* Action Menu */}
-          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 md:opacity-100 md:group-hover:opacity-100">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem
-                  onClick={() => generateTransactionReceipt(transaction)}
-                  className="cursor-pointer"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Receipt
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onEdit?.(transaction)}
-                  className="cursor-pointer"
-                >
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete?.(transaction)}
-                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <CategoryTags
+            category={transaction.category}
+            type={transaction.type}
+            max={3}
+            className="mt-1.5 h-5 flex-wrap overflow-hidden"
+          />
         </div>
 
-        {/* Mobile Quick Actions - Only visible on small screens */}
-        <div className="flex justify-end space-x-1 mt-3 md:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onEdit?.(transaction)}
-            className="h-8 px-3 text-xs rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+        {/* Amount + Date */}
+        <div className="shrink-0 text-right">
+          <p
+            className={cn(
+              "whitespace-nowrap text-base font-semibold leading-5 tabular-nums sm:text-lg",
+              isIncome
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400",
+            )}
           >
-            <Edit2 className="w-3 h-3 mr-1" />
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete?.(transaction)}
-            className="h-8 px-3 text-xs rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+            {isIncome ? "+" : "-"}৳
+            {Math.abs(transaction.amount).toLocaleString("en-US", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+          <p
+            title={formatFullDate(date)}
+            className="mt-1.5 whitespace-nowrap text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs"
           >
-            <Trash2 className="w-3 h-3 mr-1" />
-            Delete
-          </Button>
+            {formatShortDate(date)}
+            <span className="hidden sm:inline"> · {formatTime(date)}</span>
+          </p>
         </div>
+
+        {/* Action Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Transaction actions"
+              className="-mr-1 h-8 w-8 shrink-0 rounded-full p-0 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={() => generateTransactionReceipt(transaction)}
+              className="cursor-pointer"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Receipt
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onEdit?.(transaction)}
+              className="cursor-pointer"
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDelete?.(transaction)}
+              className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardContent>
     </Card>
   );
