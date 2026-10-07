@@ -56,8 +56,25 @@ export const EXPENSE_CATEGORIES = [
   "Home Rent",
   "Donations",
   "Marriage",
+  "Wife",
   "Other",
 ];
+
+// A transaction can have multiple categories. They are stored in the existing
+// `category` text column joined by CATEGORY_SEPARATOR, so legacy single-category
+// rows remain valid as-is.
+export const CATEGORY_SEPARATOR = ", ";
+
+export const parseCategories = (category?: string | null): string[] =>
+  (category || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+export const joinCategories = (categories: string[]): string =>
+  [...new Set(categories.map((c) => c.trim()).filter(Boolean))].join(
+    CATEGORY_SEPARATOR,
+  );
 
 export const getMonthDateRange = (monthString: string) => {
   const [year, month] = monthString.split("-");

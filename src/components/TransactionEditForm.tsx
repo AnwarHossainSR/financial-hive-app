@@ -1,14 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CategoryMultiSelect } from "@/components/CategoryMultiSelect";
 import { Transaction } from "@/hooks/useTransactions";
 import {
   cn,
@@ -16,6 +10,8 @@ import {
   formatDateForDisplay,
   getBangladeshTime,
   INCOME_CATEGORIES,
+  joinCategories,
+  parseCategories,
 } from "@/lib/utils";
 
 import { Plus, Upload } from "lucide-react";
@@ -35,22 +31,34 @@ export function TransactionEditForm({
 }: TransactionEditFormProps & { className?: string }) {
   const [type, setType] = useState<"income" | "expense">(transaction.type);
   const [amount, setAmount] = useState(transaction.amount.toString());
-  const [category, setCategory] = useState(transaction.category);
+  const [categories, setCategories] = useState<string[]>(
+    parseCategories(transaction.category),
+  );
   const [note, setNote] = useState(transaction.note || "");
   const [date, setDate] = useState(getBangladeshTime(transaction.date));
 
-  const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categoryOptions =
+    type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  const handleTypeChange = (newType: "income" | "expense") => {
+    if (newType === type) return;
+    const newOptions =
+      newType === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    // Drop selections that belong to the other transaction type
+    setCategories((prev) => prev.filter((c) => newOptions.includes(c)));
+    setType(newType);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !category || !date) return;
+    if (!amount || categories.length === 0 || !date) return;
 
     const localDate = new Date(date);
     onSubmit({
       ...transaction,
       type,
       amount: parseFloat(amount),
-      category,
+      category: joinCategories(categories),
       note: note || undefined,
       date: localDate,
     });
@@ -65,7 +73,7 @@ export function TransactionEditForm({
             <Button
               type="button"
               variant={type === "income" ? "default" : "outline"}
-              onClick={() => setType("income")}
+              onClick={() => handleTypeChange("income")}
               className={cn(
                 "flex-1 transition-all duration-200 h-10 rounded-xl",
                 type === "income" &&
@@ -77,7 +85,7 @@ export function TransactionEditForm({
             <Button
               type="button"
               variant={type === "expense" ? "default" : "outline"}
-              onClick={() => setType("expense")}
+              onClick={() => handleTypeChange("expense")}
               className={cn(
                 "flex-1 transition-all duration-200 h-10 rounded-xl",
                 type === "expense" &&
@@ -114,18 +122,11 @@ export function TransactionEditForm({
         {/* Category */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Category</Label>
-          <Select value={category} onValueChange={setCategory} required>
-            <SelectTrigger className="bg-slate-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-xl h-11 transition-all">
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-gray-200 dark:border-gray-700">
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CategoryMultiSelect
+            options={categoryOptions}
+            value={categories}
+            onChange={setCategories}
+          />
         </div>
 
         {/* Date */}
@@ -194,7 +195,7 @@ export function TransactionEditForm({
                 ? "bg-income hover:bg-income/90 shadow-income/20"
                 : "bg-expense hover:bg-expense/90 shadow-expense/20",
             )}
-            disabled={!amount || !category}
+            disabled={!amount || categories.length === 0}
           >
             <Plus className="w-4 h-4 mr-2" />
             Update {type === "income" ? "Income" : "Expense"}
