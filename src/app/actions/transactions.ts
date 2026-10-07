@@ -7,6 +7,7 @@ import {
   updateTransactionNotification,
 } from "@/lib/notificationHelpers";
 import prisma from "@/lib/prisma";
+import { CATEGORY_SEPARATOR } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
 export async function getTransactionsAction(params: {
@@ -28,7 +29,22 @@ export async function getTransactionsAction(params: {
 
     if (filters.bookId) where.book_id = filters.bookId;
     if (filters.type) where.type = filters.type as any;
-    if (filters.category) where.category = filters.category;
+    if (filters.category) {
+      // Categories are stored comma-separated ("Food & Dining, Wife"), so match
+      // the category as a whole token anywhere in the list. Legacy rows with a
+      // single category still match via the exact-equality branch.
+      const cat = filters.category;
+      where.OR = [
+        { category: cat },
+        { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
+        { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
+        {
+          category: {
+            contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
+          },
+        },
+      ];
+    }
     if (filters.startDate) {
       const start = new Date(filters.startDate);
       if (filters.startDate.length <= 10) start.setHours(0, 0, 0, 0);

@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
 import { createClient } from "@/lib/supabase/client";
+import { parseCategories } from "@/lib/utils";
 import { TransactionFilters } from "@/types/transaction";
 import {
   BookOpen,
@@ -179,7 +180,9 @@ export default function ProfilePage() {
     (Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  const categoriesUsed = [...new Set(transactions.map((t) => t.category))]
+  const categoriesUsed = [
+    ...new Set(transactions.flatMap((t) => parseCategories(t.category))),
+  ]
     .length;
 
   const getInitials = (email: string) => {
