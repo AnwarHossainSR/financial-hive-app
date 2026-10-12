@@ -10,7 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { parseCalcLine } from "@/lib/calc";
+import { isExpression, parseCalcLine } from "@/lib/calc";
 import { cn } from "@/lib/utils";
 import { Copy, CornerDownLeft, Delete, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -188,7 +188,7 @@ export function QuickCalculator({
                         <span className="text-muted-foreground">—</span>
                       )}
                     </p>
-                    {entry.expression !== String(entry.value) && (
+                    {isExpression(entry.expression) && (
                       <p className="truncate font-mono text-xs text-muted-foreground">
                         {entry.expression}
                       </p>

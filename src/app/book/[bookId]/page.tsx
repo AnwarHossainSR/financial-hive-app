@@ -115,7 +115,7 @@ export default function BookDetailsPage() {
           description: "The book you're looking for doesn't exist.",
           variant: "destructive",
         });
-        router.push("/");
+        router.push("/dashboard");
       }
     }
   }, [books, booksInitialized, bookId, router, toast]);
@@ -343,7 +343,7 @@ export default function BookDetailsPage() {
         <BookAndMonthSelector
           selectedBook={selectedBook}
           onSelectBook={(book) =>
-            book ? router.push(`/book/${book.id}`) : router.push("/")
+            book ? router.push(`/book/${book.id}`) : router.push("/dashboard")
           }
           selectedMonth={selectedMonth}
           onSelectMonth={handleMonthChange}

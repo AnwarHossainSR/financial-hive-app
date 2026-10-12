@@ -73,7 +73,7 @@ export default function ProjectDetailsPage() {
           The project you are looking for does not exist or you do not have
           permission to view it.
         </p>
-        <Link href="/">
+        <Link href="/dashboard">
           <Button>Back to Home</Button>
         </Link>
       </div>

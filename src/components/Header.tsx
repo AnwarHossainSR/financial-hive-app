@@ -96,7 +96,7 @@ export function Header({
         <div className="flex items-center space-x-4">
           <div
             className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
           >
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <img

@@ -42,32 +42,29 @@ export async function updateSession(request: NextRequest) {
 
   const url = request.nextUrl.clone();
 
-  // 1. Auth Guard: Redirect unauthenticated users to /login
+  const { pathname } = request.nextUrl;
+  const isAuthPage =
+    pathname.startsWith("/login") || pathname.startsWith("/signup");
+
+  // 1. Auth Guard: send signed-out users to /login, then back where they were
   if (!user) {
     const isPublicRoute =
-      request.nextUrl.pathname.startsWith("/login") ||
-      request.nextUrl.pathname.startsWith("/signup") ||
-      request.nextUrl.pathname.startsWith("/auth") ||
-      request.nextUrl.pathname === "/";
+      isAuthPage || pathname.startsWith("/auth") || pathname === "/";
 
     if (!isPublicRoute) {
       url.pathname = "/login";
+      url.search = `?redirect=${encodeURIComponent(pathname + request.nextUrl.search)}`;
       return NextResponse.redirect(url);
     }
-  } else {
-    // Redirect authenticated users to home if they try to access login/signup
-    if (
-      request.nextUrl.pathname.startsWith("/login") ||
-      request.nextUrl.pathname.startsWith("/signup") ||
-      request.nextUrl.pathname === "/"
-    ) {
-      url.pathname = "/"; // Or wherever the main dashboard is
-
-      // Prevent redirect loop if already on the target page
-      if (request.nextUrl.pathname !== url.pathname) {
-        return NextResponse.redirect(url);
-      }
-    }
+  } else if (isAuthPage || pathname === "/") {
+    // Signed-in users skip the landing and auth pages. Honour a same-site
+    // ?redirect= so deep links still land where they pointed.
+    const target = request.nextUrl.searchParams.get("redirect");
+    const safeTarget =
+      target?.startsWith("/") && !target.startsWith("//") ? target : null;
+    return NextResponse.redirect(
+      new URL(safeTarget ?? "/dashboard", request.url),
+    );
   }
 
   return supabaseResponse;

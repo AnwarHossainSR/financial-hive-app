@@ -141,7 +141,7 @@ export const BookSelector = ({
     if (!error) {
       onSelectBook(null);
       setShowEditDialog(false);
-      router.push("/");
+      router.push("/dashboard");
       toast({
         title: "Book Deleted",
         description: "The book was successfully deleted.",
@@ -181,7 +181,7 @@ export const BookSelector = ({
               size="sm"
               onClick={() => {
                 onSelectBook(null);
-                router.push("/");
+                router.push("/dashboard");
               }}
               className="border-border text-foreground hover:bg-primary/5 hover:border-primary/50 transition-all duration-300 rounded-lg"
             >
