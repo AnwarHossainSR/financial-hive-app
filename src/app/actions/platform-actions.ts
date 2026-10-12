@@ -1,19 +1,21 @@
 "use server";
 
+import { requireUserId } from "@/lib/auth";
+import { cached, invalidate } from "@/lib/cache";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 // --- Investment Platforms Actions (Isolated) ---
 
+// `_userId` params are kept for caller compatibility but ignored: the
+// session decides who the user is (see src/lib/auth.ts).
+
 export async function createIsolatedInvestmentPlatformAction(
-  userId: string,
+  _userId: string,
   data: { name: string; description?: string },
 ) {
-  console.log("🟢 createIsolatedInvestmentPlatformAction called with:", {
-    userId,
-    data,
-  });
   try {
+    const userId = await requireUserId();
     const platform = await prisma.investmentPlatform.create({
       data: {
         name: data.name,
@@ -23,6 +25,7 @@ export async function createIsolatedInvestmentPlatformAction(
     });
 
     console.log("✅ Platform created successfully:", platform.id);
+    await invalidate("platforms", userId);
     revalidatePath("/investments");
     return {
       platform: {
@@ -37,28 +40,29 @@ export async function createIsolatedInvestmentPlatformAction(
   }
 }
 
-export async function getIsolatedInvestmentPlatformsAction(userId: string) {
+export async function getIsolatedInvestmentPlatformsAction(_userId?: string) {
   try {
-    const platforms = await prisma.investmentPlatform.findMany({
-      where: { user_id: userId },
-      orderBy: { created_at: "desc" },
-      include: {
-        projects: {
-          select: {
-            total_investment: true,
-            total_profit_loss: true,
-            remaining_capital: true,
-            status: true,
+    const userId = await requireUserId();
+    const platforms = await cached("platforms", userId, null, async () => {
+      const rows = await prisma.investmentPlatform.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: "desc" },
+        include: {
+          projects: {
+            select: {
+              total_investment: true,
+              total_profit_loss: true,
+              remaining_capital: true,
+              status: true,
+            },
+          },
+          _count: {
+            select: { projects: true },
           },
         },
-        _count: {
-          select: { projects: true },
-        },
-      },
-    });
+      });
 
-    return {
-      platforms: platforms.map((p) => ({
+      return rows.map((p) => ({
         ...p,
         description: p.description || undefined,
         created_at: p.created_at.toISOString(),
@@ -69,9 +73,10 @@ export async function getIsolatedInvestmentPlatformsAction(userId: string) {
           remaining_capital: Number(project.remaining_capital),
           status: project.status,
         })),
-      })),
-      error: null,
-    };
+      }));
+    });
+
+    return { platforms, error: null };
   } catch (error: any) {
     return { platforms: [], error: error.message };
   }

@@ -6,6 +6,13 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  // Server action calls authenticate themselves (src/lib/auth.ts) and can
+  // refresh the session cookie there; checking here too would double the
+  // auth work on every action.
+  if (request.headers.has("next-action")) {
+    return supabaseResponse;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -36,9 +43,10 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake can make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT locally once the project uses asymmetric
+  // signing keys; with the legacy secret it calls Supabase Auth like getUser()
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const url = request.nextUrl.clone();
 

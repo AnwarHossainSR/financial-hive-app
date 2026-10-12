@@ -1,12 +1,25 @@
 "use server";
 
+import {
+  assertFound,
+  assertOwnsBook,
+  assertOwnsPlatform,
+  assertOwnsProject,
+  requireUserId,
+  stripOwnership,
+} from "@/lib/auth";
+import { invalidate } from "@/lib/cache";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+// `_userId` params are kept for caller compatibility but ignored: the
+// session decides who the user is (see src/lib/auth.ts).
+
 // --- Investment Platforms Actions ---
 
-export async function getInvestmentPlatformsAction(userId: string) {
+export async function getInvestmentPlatformsAction(_userId?: string) {
   try {
+    const userId = await requireUserId();
     const platforms = await prisma.investmentPlatform.findMany({
       where: { user_id: userId },
       orderBy: { created_at: "desc" },
@@ -33,11 +46,12 @@ export async function getInvestmentPlatformsAction(userId: string) {
 
 export async function getInvestmentPlatformAction(
   platformId: string,
-  userId: string,
+  _userId?: string,
 ) {
   try {
-    const platform = await prisma.investmentPlatform.findUnique({
-      where: { id: platformId },
+    const userId = await requireUserId();
+    const platform = await prisma.investmentPlatform.findFirst({
+      where: { id: platformId, user_id: userId },
       include: {
         projects: {
           orderBy: { created_at: "desc" },
@@ -88,10 +102,11 @@ export async function getInvestmentPlatformAction(
 }
 
 export async function createNewInvestmentPlatformAction(
-  userId: string,
+  _userId: string,
   data: { name: string; description?: string },
 ) {
   try {
+    const userId = await requireUserId();
     const platform = await prisma.investmentPlatform.create({
       data: {
         name: data.name,
@@ -100,7 +115,8 @@ export async function createNewInvestmentPlatformAction(
       },
     });
 
-    revalidatePath("/");
+    await invalidate("platforms", userId);
+    revalidatePath("/dashboard");
     return {
       platform: {
         ...platform,
@@ -115,10 +131,12 @@ export async function createNewInvestmentPlatformAction(
 
 export async function updateInvestmentPlatformAction(
   platformId: string,
-  userId: string,
+  _userId: string,
   data: { name?: string; description?: string },
 ) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsPlatform(userId, platformId);
     const platform = await prisma.investmentPlatform.update({
       where: { id: platformId },
       data: {
@@ -128,7 +146,8 @@ export async function updateInvestmentPlatformAction(
       },
     });
 
-    revalidatePath("/");
+    await invalidate("platforms", userId);
+    revalidatePath("/dashboard");
     revalidatePath(`/investments/platforms/${platformId}`);
     return {
       platform: {
@@ -144,14 +163,17 @@ export async function updateInvestmentPlatformAction(
 
 export async function deleteInvestmentPlatformAction(
   platformId: string,
-  userId: string,
+  _userId?: string,
 ) {
   try {
-    await prisma.investmentPlatform.delete({
-      where: { id: platformId },
+    const userId = await requireUserId();
+    const { count } = await prisma.investmentPlatform.deleteMany({
+      where: { id: platformId, user_id: userId },
     });
+    if (count === 0) throw new Error("Platform not found");
 
-    revalidatePath("/");
+    await invalidate("platforms", userId);
+    revalidatePath("/dashboard");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -161,10 +183,11 @@ export async function deleteInvestmentPlatformAction(
 // --- Investment Projects Actions ---
 
 export async function createNewInvestmentProjectAction(
-  userId: string,
+  _userId: string,
   data: any,
 ) {
   try {
+    const userId = await requireUserId();
     if (!data.platform_id) {
       return {
         project: null,
@@ -172,9 +195,12 @@ export async function createNewInvestmentProjectAction(
       };
     }
 
+    await assertOwnsPlatform(userId, data.platform_id);
+    if (data.bookId) await assertOwnsBook(userId, data.bookId);
+
     const project = await prisma.investmentProject.create({
       data: {
-        ...data,
+        ...stripOwnership(data),
         user_id: userId,
         platform_id: data.platform_id,
         // Initial values - will be calculated by triggers
@@ -186,7 +212,8 @@ export async function createNewInvestmentProjectAction(
       },
     });
 
-    revalidatePath("/");
+    await invalidate("platforms", userId);
+    revalidatePath("/dashboard");
     revalidatePath(`/investments/platforms/${data.platform_id}`);
     return {
       project: {
@@ -206,20 +233,26 @@ export async function createNewInvestmentProjectAction(
 
 export async function updateInvestmentProjectAction(
   projectId: string,
-  userId: string,
+  _userId: string,
   data: any,
 ) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsProject(userId, projectId);
+    if (data.platform_id) await assertOwnsPlatform(userId, data.platform_id);
+    if (data.bookId) await assertOwnsBook(userId, data.bookId);
+
     const project = await prisma.investmentProject.update({
       where: { id: projectId },
       data: {
-        ...data,
+        ...stripOwnership(data),
         platform_id: data.platform_id,
         updated_at: new Date(),
       },
     });
 
-    revalidatePath("/");
+    await invalidate("platforms", userId);
+    revalidatePath("/dashboard");
     revalidatePath(`/investments/projects/${projectId}`);
     return {
       project: {
@@ -239,14 +272,17 @@ export async function updateInvestmentProjectAction(
 
 export async function deleteInvestmentProjectAction(
   projectId: string,
-  userId: string,
+  _userId?: string,
 ) {
   try {
-    await prisma.investmentProject.delete({
-      where: { id: projectId },
+    const userId = await requireUserId();
+    const { count } = await prisma.investmentProject.deleteMany({
+      where: { id: projectId, user_id: userId },
     });
+    if (count === 0) throw new Error("Project not found");
 
-    revalidatePath("/");
+    await invalidate("platforms", userId);
+    revalidatePath("/dashboard");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -257,10 +293,12 @@ export async function deleteInvestmentProjectAction(
 
 export async function createInvestmentEntryAction(
   projectId: string,
-  userId: string,
+  _userId: string,
   data: any,
 ) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsProject(userId, projectId);
     const entry = await prisma.investmentEntry.create({
       data: {
         project_id: projectId,
@@ -284,6 +322,7 @@ export async function createInvestmentEntryAction(
       },
     });
 
+    await invalidate("platforms", userId);
     revalidatePath(`/investments/projects/${projectId}`);
     return {
       entry: {
@@ -307,10 +346,17 @@ export async function createInvestmentEntryAction(
 
 export async function updateInvestmentEntryAction(
   entryId: string,
-  userId: string,
+  _userId: string,
   data: any,
 ) {
   try {
+    const userId = await requireUserId();
+    await assertFound(
+      prisma.investmentEntry.count({
+        where: { id: entryId, project: { user_id: userId } },
+      }),
+      "Entry",
+    );
     const entry = await prisma.investmentEntry.update({
       where: { id: entryId },
       data: {
@@ -334,6 +380,7 @@ export async function updateInvestmentEntryAction(
       },
     });
 
+    await invalidate("platforms", userId);
     revalidatePath(`/investments/projects/${entry.project_id}`);
     return {
       entry: {
@@ -357,14 +404,19 @@ export async function updateInvestmentEntryAction(
 
 export async function deleteInvestmentEntryAction(
   entryId: string,
-  userId: string,
+  _userId?: string,
 ) {
   try {
-    const entry = await prisma.investmentEntry.delete({
-      where: { id: entryId },
+    const userId = await requireUserId();
+    const entry = await prisma.investmentEntry.findFirst({
+      where: { id: entryId, project: { user_id: userId } },
+      select: { project_id: true },
     });
+    if (!entry) throw new Error("Entry not found");
+    await prisma.investmentEntry.delete({ where: { id: entryId } });
 
     // Trigger will automatically calculate project totals
+    await invalidate("platforms", userId);
     revalidatePath(`/investments/projects/${entry.project_id}`);
     return { success: true, error: null };
   } catch (error: any) {
@@ -376,13 +428,15 @@ export async function deleteInvestmentEntryAction(
 
 export async function createBankStatementAction(
   projectId: string,
-  userId: string,
+  _userId: string,
   data: any,
 ) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsProject(userId, projectId);
     const statement = await prisma.bankStatement.create({
       data: {
-        ...data,
+        ...stripOwnership(data),
         project_id: projectId,
         user_id: userId,
         total_capital: Number(data.total_capital),
@@ -392,6 +446,7 @@ export async function createBankStatementAction(
       },
     });
 
+    await invalidate("platforms", userId);
     revalidatePath(`/investments/projects/${projectId}`);
     return {
       statement: {
@@ -409,14 +464,15 @@ export async function createBankStatementAction(
 
 export async function updateBankStatementAction(
   statementId: string,
-  userId: string,
+  _userId: string,
   data: any,
 ) {
   try {
-    const current = await prisma.bankStatement.findUnique({
-      where: { id: statementId },
+    const userId = await requireUserId();
+    const current = await prisma.bankStatement.findFirst({
+      where: { id: statementId, project: { user_id: userId } },
     });
-    
+
     if (!current) {
       return { statement: null, error: "Statement not found" };
     }
@@ -425,10 +481,11 @@ export async function updateBankStatementAction(
     const withdrawal = data.total_withdrawal !== undefined ? Number(data.total_withdrawal) : Number(current.total_withdrawal);
     const balance = capital - withdrawal;
 
+    const { project_id: _projectId, ...updates } = stripOwnership(data);
     const statement = await prisma.bankStatement.update({
       where: { id: statementId },
       data: {
-        ...data,
+        ...updates,
         total_capital: data.total_capital ? Number(data.total_capital) : undefined,
         total_withdrawal: data.total_withdrawal ? Number(data.total_withdrawal) : undefined,
         balance: balance,
@@ -437,6 +494,7 @@ export async function updateBankStatementAction(
       },
     });
 
+    await invalidate("platforms", userId);
     revalidatePath(`/investments/projects/${statement.project_id}`);
     return {
       statement: {
@@ -454,13 +512,18 @@ export async function updateBankStatementAction(
 
 export async function deleteBankStatementAction(
   statementId: string,
-  userId: string,
+  _userId?: string,
 ) {
   try {
-    const statement = await prisma.bankStatement.delete({
-      where: { id: statementId },
+    const userId = await requireUserId();
+    const statement = await prisma.bankStatement.findFirst({
+      where: { id: statementId, project: { user_id: userId } },
+      select: { project_id: true },
     });
+    if (!statement) throw new Error("Statement not found");
+    await prisma.bankStatement.delete({ where: { id: statementId } });
 
+    await invalidate("platforms", userId);
     revalidatePath(`/investments/projects/${statement.project_id}`);
     return { success: true, error: null };
   } catch (error: any) {
@@ -484,10 +547,11 @@ async function updateProjectTotals(projectId: string) {
 // --- Fetching Actions ---
 
 export async function getInvestmentProjectsAction(
-  userId: string,
+  _userId?: string,
   platformId?: string,
 ) {
   try {
+    const userId = await requireUserId();
     const where: any = { user_id: userId };
     if (platformId) {
       where.platform_id = platformId;
@@ -523,11 +587,12 @@ export async function getInvestmentProjectsAction(
 
 export async function getInvestmentProjectAction(
   projectId: string,
-  userId: string,
+  _userId?: string,
 ) {
   try {
-    const project = await prisma.investmentProject.findUnique({
-      where: { id: projectId },
+    const userId = await requireUserId();
+    const project = await prisma.investmentProject.findFirst({
+      where: { id: projectId, user_id: userId },
       include: { platform: true },
     });
 
@@ -555,7 +620,11 @@ export async function getInvestmentEntriesAction(
   filters?: { status?: string },
 ) {
   try {
-    const where: any = { project_id: projectId };
+    const userId = await requireUserId();
+    const where: any = {
+      project_id: projectId,
+      project: { user_id: userId },
+    };
     if (filters?.status) where.status = filters.status;
 
     const [entries, total] = await Promise.all([
@@ -591,8 +660,9 @@ export async function getInvestmentEntriesAction(
 
 export async function getBankStatementsAction(projectId: string) {
   try {
+    const userId = await requireUserId();
     const statements = await prisma.bankStatement.findMany({
-      where: { project_id: projectId },
+      where: { project_id: projectId, project: { user_id: userId } },
       orderBy: { date: "desc" },
     });
 
@@ -612,8 +682,9 @@ export async function getBankStatementsAction(projectId: string) {
 
 export async function getInvestmentAnalyticsAction(projectId: string) {
   try {
-    const project = await prisma.investmentProject.findUnique({
-      where: { id: projectId },
+    const userId = await requireUserId();
+    const project = await prisma.investmentProject.findFirst({
+      where: { id: projectId, user_id: userId },
     });
 
     if (!project) throw new Error("Project not found");

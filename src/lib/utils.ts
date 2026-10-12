@@ -82,6 +82,9 @@ export const joinCategories = (categories: string[]): string =>
     CATEGORY_SEPARATOR,
   );
 
+/** "YYYY-MM" for the current month in the viewer's local time */
+export const getCurrentMonth = () => format(new Date(), "yyyy-MM");
+
 export const getMonthDateRange = (monthString: string) => {
   const [year, month] = monthString.split("-");
   const date = new Date(parseInt(year), parseInt(month) - 1); // month is 0-based

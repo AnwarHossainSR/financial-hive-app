@@ -8,7 +8,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
 
@@ -39,36 +38,63 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Re-sync the profile at least daily, in case the row was changed elsewhere
+const PROFILE_RESYNC_MS = 24 * 60 * 60 * 1000;
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  // Track whether we've already ensured the profile exists so we don't
-  // repeat the Prisma upsert on every periodic session refresh.
-  const profileInitialized = useRef(false);
 
-  const createOrUpdateProfile = useCallback(async (user: User) => {
+  /**
+   * Upserts the profile row only when the synced fields changed or a day has
+   * passed, not on every page load or hourly token refresh. It's a server
+   * action, and actions run one at a time, so a needless call delays the
+   * page's own data requests.
+   */
+  const syncProfile = useCallback(async (user: User) => {
+    const fields = {
+      id: user.id,
+      email: user.email,
+      display_name:
+        user.user_metadata?.display_name ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name,
+      avatar_url: user.user_metadata?.avatar_url,
+    };
+    const markerKey = `profile-synced:${user.id}`;
+    const signature = JSON.stringify(fields);
+
     try {
-      await ensureProfileExistsAction({
-        id: user.id,
-        email: user.email,
-        display_name:
-          user.user_metadata?.display_name ||
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name,
-        avatar_url: user.user_metadata?.avatar_url,
-      });
+      const marker = JSON.parse(localStorage.getItem(markerKey) ?? "null");
+      if (
+        marker?.signature === signature &&
+        Date.now() - marker.at < PROFILE_RESYNC_MS
+      ) {
+        return;
+      }
+    } catch {
+      // Storage unavailable or corrupt: just sync
+    }
 
-      return { error: null };
+    try {
+      const { error } = await ensureProfileExistsAction(fields);
+      if (error) throw new Error(error);
+      try {
+        localStorage.setItem(
+          markerKey,
+          JSON.stringify({ signature, at: Date.now() }),
+        );
+      } catch {
+        // Not persisting the marker only means syncing again next load
+      }
     } catch (error) {
-      console.error("Error in createOrUpdateProfile:", error);
-      return { error };
+      console.error("Error syncing profile:", error);
     }
   }, []);
 
   const checkSession = useCallback(async () => {
     try {
-      setLoading(true);
       const {
         data: { session },
         error: sessionError,
@@ -77,29 +103,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (sessionError) throw sessionError;
 
       if (session?.user) {
-        // Resolve loading immediately using the local session — no network call needed.
-        // getSession() reads from localStorage so it's near-instant.
+        // Resolve from the local session — no network call. The server
+        // verifies the token itself on every request, so the client doesn't
+        // need a getUser() round trip just to render.
         setSession(session);
         setUser(session.user);
-
-        // Verify the token with Supabase and sync the profile in the background
-        // so it never blocks the initial render or data fetching.
-        if (!profileInitialized.current) {
-          getSupabase()
-            .auth.getUser()
-            .then(({ data: { user: verifiedUser }, error: userError }) => {
-              if (verifiedUser && !userError) {
-                setUser(verifiedUser);
-                profileInitialized.current = true;
-                createOrUpdateProfile(verifiedUser).catch(console.error);
-              }
-            })
-            .catch(console.error);
-        }
+        syncProfile(session.user);
       } else {
         setSession(null);
         setUser(null);
-        profileInitialized.current = false;
       }
     } catch (error) {
       console.error("Session check failed:", error);
@@ -108,7 +120,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [createOrUpdateProfile]);
+  }, [syncProfile]);
 
   useEffect(() => {
     let mounted = true;
@@ -123,12 +135,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           async (event: string, currentSession: Session | null) => {
             if (!mounted) return;
 
-            console.log("Auth event:", event);
-
             if (event === "SIGNED_OUT") {
               setSession(null);
               setUser(null);
-              profileInitialized.current = false;
               setLoading(false);
               return;
             }
@@ -137,8 +146,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setSession(currentSession);
               setUser(currentSession.user);
 
-              if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-                await createOrUpdateProfile(currentSession.user);
+              if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+                syncProfile(currentSession.user);
               }
             } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
               // If event suggests we should have a user but don't, re-check
@@ -158,28 +167,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
+    // No polling: the Supabase client refreshes tokens itself and reports
+    // changes through onAuthStateChange above.
     initializeAuth();
-
-    // Periodic session refresh (every 5 minutes)
-    const refreshInterval = setInterval(
-      () => {
-        if (mounted) {
-          checkSession().catch((error) => {
-            console.error("Periodic session check failed:", error);
-          });
-        }
-      },
-      5 * 60 * 1000,
-    );
 
     return () => {
       mounted = false;
       if (subscription) {
         subscription.unsubscribe();
       }
-      clearInterval(refreshInterval);
     };
-  }, [checkSession, createOrUpdateProfile]);
+  }, [checkSession, syncProfile]);
 
   const signUp = useCallback(
     async (email: string, password: string, displayName?: string) => {
@@ -203,8 +201,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return { error };
         }
 
-        if (data.user) {
-          await createOrUpdateProfile(data.user);
+        // With email confirmation there's no session yet; the profile is
+        // created on first sign-in instead
+        if (data.user && data.session) {
+          await syncProfile(data.user);
         }
 
         return { error: null };
@@ -215,7 +215,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       }
     },
-    [createOrUpdateProfile],
+    [syncProfile],
   );
 
   const signIn = useCallback(
@@ -233,7 +233,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (data.user) {
-          await createOrUpdateProfile(data.user);
+          await syncProfile(data.user);
         }
 
         return { error: null };
@@ -244,7 +244,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       }
     },
-    [createOrUpdateProfile],
+    [syncProfile],
   );
 
   const resetPassword = useCallback(async (email: string) => {

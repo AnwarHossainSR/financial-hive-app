@@ -1,5 +1,6 @@
 "use server";
 
+import { assertOwnsBook, requireUserId, stripOwnership } from "@/lib/auth";
 import {
   createTransactionNotification,
   deleteTransactionNotification,
@@ -10,8 +11,11 @@ import prisma from "@/lib/prisma";
 import { CATEGORY_SEPARATOR } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
+// `userId` / `_userId` inputs are kept for caller compatibility but ignored:
+// the session decides who the user is (see src/lib/auth.ts).
+
 interface TransactionQueryFilters {
-  userId: string;
+  userId?: string;
   bookId?: string;
   type?: string;
   category?: string;
@@ -21,8 +25,11 @@ interface TransactionQueryFilters {
   note?: string;
 }
 
-function buildTransactionWhere(filters: TransactionQueryFilters) {
-  const where: any = { user_id: filters.userId };
+function buildTransactionWhere(
+  filters: TransactionQueryFilters,
+  userId: string,
+) {
+  const where: any = { user_id: userId };
 
   if (filters.bookId) where.book_id = filters.bookId;
   if (filters.type) where.type = filters.type as any;
@@ -76,9 +83,12 @@ async function sumByType(where: any) {
 export async function getTransactionTotalsAction(
   filters: TransactionQueryFilters,
 ) {
-  if (!filters.userId) return { totals: null, error: "User ID required" };
   try {
-    return { totals: await sumByType(buildTransactionWhere(filters)), error: null };
+    const userId = await requireUserId();
+    return {
+      totals: await sumByType(buildTransactionWhere(filters, userId)),
+      error: null,
+    };
   } catch (error: any) {
     return { totals: null, error: error.message };
   }
@@ -88,11 +98,10 @@ export async function getTransactionsAction(
   params: TransactionQueryFilters & { page?: number; limit?: number },
 ) {
   const { page = 0, limit = 50, ...filters } = params;
-  if (!filters.userId)
-    return { transactions: [], total: 0, totals: null, error: "User ID required" };
 
   try {
-    const where = buildTransactionWhere(filters);
+    const userId = await requireUserId();
+    const where = buildTransactionWhere(filters, userId);
 
     const [transactions, total, totals] = await Promise.all([
       prisma.transaction.findMany({
@@ -126,11 +135,13 @@ export async function getTransactionsAction(
   }
 }
 
-export async function createTransactionAction(userId: string, data: any) {
+export async function createTransactionAction(_userId: string, data: any) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsBook(userId, data.book_id);
     const transaction = await prisma.transaction.create({
       data: {
-        ...data,
+        ...stripOwnership(data),
         user_id: userId,
         amount: Number(data.amount),
         date: new Date(data.date),
@@ -145,7 +156,6 @@ export async function createTransactionAction(userId: string, data: any) {
       note: transaction.note || undefined,
     });
 
-    revalidatePath("/");
     revalidatePath(`/book/${data.book_id}`);
     return { transaction, error: null };
   } catch (error: any) {
@@ -155,14 +165,25 @@ export async function createTransactionAction(userId: string, data: any) {
 
 export async function updateTransactionAction(
   transactionId: string,
-  userId: string,
+  _userId: string,
   updates: any
 ) {
   try {
+    const userId = await requireUserId();
+    const existing = await prisma.transaction.findFirst({
+      where: { id: transactionId, user_id: userId },
+      select: { book_id: true },
+    });
+    if (!existing) throw new Error("Transaction not found");
+    // Moving a transaction is only allowed into another book the user owns
+    if (updates.book_id && updates.book_id !== existing.book_id) {
+      await assertOwnsBook(userId, updates.book_id);
+    }
+
     const transaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        ...updates,
+        ...stripOwnership(updates),
         amount:
           updates.amount !== undefined ? Number(updates.amount) : undefined,
         date: updates.date !== undefined ? new Date(updates.date) : undefined,
@@ -177,7 +198,6 @@ export async function updateTransactionAction(
       category: transaction.category,
     });
 
-    revalidatePath("/");
     revalidatePath(`/book/${transaction.book_id}`);
     return { transaction, error: null };
   } catch (error: any) {
@@ -187,11 +207,12 @@ export async function updateTransactionAction(
 
 export async function deleteTransactionAction(
   transactionId: string,
-  userId: string
+  _userId: string
 ) {
   try {
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId },
+    const userId = await requireUserId();
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: transactionId, user_id: userId },
     });
 
     if (!transaction) throw new Error("Transaction not found");
@@ -206,7 +227,6 @@ export async function deleteTransactionAction(
       amount: Number(transaction.amount),
     });
 
-    revalidatePath("/");
     revalidatePath(`/book/${transaction.book_id}`);
     return { success: true, error: null };
   } catch (error: any) {
@@ -215,12 +235,20 @@ export async function deleteTransactionAction(
 }
 
 export async function importTransactionsAction(
-  userId: string,
+  _userId: string,
   transactions: any[]
 ) {
   try {
+    const userId = await requireUserId();
+    // Every target book must belong to the importer
+    const bookIds = [...new Set(transactions.map((t) => t.book_id))];
+    const owned = await prisma.book.count({
+      where: { id: { in: bookIds }, owner_id: userId },
+    });
+    if (owned !== bookIds.length) throw new Error("Book not found");
+
     const data = transactions.map((t) => ({
-      ...t,
+      ...stripOwnership(t),
       user_id: userId,
       amount: Number(t.amount),
       date: t.date ? new Date(t.date) : new Date(),
@@ -232,7 +260,7 @@ export async function importTransactionsAction(
 
     await importTransactionsNotification(userId, result.count);
 
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     return { count: result.count, error: null };
   } catch (error: any) {
     return { count: 0, error: error.message };

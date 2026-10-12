@@ -8,18 +8,27 @@ import {
 } from "@/app/actions/transactions";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  getCurrentMonth,
+  getMonthDateRange,
+  getPreviousPeriodRange,
+} from "@/lib/utils";
+import {
   PaginationInfo,
   Transaction,
   TransactionFilters,
 } from "@/types/transaction";
 import {
+  infiniteQueryOptions,
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { useToast } from "./use-toast";
 import { useAuth } from "./useAuth";
 
@@ -27,35 +36,119 @@ export type { PaginationInfo, Transaction, TransactionFilters };
 
 const ITEMS_PER_PAGE = 50;
 
+/**
+ * Drops empty values (and the legacy userId field) so equivalent filter
+ * objects — `{ search: "" }` vs `{}` — share one cache entry. This is what
+ * lets a prefetch from the dashboard land in the same entry the page reads.
+ */
+const normalizeFilters = (filters: TransactionFilters) =>
+  Object.fromEntries(
+    Object.entries(filters).filter(
+      ([key, value]) =>
+        key !== "userId" && value !== undefined && value !== null && value !== "",
+    ),
+  ) as TransactionFilters;
+
 // Query Keys Factory
-const transactionKeys = {
+export const transactionKeys = {
   all: ["transactions"] as const,
-  lists: () => [...transactionKeys.all, "list"] as const,
-  list: (filters: TransactionFilters) =>
-    [...transactionKeys.lists(), filters] as const,
-  infinite: (filters: TransactionFilters) =>
+  infiniteLists: () => [...transactionKeys.all, "infinite"] as const,
+  infinite: (userId: string, filters: TransactionFilters) =>
     [
-      ...transactionKeys.all,
-      "infinite",
-      { ...filters, userId: filters.userId },
+      ...transactionKeys.infiniteLists(),
+      userId,
+      normalizeFilters(filters),
     ] as const,
-  count: (filters: TransactionFilters) =>
-    [...transactionKeys.all, "count", filters] as const,
+  totals: (userId: string, filters: TransactionFilters) =>
+    [...transactionKeys.all, "totals", userId, normalizeFilters(filters)] as const,
+};
+
+const toActionFilters = (filters: TransactionFilters) => ({
+  bookId: filters.bookId,
+  type: filters.type,
+  category: filters.category,
+  startDate: filters.startDate,
+  endDate: filters.endDate,
+  search: filters.search,
+  note: filters.note,
+});
+
+/** Shared by useTransactions and prefetching, so both hit the same cache entry */
+export const transactionsQueryOptions = (
+  userId: string,
+  filters: TransactionFilters,
+) =>
+  infiniteQueryOptions({
+    queryKey: transactionKeys.infinite(userId, filters),
+    queryFn: async ({ pageParam }) => {
+      const { transactions, total, totals, error } = await getTransactionsAction(
+        { ...toActionFilters(filters), page: pageParam, limit: ITEMS_PER_PAGE },
+      );
+      if (error) throw new Error(error);
+
+      const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+      const hasNextPage = pageParam < totalPages - 1;
+
+      return {
+        data: transactions as Transaction[],
+        nextPage: hasNextPage ? pageParam + 1 : undefined,
+        totalCount: total,
+        totals,
+      };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+  });
+
+type TransactionsPage = Awaited<
+  ReturnType<
+    NonNullable<ReturnType<typeof transactionsQueryOptions>["queryFn"]>
+  >
+>;
+type TransactionsData = InfiniteData<TransactionsPage, number>;
+
+export const transactionTotalsQueryOptions = (
+  userId: string,
+  filters: TransactionFilters,
+) =>
+  queryOptions({
+    queryKey: transactionKeys.totals(userId, filters),
+    queryFn: async () => {
+      const { totals, error } = await getTransactionTotalsAction(
+        toActionFilters(filters),
+      );
+      if (error) throw new Error(error);
+      return totals;
+    },
+  });
+
+/** Removes one transaction from cached lists, keeping counts and totals in step */
+const withoutTransaction = (data: TransactionsData, id: string) => {
+  const removed = data.pages
+    .flatMap((page) => page.data)
+    .find((t) => t.id === id);
+  if (!removed) return data;
+  return {
+    ...data,
+    pages: data.pages.map((page, index) => ({
+      ...page,
+      data: page.data.filter((t) => t.id !== id),
+      // Count and totals live on the first page
+      ...(index === 0 && {
+        totalCount: page.totalCount - 1,
+        totals: page.totals && {
+          ...page.totals,
+          [removed.type]: page.totals[removed.type] - Number(removed.amount),
+        },
+      }),
+    })),
+  };
 };
 
 const useTransactions = (filters: TransactionFilters = {}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Create combined filters for the query
-  const queryFilters = useMemo(
-    () => ({
-      ...filters,
-      userId: user?.id || "",
-    }),
-    [filters, user?.id]
-  );
 
   // Infinite query for transactions (includes count from server)
   const {
@@ -68,43 +161,16 @@ const useTransactions = (filters: TransactionFilters = {}) => {
     error,
     refetch: refresh,
   } = useInfiniteQuery({
-    queryKey: transactionKeys.infinite(queryFilters),
-    queryFn: async ({ pageParam = 0 }) => {
-      if (!user?.id)
-        return { data: [], nextPage: undefined, totalCount: 0, totals: null };
-
-      const { transactions, total, totals, error } = await getTransactionsAction({
-        userId: user.id,
-        bookId: filters.bookId,
-        type: filters.type,
-        category: filters.category,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        search: filters.search,
-        note: filters.note,
-        page: pageParam,
-        limit: ITEMS_PER_PAGE,
-      });
-
-      if (error) throw new Error(error);
-
-      const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
-      const hasNextPage = pageParam < totalPages - 1;
-
-      return {
-        data: transactions,
-        nextPage: hasNextPage ? pageParam + 1 : undefined,
-        totalCount: total,
-        totals,
-      };
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextPage,
+    ...transactionsQueryOptions(user?.id ?? "", filters),
     enabled: !!user,
-    staleTime: 30000, // 30 seconds
     placeholderData: keepPreviousData,
-    refetchOnWindowFocus: false,
   });
+
+  // Server-side writes also create a notification, so refresh the bell too
+  const refreshAfterWrite = () => {
+    queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  };
 
   // Flatten transactions from pages
   const transactions = infiniteData?.pages.flatMap((page) => page.data) || [];
@@ -136,7 +202,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       return newTx;
     },
     onSuccess: async (data: any) => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      refreshAfterWrite();
       toast({
         title: "Transaction added",
         description: `${data.type === "income" ? "Income" : "Expense"} of ৳${
@@ -172,20 +238,55 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (error) throw new Error(error);
       return transaction;
     },
-    onSuccess: async (data: any) => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({
+        queryKey: transactionKeys.infiniteLists(),
+      });
+      const previous = queryClient.getQueriesData<TransactionsData>({
+        queryKey: transactionKeys.infiniteLists(),
+      });
+      queryClient.setQueriesData<TransactionsData>(
+        { queryKey: transactionKeys.infiniteLists() },
+        (old) =>
+          old && {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              data: page.data.map((t) =>
+                t.id === id
+                  ? {
+                      ...t,
+                      ...updates,
+                      amount: Number(updates.amount ?? t.amount),
+                      date: updates.date
+                        ? new Date(updates.date).toISOString()
+                        : t.date,
+                    }
+                  : t,
+              ),
+            })),
+          },
+      );
+      return { previous };
+    },
+    onSuccess: async () => {
       toast({
         title: "Transaction updated",
         description: "Your changes have been saved.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, _vars, context) => {
+      context?.previous.forEach(([key, data]) =>
+        queryClient.setQueryData(key, data),
+      );
       toast({
         title: "Error updating transaction",
         description: error.message,
         variant: "destructive",
       });
     },
+    // Refetch either way so totals and ordering match the server
+    onSettled: refreshAfterWrite,
   });
 
   const deleteTransactionMutation = useMutation({
@@ -195,20 +296,36 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       if (error) throw new Error(error);
       return id;
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({
+        queryKey: transactionKeys.infiniteLists(),
+      });
+      const previous = queryClient.getQueriesData<TransactionsData>({
+        queryKey: transactionKeys.infiniteLists(),
+      });
+      queryClient.setQueriesData<TransactionsData>(
+        { queryKey: transactionKeys.infiniteLists() },
+        (old) => old && withoutTransaction(old, id),
+      );
+      return { previous };
+    },
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       toast({
         title: "Transaction deleted",
         description: "The transaction has been removed.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, _id, context) => {
+      context?.previous.forEach(([key, data]) =>
+        queryClient.setQueryData(key, data),
+      );
       toast({
         title: "Error deleting transaction",
         description: error.message,
         variant: "destructive",
       });
     },
+    onSettled: refreshAfterWrite,
   });
 
   const uploadReceiptMutation = useMutation({
@@ -258,7 +375,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
       return { count };
     },
     onSuccess: async (data: any) => {
-      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      refreshAfterWrite();
       toast({
         title: "Transactions imported",
         description: `Successfully imported ${data.count} transactions.`,
@@ -371,25 +488,46 @@ const useTransactionTotals = (
 ) => {
   const { user } = useAuth();
   return useQuery({
-    queryKey: [...transactionKeys.all, "totals", filters, user?.id],
-    queryFn: async () => {
-      const { totals, error } = await getTransactionTotalsAction({
-        userId: user?.id ?? "",
-        bookId: filters.bookId,
-        type: filters.type,
-        category: filters.category,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        search: filters.search,
-        note: filters.note,
-      });
-      if (error) throw new Error(error);
-      return totals;
-    },
+    ...transactionTotalsQueryOptions(user?.id ?? "", filters),
     enabled: enabled && !!user,
-    staleTime: 60000,
-    refetchOnWindowFocus: false,
   });
 };
 
-export { useTransactions, useTransactionTotals };
+/**
+ * Warms everything the book page shows first — this month's transactions and
+ * last month's totals for the trend badges — plus the route's code. Call on
+ * hover/focus/touch of a link to a book so the page opens with data in place.
+ * Skips work when the cache already holds fresh data.
+ */
+const usePrefetchBook = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const userId = user?.id;
+
+  return useCallback(
+    (bookId: string) => {
+      if (!userId) return;
+      router.prefetch(`/book/${bookId}`);
+
+      const month = getCurrentMonth();
+      queryClient.prefetchInfiniteQuery(
+        transactionsQueryOptions(userId, {
+          bookId,
+          ...getMonthDateRange(month),
+        }),
+      );
+      const previous = getPreviousPeriodRange(month);
+      queryClient.prefetchQuery(
+        transactionTotalsQueryOptions(userId, {
+          bookId,
+          startDate: previous.startDate,
+          endDate: previous.endDate,
+        }),
+      );
+    },
+    [userId, queryClient, router],
+  );
+};
+
+export { usePrefetchBook, useTransactions, useTransactionTotals };

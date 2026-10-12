@@ -21,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
+import { usePrefetchBook } from "@/hooks/useTransactions";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -60,6 +61,7 @@ export const BookSelector = ({
   });
   const searchParams = useSearchParams();
   const router = useRouter();
+  const prefetchBook = usePrefetchBook();
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,6 +260,8 @@ export const BookSelector = ({
                       book.is_default &&
                         "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-md",
                     )}
+                    onMouseEnter={() => prefetchBook(book.id)}
+                    onTouchStart={() => prefetchBook(book.id)}
                     onClick={() => {
                       onSelectBook(book);
                       router.push(`/book/${book.id}`);

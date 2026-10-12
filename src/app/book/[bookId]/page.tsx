@@ -27,6 +27,7 @@ import {
 import { generateStatementReceipt } from "@/lib/receiptGenerator";
 import {
   getBangladeshTime,
+  getCurrentMonth,
   getMonthDateRange,
   getPreviousPeriodRange,
 } from "@/lib/utils";
@@ -58,12 +59,8 @@ export default function BookDetailsPage() {
     note: string;
   } | null>(null);
 
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    return `${year}-${month}`;
-  });
+  // Must match usePrefetchBook, which warms this month from the dashboard
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
 
   const [filters, setFilters] = useState<TransactionFilters>({
     type: undefined,
