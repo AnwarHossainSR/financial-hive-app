@@ -10,7 +10,7 @@ import prisma from "@/lib/prisma";
 import { CATEGORY_SEPARATOR } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
-export async function getTransactionsAction(params: {
+interface TransactionQueryFilters {
   userId: string;
   bookId?: string;
   type?: string;
@@ -19,51 +19,82 @@ export async function getTransactionsAction(params: {
   endDate?: string;
   search?: string;
   note?: string;
-  page?: number;
-  limit?: number;
-}) {
-  const { userId, page = 0, limit = 50, ...filters } = params;
-  if (!userId) return { transactions: [], total: 0, error: "User ID required" };
+}
+
+function buildTransactionWhere(filters: TransactionQueryFilters) {
+  const where: any = { user_id: filters.userId };
+
+  if (filters.bookId) where.book_id = filters.bookId;
+  if (filters.type) where.type = filters.type as any;
+  if (filters.category) {
+    // Categories are stored comma-separated ("Food & Dining, Wife"), so match
+    // the category as a whole token anywhere in the list. Legacy rows with a
+    // single category still match via the exact-equality branch.
+    const cat = filters.category;
+    where.OR = [
+      { category: cat },
+      { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
+      { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
+      {
+        category: {
+          contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
+        },
+      },
+    ];
+  }
+  if (filters.startDate) {
+    const start = new Date(filters.startDate);
+    if (filters.startDate.length <= 10) start.setHours(0, 0, 0, 0);
+    where.date = { ...where.date, gte: start };
+  }
+  if (filters.endDate) {
+    const end = new Date(filters.endDate);
+    if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
+    where.date = { ...where.date, lte: end };
+  }
+  const noteTerms = [filters.search, filters.note].filter(Boolean);
+  if (noteTerms.length > 0) {
+    where.AND = noteTerms.map((term) => ({
+      note: { contains: term, mode: "insensitive" },
+    }));
+  }
+  return where;
+}
+
+async function sumByType(where: any) {
+  const sums = await prisma.transaction.groupBy({
+    by: ["type"],
+    where,
+    _sum: { amount: true },
+  });
+  const sumFor = (type: string) =>
+    Number(sums.find((s) => s.type === type)?._sum.amount ?? 0);
+  return { income: sumFor("income"), expense: sumFor("expense") };
+}
+
+/** Income/expense totals for a filter set, e.g. the previous month for trends */
+export async function getTransactionTotalsAction(
+  filters: TransactionQueryFilters,
+) {
+  if (!filters.userId) return { totals: null, error: "User ID required" };
+  try {
+    return { totals: await sumByType(buildTransactionWhere(filters)), error: null };
+  } catch (error: any) {
+    return { totals: null, error: error.message };
+  }
+}
+
+export async function getTransactionsAction(
+  params: TransactionQueryFilters & { page?: number; limit?: number },
+) {
+  const { page = 0, limit = 50, ...filters } = params;
+  if (!filters.userId)
+    return { transactions: [], total: 0, totals: null, error: "User ID required" };
 
   try {
-    const where: any = { user_id: userId };
+    const where = buildTransactionWhere(filters);
 
-    if (filters.bookId) where.book_id = filters.bookId;
-    if (filters.type) where.type = filters.type as any;
-    if (filters.category) {
-      // Categories are stored comma-separated ("Food & Dining, Wife"), so match
-      // the category as a whole token anywhere in the list. Legacy rows with a
-      // single category still match via the exact-equality branch.
-      const cat = filters.category;
-      where.OR = [
-        { category: cat },
-        { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
-        { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
-        {
-          category: {
-            contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
-          },
-        },
-      ];
-    }
-    if (filters.startDate) {
-      const start = new Date(filters.startDate);
-      if (filters.startDate.length <= 10) start.setHours(0, 0, 0, 0);
-      where.date = { ...where.date, gte: start };
-    }
-    if (filters.endDate) {
-      const end = new Date(filters.endDate);
-      if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
-      where.date = { ...where.date, lte: end };
-    }
-    const noteTerms = [filters.search, filters.note].filter(Boolean);
-    if (noteTerms.length > 0) {
-      where.AND = noteTerms.map((term) => ({
-        note: { contains: term, mode: "insensitive" },
-      }));
-    }
-
-    const [transactions, total, sums] = await Promise.all([
+    const [transactions, total, totals] = await Promise.all([
       prisma.transaction.findMany({
         where,
         orderBy: [{ date: "desc" }, { created_at: "desc" }],
@@ -73,17 +104,8 @@ export async function getTransactionsAction(params: {
       prisma.transaction.count({ where }),
       // Totals across every matching row, not just the loaded page; only
       // needed once per query so later pages skip it.
-      page === 0
-        ? prisma.transaction.groupBy({
-            by: ["type"],
-            where,
-            _sum: { amount: true },
-          })
-        : Promise.resolve(null),
+      page === 0 ? sumByType(where) : Promise.resolve(null),
     ]);
-
-    const sumFor = (type: string) =>
-      Number(sums?.find((s) => s.type === type)?._sum.amount ?? 0);
 
     return {
       transactions: transactions.map((t) => ({
@@ -96,9 +118,7 @@ export async function getTransactionsAction(params: {
         updated_at: t.updated_at.toISOString(),
       })),
       total,
-      totals: sums
-        ? { income: sumFor("income"), expense: sumFor("expense") }
-        : null,
+      totals,
       error: null,
     };
   } catch (error: any) {

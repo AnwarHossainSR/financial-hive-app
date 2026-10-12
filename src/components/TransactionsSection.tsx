@@ -19,7 +19,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useVirtualScroll } from "@/hooks/useVirtualScroll";
-import { cn, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/utils";
+import {
+  cn,
+  EXPENSE_CATEGORIES,
+  getBangladeshTime,
+  INCOME_CATEGORIES,
+} from "@/lib/utils";
 import {
   Transaction,
   TransactionFilters,
@@ -39,10 +44,74 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { TransactionEditForm } from "./TransactionEditForm";
 
-// Fixed row slot (card + gap) so virtual-scroll offsets stay exact
+// Fixed row slots (card + gap, day header) so virtual-scroll offsets stay exact
 const ITEM_HEIGHT = 92;
+const HEADER_HEIGHT = 40;
 const CONTAINER_HEIGHT = 600;
 const OVERSCAN = 10;
+
+interface DayRow {
+  kind: "day";
+  key: string;
+  label: string;
+  income: number;
+  expense: number;
+  /** More rows for this day may still be on unloaded pages */
+  partial: boolean;
+}
+
+type ListRow =
+  | DayRow
+  | { kind: "transaction"; key: string; transaction: Transaction };
+
+const dayKey = (date: Date | string) => getBangladeshTime(date).slice(0, 10);
+
+const formatDayLabel = (key: string) => {
+  const today = dayKey(new Date());
+  const yesterday = dayKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  if (key === today) return "Today";
+  if (key === yesterday) return "Yesterday";
+  const [y, m, d] = key.split("-").map(Number);
+  // Noon UTC keeps the calendar day stable in any viewer timezone
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(key.slice(0, 4) !== today.slice(0, 4) ? { year: "numeric" } : {}),
+    timeZone: "UTC",
+  });
+};
+
+const formatTaka = (n: number) =>
+  `৳${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+
+function buildRows(transactions: Transaction[], hasNextPage: boolean) {
+  const rows: ListRow[] = [];
+  let header: DayRow | undefined;
+  for (const transaction of transactions) {
+    const key = `day-${dayKey(transaction.date)}`;
+    if (header?.key !== key) {
+      header = {
+        kind: "day",
+        key,
+        label: formatDayLabel(key.slice(4)),
+        income: 0,
+        expense: 0,
+        partial: false,
+      };
+      rows.push(header);
+    }
+    if (transaction.type === "income") {
+      header.income += Number(transaction.amount);
+    } else {
+      header.expense += Number(transaction.amount);
+    }
+    rows.push({ kind: "transaction", key: transaction.id, transaction });
+  }
+  // List is date-sorted, so only the last day can continue on the next page
+  if (header && hasNextPage) header.partial = true;
+  return rows;
+}
 
 export const TransactionsSection = ({
   transactions,
@@ -63,21 +132,41 @@ export const TransactionsSection = ({
   showEditForm,
   setShowEditForm,
 }: TransactionsSectionProps) => {
-  const { containerRef, startIndex, endIndex, offsetY, handleScroll } =
-    useVirtualScroll({
-      itemHeight: ITEM_HEIGHT,
-      containerHeight: CONTAINER_HEIGHT,
-      overscan: OVERSCAN,
-      totalItems: transactions.length,
-      onLoadMore,
-      hasNextPage: pagination.hasNextPage,
-      loadingMore,
-      threshold: 200,
-    });
+  const rows = useMemo(
+    () => buildRows(transactions, pagination.hasNextPage),
+    [transactions, pagination.hasNextPage],
+  );
+  const rowSizes = useMemo(
+    () => rows.map((r) => (r.kind === "day" ? HEADER_HEIGHT : ITEM_HEIGHT)),
+    [rows],
+  );
 
-  const visibleTransactions = useMemo(() => {
-    return transactions.slice(startIndex, endIndex);
-  }, [transactions, startIndex, endIndex]);
+  const {
+    containerRef,
+    startIndex,
+    endIndex,
+    offsetY,
+    totalHeight,
+    handleScroll,
+  } = useVirtualScroll({
+    itemHeight: ITEM_HEIGHT,
+    itemSizes: rowSizes,
+    containerHeight: CONTAINER_HEIGHT,
+    overscan: OVERSCAN,
+    totalItems: rows.length,
+    onLoadMore,
+    hasNextPage: pagination.hasNextPage,
+    loadingMore,
+    threshold: 200,
+  });
+
+  const visibleRows = useMemo(
+    () => rows.slice(startIndex, endIndex),
+    [rows, startIndex, endIndex],
+  );
+  const visibleHeight = rowSizes
+    .slice(startIndex, endIndex)
+    .reduce((sum, h) => sum + h, 0);
 
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -100,7 +189,7 @@ export const TransactionsSection = ({
   // Show scroll hint when there are more transactions to load or scroll
   useEffect(() => {
     const shouldShowHint =
-      (transactions.length > 5 && endIndex < transactions.length) ||
+      (transactions.length > 5 && endIndex < rows.length) ||
       pagination.hasNextPage;
 
     // Use requestAnimationFrame or microtask to avoid immediate cascading render warning
@@ -108,7 +197,7 @@ export const TransactionsSection = ({
       setShowScrollHint(shouldShowHint);
     }, 0);
     return () => clearTimeout(timeout);
-  }, [transactions.length, endIndex, pagination.hasNextPage]);
+  }, [transactions.length, rows.length, endIndex, pagination.hasNextPage]);
 
   // Hide scroll hint after user scrolls
   const handleScrollWithHint = (e: React.UIEvent<HTMLDivElement>) => {
@@ -254,28 +343,64 @@ export const TransactionsSection = ({
               style={{ height: CONTAINER_HEIGHT }}
               onScroll={handleScrollWithHint}
             >
-              <div style={{ height: startIndex * ITEM_HEIGHT }} />
-              <div className="px-3 pt-3 sm:px-6">
-                {visibleTransactions.map((transaction, index) => (
-                  <div
-                    key={transaction.id}
-                    className="pb-3 opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
-                    style={{
-                      animationDelay: `${(index % 10) * 50}ms`,
-                      height: ITEM_HEIGHT,
-                    }}
-                  >
-                    <TransactionCard
-                      transaction={transaction}
-                      onDelete={() => onDeleteTransaction(transaction)}
-                      onEdit={() => handleEditTransaction(transaction)}
-                    />
-                  </div>
-                ))}
+              <div style={{ height: offsetY }} />
+              <div className="px-3 sm:px-6">
+                {visibleRows.map((row, index) =>
+                  row.kind === "day" ? (
+                    <div
+                      key={row.key}
+                      className="flex items-end justify-between gap-3 px-1 pb-2 text-xs"
+                      style={{ height: HEADER_HEIGHT }}
+                    >
+                      <span className="font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {row.label}
+                      </span>
+                      <span
+                        className="flex items-center gap-2 font-medium tabular-nums"
+                        title={
+                          row.partial
+                            ? "Scroll to load the rest of this day"
+                            : undefined
+                        }
+                      >
+                        {row.income > 0 && (
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            +{formatTaka(row.income)}
+                          </span>
+                        )}
+                        {row.expense > 0 && (
+                          <span className="text-rose-600 dark:text-rose-400">
+                            -{formatTaka(row.expense)}
+                          </span>
+                        )}
+                        {row.partial && (
+                          <span className="font-normal text-gray-400 dark:text-gray-500">
+                            so far
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      key={row.key}
+                      className="pb-3 opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
+                      style={{
+                        animationDelay: `${(index % 10) * 50}ms`,
+                        height: ITEM_HEIGHT,
+                      }}
+                    >
+                      <TransactionCard
+                        transaction={row.transaction}
+                        onDelete={() => onDeleteTransaction(row.transaction)}
+                        onEdit={() => handleEditTransaction(row.transaction)}
+                      />
+                    </div>
+                  ),
+                )}
               </div>
               <div
                 style={{
-                  height: (transactions.length - endIndex) * ITEM_HEIGHT,
+                  height: Math.max(0, totalHeight - offsetY - visibleHeight),
                 }}
               />
               {loadingMore && (

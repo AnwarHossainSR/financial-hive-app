@@ -1,6 +1,7 @@
 import {
   createTransactionAction,
   deleteTransactionAction,
+  getTransactionTotalsAction,
   getTransactionsAction,
   importTransactionsAction,
   updateTransactionAction,
@@ -15,6 +16,7 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
@@ -359,4 +361,35 @@ const useTransactions = (filters: TransactionFilters = {}) => {
   };
 };
 
-export { useTransactions };
+/**
+ * Income/expense totals for an arbitrary filter set (e.g. last month, for
+ * trends). Shares the transactions key prefix so mutations refresh it.
+ */
+const useTransactionTotals = (
+  filters: TransactionFilters,
+  enabled = true,
+) => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: [...transactionKeys.all, "totals", filters, user?.id],
+    queryFn: async () => {
+      const { totals, error } = await getTransactionTotalsAction({
+        userId: user?.id ?? "",
+        bookId: filters.bookId,
+        type: filters.type,
+        category: filters.category,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        search: filters.search,
+        note: filters.note,
+      });
+      if (error) throw new Error(error);
+      return totals;
+    },
+    enabled: enabled && !!user,
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export { useTransactions, useTransactionTotals };

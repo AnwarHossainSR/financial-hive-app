@@ -19,6 +19,8 @@ interface QuickStatsProps {
   monthlyBudget: number;
   /** e.g. "This month" or "All time" */
   periodLabel?: string;
+  /** Totals for the comparison period; omit to hide trend badges */
+  previous?: { income: number; expense: number; label: string };
 }
 
 interface StatCardProps {
@@ -27,8 +29,11 @@ interface StatCardProps {
   icon: React.ReactNode;
   color: string;
   trend?: {
+    /** Signed percent change */
     value: number;
-    isPositive: boolean;
+    /** Whether this direction is good news (more income, less expense) */
+    isGood: boolean;
+    label: string;
   };
   progress?: number;
   subtitle?: string;
@@ -92,13 +97,14 @@ function StatCard({
           </div>
           {trend && (
             <div
+              title={trend.label}
               className={`flex items-center space-x-1 text-xs font-medium px-2 py-1 rounded-full ${
-                trend.isPositive
+                trend.isGood
                   ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20"
                   : "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20"
               }`}
             >
-              {trend.isPositive ? (
+              {trend.value >= 0 ? (
                 <ArrowUpRight className="w-3 h-3" />
               ) : (
                 <ArrowDownRight className="w-3 h-3" />
@@ -107,6 +113,12 @@ function StatCard({
             </div>
           )}
         </div>
+
+        {trend && (
+          <p className="-mt-2 text-right text-[11px] text-gray-400 dark:text-gray-500">
+            {trend.label}
+          </p>
+        )}
 
         {progress !== undefined && (
           <div className="space-y-2">
@@ -138,6 +150,7 @@ export function QuickStats({
   transactionCount,
   monthlyBudget = 20000,
   periodLabel = "This month",
+  previous,
 }: QuickStatsProps) {
   const [isMobileStatsOpen, setIsMobileStatsOpen] = useState(false);
 
@@ -147,12 +160,20 @@ export function QuickStats({
   const formatTaka = (n: number) =>
     `${n < 0 ? "-" : ""}৳${Math.abs(n).toLocaleString()}`;
 
+  // No badge when there's nothing to compare against (avoids "+∞%")
+  const trendFor = (current: number, before: number, upIsGood: boolean) => {
+    if (!previous || before <= 0) return undefined;
+    const value = Math.round(((current - before) / before) * 1000) / 10;
+    return { value, isGood: value >= 0 === upIsGood, label: previous.label };
+  };
+
   const statCards = [
     {
       title: "Monthly Income",
       value: `+৳${monthlyIncome.toLocaleString()}`,
       icon: <TrendingUp className="w-5 h-5 text-emerald-950" />,
       color: "from-emerald-500 to-green-500",
+      trend: trendFor(monthlyIncome, previous?.income ?? 0, true),
       subtitle: `Net balance: ${net >= 0 ? "+" : ""}${formatTaka(net)}`,
       delay: 0,
     },
@@ -161,6 +182,7 @@ export function QuickStats({
       value: `-৳${monthlyExpense.toLocaleString()}`,
       icon: <TrendingDown className="w-5 h-5 text-red-950" />,
       color: "from-red-500 to-pink-500",
+      trend: trendFor(monthlyExpense, previous?.expense ?? 0, false),
       subtitle: periodLabel,
       delay: 100,
     },

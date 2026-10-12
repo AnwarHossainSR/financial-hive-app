@@ -1,5 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
-import { endOfMonth, format, startOfMonth } from "date-fns";
+import {
+  endOfDay,
+  endOfMonth,
+  format,
+  startOfMonth,
+  subMonths,
+} from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { enUS } from "date-fns/locale";
 import { twMerge } from "tailwind-merge";
@@ -84,6 +90,34 @@ export const getMonthDateRange = (monthString: string) => {
   const endDate = endOfMonth(date).toISOString();
 
   return { startDate, endDate };
+};
+
+/**
+ * The period to compare a month against for trends. For the current month it's
+ * the same days of last month (Sep 1–12 vs Oct 1–12), so a half-finished month
+ * isn't measured against a full one. For past months it's the whole prior month.
+ */
+export const getPreviousPeriodRange = (monthString: string) => {
+  const [year, month] = monthString.split("-").map(Number);
+  const selected = new Date(year, month - 1);
+  const previous = subMonths(selected, 1);
+  const now = new Date();
+  const isCurrentMonth =
+    now.getFullYear() === year && now.getMonth() === month - 1;
+
+  const startDate = startOfMonth(previous);
+  // subMonths clamps (Mar 31 -> Feb 28), so this never spills into this month
+  const endDate = isCurrentMonth
+    ? endOfDay(subMonths(now, 1))
+    : endOfMonth(previous);
+
+  return {
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    label: isCurrentMonth
+      ? `vs ${format(startDate, "MMM d")}–${format(endDate, "d")}`
+      : `vs ${format(previous, "MMM")}`,
+  };
 };
 
 export const formatCurrency = (amount: number | string) => {

@@ -7,6 +7,8 @@ export interface VirtualScrollConfig {
   hasNextPage?: boolean;
   loadingMore?: boolean;
   threshold?: number; // Distance from bottom to trigger load more
+  /** Per-row heights for lists with mixed rows; overrides itemHeight */
+  itemSizes?: number[];
 }
 
 export interface VirtualScrollResult {
@@ -17,5 +19,7 @@ export interface VirtualScrollResult {
   visibleStartIndex: number;
   visibleEndIndex: number;
   offsetY: number;
+  /** Height of all rows combined */
+  totalHeight: number;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
 }

@@ -20,9 +20,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
-import { useTransactions } from "@/hooks/useTransactions";
+import {
+  useTransactionTotals,
+  useTransactions,
+} from "@/hooks/useTransactions";
 import { generateStatementReceipt } from "@/lib/receiptGenerator";
-import { getBangladeshTime, getMonthDateRange } from "@/lib/utils";
+import {
+  getBangladeshTime,
+  getMonthDateRange,
+  getPreviousPeriodRange,
+} from "@/lib/utils";
 import { Book } from "@/types/book";
 import { Transaction, TransactionFilters } from "@/types/transaction";
 import { useParams, useRouter } from "next/navigation";
@@ -112,6 +119,26 @@ export default function BookDetailsPage() {
       }
     }
   }, [books, booksInitialized, bookId, router, toast]);
+
+  // Trends compare against last month with the same filters. Skipped for
+  // "all time" and custom date ranges, where "previous period" is undefined.
+  const previousPeriod = useMemo(
+    () =>
+      showAllData || filters.startDate || filters.endDate
+        ? null
+        : getPreviousPeriodRange(selectedMonth),
+    [showAllData, filters.startDate, filters.endDate, selectedMonth],
+  );
+  const { data: previousTotals } = useTransactionTotals(
+    {
+      ...filters,
+      bookId,
+      search: searchQuery,
+      startDate: previousPeriod?.startDate,
+      endDate: previousPeriod?.endDate,
+    },
+    !!previousPeriod && !!bookId,
+  );
 
   // Server-side sums over every matching row, not just the loaded pages
   const totalIncome = totals.income;
@@ -332,6 +359,11 @@ export default function BookDetailsPage() {
             transactionCount={pagination.totalCount}
             monthlyBudget={monthlyBudget}
             periodLabel={showAllData ? "All time" : "This month"}
+            previous={
+              previousPeriod && previousTotals
+                ? { ...previousTotals, label: previousPeriod.label }
+                : undefined
+            }
           />
         )}
 
