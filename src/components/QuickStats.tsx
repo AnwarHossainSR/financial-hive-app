@@ -17,6 +17,8 @@ interface QuickStatsProps {
   monthlyExpense: number;
   transactionCount: number;
   monthlyBudget: number;
+  /** e.g. "This month" or "All time" */
+  periodLabel?: string;
 }
 
 interface StatCardProps {
@@ -135,16 +137,15 @@ export function QuickStats({
   monthlyExpense,
   transactionCount,
   monthlyBudget = 20000,
+  periodLabel = "This month",
 }: QuickStatsProps) {
   const [isMobileStatsOpen, setIsMobileStatsOpen] = useState(false);
 
   const budgetRemaining = monthlyBudget - monthlyExpense;
   const budgetUsedProgress = (monthlyExpense / monthlyBudget) * 100;
-  const budgetRemainingProgress = Math.max(0, 100 - budgetUsedProgress);
-
-  // Mock trend data - in real app, this would come from comparing with previous month
-  const incomeTrend = { value: 12.5, isPositive: true };
-  const expenseTrend = { value: 8.3, isPositive: false };
+  const net = monthlyIncome - monthlyExpense;
+  const formatTaka = (n: number) =>
+    `${n < 0 ? "-" : ""}৳${Math.abs(n).toLocaleString()}`;
 
   const statCards = [
     {
@@ -152,7 +153,7 @@ export function QuickStats({
       value: `+৳${monthlyIncome.toLocaleString()}`,
       icon: <TrendingUp className="w-5 h-5 text-emerald-950" />,
       color: "from-emerald-500 to-green-500",
-      trend: incomeTrend,
+      subtitle: `Net balance: ${net >= 0 ? "+" : ""}${formatTaka(net)}`,
       delay: 0,
     },
     {
@@ -160,7 +161,7 @@ export function QuickStats({
       value: `-৳${monthlyExpense.toLocaleString()}`,
       icon: <TrendingDown className="w-5 h-5 text-red-950" />,
       color: "from-red-500 to-pink-500",
-      trend: expenseTrend,
+      subtitle: periodLabel,
       delay: 100,
     },
     {
@@ -168,7 +169,7 @@ export function QuickStats({
       value: transactionCount.toString(),
       icon: <BadgeCent className="w-5 h-5 text-blue-950" />,
       color: "from-blue-500 to-cyan-500",
-      subtitle: "This month",
+      subtitle: periodLabel,
       delay: 200,
     },
     {
@@ -177,7 +178,10 @@ export function QuickStats({
       icon: <Target className="w-5 h-5 text-purple-950" />,
       color: "from-purple-500 to-indigo-500",
       progress: budgetUsedProgress,
-      subtitle: `৳${monthlyExpense.toLocaleString()} / ৳${monthlyBudget.toLocaleString()}`,
+      subtitle:
+        budgetRemaining >= 0
+          ? `${formatTaka(budgetRemaining)} left of ৳${monthlyBudget.toLocaleString()}`
+          : `${formatTaka(-budgetRemaining)} over ৳${monthlyBudget.toLocaleString()} budget`,
       delay: 300,
     },
   ];

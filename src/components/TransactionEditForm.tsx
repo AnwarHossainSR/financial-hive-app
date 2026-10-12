@@ -13,6 +13,7 @@ import {
   joinCategories,
   parseCategories,
 } from "@/lib/utils";
+import { evaluateExpression, isExpression } from "@/lib/calc";
 
 import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
@@ -35,6 +36,8 @@ export function TransactionEditForm({
     parseCategories(transaction.category),
   );
   const [note, setNote] = useState(transaction.note || "");
+  // Amount accepts math like "120+45"; null means it doesn't parse
+  const amountValue = evaluateExpression(amount);
   const [date, setDate] = useState(getBangladeshTime(transaction.date));
 
   const categoryOptions =
@@ -51,13 +54,14 @@ export function TransactionEditForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || categories.length === 0 || !date) return;
+    if (!amountValue || amountValue <= 0 || categories.length === 0 || !date)
+      return;
 
     const localDate = new Date(date);
     onSubmit({
       ...transaction,
       type,
-      amount: parseFloat(amount),
+      amount: amountValue,
       category: joinCategories(categories),
       note: note || undefined,
       date: localDate,
@@ -108,15 +112,28 @@ export function TransactionEditForm({
             </span>
             <Input
               id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0.00 or 120+45"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              onBlur={() => {
+                if (isExpression(amount) && amountValue !== null) {
+                  setAmount(String(amountValue));
+                }
+              }}
               className="text-lg font-semibold pl-8 bg-slate-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 transition-all"
               required
             />
           </div>
+          {isExpression(amount) && (
+            <p className="text-xs text-muted-foreground pl-1 tabular-nums">
+              {amountValue !== null
+                ? `= ৳${amountValue.toLocaleString("en-US")}`
+                : "Invalid calculation"}
+            </p>
+          )}
         </div>
 
         {/* Category */}
@@ -195,7 +212,7 @@ export function TransactionEditForm({
                 ? "bg-income hover:bg-income/90 shadow-income/20"
                 : "bg-expense hover:bg-expense/90 shadow-expense/20",
             )}
-            disabled={!amount || categories.length === 0}
+            disabled={!amountValue || amountValue <= 0 || categories.length === 0}
           >
             <Plus className="w-4 h-4 mr-2" />
             Update {type === "income" ? "Income" : "Expense"}

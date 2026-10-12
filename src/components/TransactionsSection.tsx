@@ -26,6 +26,7 @@ import {
   TransactionsSectionProps,
 } from "@/types/transaction";
 import {
+  Calculator,
   ChevronDown,
   Download,
   Filter,
@@ -58,6 +59,7 @@ export const TransactionsSection = ({
   onFilterChange,
   onEditTransaction,
   onExportPDF,
+  onOpenCalculator,
   showEditForm,
   setShowEditForm,
 }: TransactionsSectionProps) => {
@@ -207,6 +209,19 @@ export const TransactionsSection = ({
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Export PDF</span>
             </Button>
+
+            {onOpenCalculator && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenCalculator}
+                aria-label="Open calculator"
+                className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:border-amber-300 dark:hover:border-amber-600 transition-all rounded-xl backdrop-blur-sm"
+              >
+                <Calculator className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Calculator</span>
+              </Button>
+            )}
 
             <Button
               size="sm"

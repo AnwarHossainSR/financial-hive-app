@@ -18,6 +18,7 @@ export async function getTransactionsAction(params: {
   startDate?: string;
   endDate?: string;
   search?: string;
+  note?: string;
   page?: number;
   limit?: number;
 }) {
@@ -55,11 +56,14 @@ export async function getTransactionsAction(params: {
       if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
       where.date = { ...where.date, lte: end };
     }
-    if (filters.search) {
-      where.note = { contains: filters.search, mode: "insensitive" };
+    const noteTerms = [filters.search, filters.note].filter(Boolean);
+    if (noteTerms.length > 0) {
+      where.AND = noteTerms.map((term) => ({
+        note: { contains: term, mode: "insensitive" },
+      }));
     }
 
-    const [transactions, total] = await Promise.all([
+    const [transactions, total, sums] = await Promise.all([
       prisma.transaction.findMany({
         where,
         orderBy: [{ date: "desc" }, { created_at: "desc" }],
@@ -67,7 +71,19 @@ export async function getTransactionsAction(params: {
         take: limit,
       }),
       prisma.transaction.count({ where }),
+      // Totals across every matching row, not just the loaded page; only
+      // needed once per query so later pages skip it.
+      page === 0
+        ? prisma.transaction.groupBy({
+            by: ["type"],
+            where,
+            _sum: { amount: true },
+          })
+        : Promise.resolve(null),
     ]);
+
+    const sumFor = (type: string) =>
+      Number(sums?.find((s) => s.type === type)?._sum.amount ?? 0);
 
     return {
       transactions: transactions.map((t) => ({
@@ -80,10 +96,13 @@ export async function getTransactionsAction(params: {
         updated_at: t.updated_at.toISOString(),
       })),
       total,
+      totals: sums
+        ? { income: sumFor("income"), expense: sumFor("expense") }
+        : null,
       error: null,
     };
   } catch (error: any) {
-    return { transactions: [], total: 0, error: error.message };
+    return { transactions: [], total: 0, totals: null, error: error.message };
   }
 }
 

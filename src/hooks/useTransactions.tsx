@@ -68,9 +68,10 @@ const useTransactions = (filters: TransactionFilters = {}) => {
   } = useInfiniteQuery({
     queryKey: transactionKeys.infinite(queryFilters),
     queryFn: async ({ pageParam = 0 }) => {
-      if (!user?.id) return { data: [], nextPage: undefined, totalCount: 0 };
+      if (!user?.id)
+        return { data: [], nextPage: undefined, totalCount: 0, totals: null };
 
-      const { transactions, total, error } = await getTransactionsAction({
+      const { transactions, total, totals, error } = await getTransactionsAction({
         userId: user.id,
         bookId: filters.bookId,
         type: filters.type,
@@ -78,6 +79,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
         startDate: filters.startDate,
         endDate: filters.endDate,
         search: filters.search,
+        note: filters.note,
         page: pageParam,
         limit: ITEMS_PER_PAGE,
       });
@@ -91,6 +93,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
         data: transactions,
         nextPage: hasNextPage ? pageParam + 1 : undefined,
         totalCount: total,
+        totals,
       };
     },
     initialPageParam: 0,
@@ -104,6 +107,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
   // Flatten transactions from pages
   const transactions = infiniteData?.pages.flatMap((page) => page.data) || [];
   const totalCount = infiniteData?.pages[0]?.totalCount || 0;
+  const totals = infiniteData?.pages[0]?.totals ?? { income: 0, expense: 0 };
 
   const pagination: PaginationInfo = {
     currentPage: infiniteData?.pages.length ? infiniteData.pages.length - 1 : 0,
@@ -343,6 +347,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
     error: isError ? (error as Error)?.message : null,
     initialized: !isLoading,
     pagination,
+    totals,
     createTransaction,
     updateTransaction,
     deleteTransaction,
