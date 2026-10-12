@@ -1,12 +1,14 @@
 "use server";
 
+import { requireUserId } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
 
-export async function getNotificationsAction(userId: string) {
-  if (!userId) return { notifications: [], error: "User ID required" };
+// `_userId` params are kept for caller compatibility but ignored: the
+// session decides who the user is (see src/lib/auth.ts).
 
+export async function getNotificationsAction(_userId?: string) {
   try {
+    const userId = await requireUserId();
     const notifications = await prisma.notification.findMany({
       where: { user_id: userId },
       orderBy: { created_at: "desc" },
@@ -26,10 +28,9 @@ export async function getNotificationsAction(userId: string) {
   }
 }
 
-export async function getUnreadCountAction(userId: string) {
-  if (!userId) return { count: 0, error: "User ID required" };
-
+export async function getUnreadCountAction(_userId?: string) {
   try {
+    const userId = await requireUserId();
     const count = await prisma.notification.count({
       where: {
         user_id: userId,
@@ -44,22 +45,24 @@ export async function getUnreadCountAction(userId: string) {
 
 export async function markAsReadAction(notificationId: string) {
   try {
-    await prisma.notification.update({
-      where: { id: notificationId },
+    const userId = await requireUserId();
+    const { count } = await prisma.notification.updateMany({
+      where: { id: notificationId, user_id: userId },
       data: {
         read: true,
         updated_at: new Date(),
       },
     });
-    revalidatePath("/");
+    if (count === 0) throw new Error("Notification not found");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
-export async function markAllAsReadAction(userId: string) {
+export async function markAllAsReadAction(_userId?: string) {
   try {
+    const userId = await requireUserId();
     await prisma.notification.updateMany({
       where: {
         user_id: userId,
@@ -70,7 +73,6 @@ export async function markAllAsReadAction(userId: string) {
         updated_at: new Date(),
       },
     });
-    revalidatePath("/");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -79,22 +81,23 @@ export async function markAllAsReadAction(userId: string) {
 
 export async function deleteNotificationAction(notificationId: string) {
   try {
-    await prisma.notification.delete({
-      where: { id: notificationId },
+    const userId = await requireUserId();
+    const { count } = await prisma.notification.deleteMany({
+      where: { id: notificationId, user_id: userId },
     });
-    revalidatePath("/");
+    if (count === 0) throw new Error("Notification not found");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
-export async function clearAllNotificationsAction(userId: string) {
+export async function clearAllNotificationsAction(_userId?: string) {
   try {
+    const userId = await requireUserId();
     await prisma.notification.deleteMany({
       where: { user_id: userId },
     });
-    revalidatePath("/");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };

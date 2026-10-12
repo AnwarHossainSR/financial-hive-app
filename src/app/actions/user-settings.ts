@@ -1,10 +1,20 @@
 "use server";
 
+import {
+  assertOwnsBook,
+  requireAdmin,
+  requireUserId,
+  stripOwnership,
+} from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getUserSettings(userId: string) {
+// `_userId` / `_isAdmin` params are kept for caller compatibility but
+// ignored: the session decides who the user is (see src/lib/auth.ts).
+
+export async function getUserSettings(_userId?: string) {
   try {
+    const userId = await requireUserId();
     const settings = await prisma.userSettings.findUnique({
       where: { user_id: userId },
     });
@@ -14,17 +24,23 @@ export async function getUserSettings(userId: string) {
   }
 }
 
-export async function updateUserSettingsAction(userId: string, data: any) {
+export async function updateUserSettingsAction(_userId: string, data: any) {
   try {
+    const userId = await requireUserId();
+    const safeData = stripOwnership(data);
+    if (safeData.default_book_id) {
+      await assertOwnsBook(userId, safeData.default_book_id as string);
+    }
+
     const settings = await prisma.userSettings.upsert({
       where: { user_id: userId },
       update: {
-        ...data,
+        ...safeData,
         updated_at: new Date(),
       },
       create: {
+        ...safeData,
         user_id: userId,
-        ...data,
       },
     });
     revalidatePath("/settings");
@@ -34,8 +50,10 @@ export async function updateUserSettingsAction(userId: string, data: any) {
   }
 }
 
-export async function getProfileRole(userId: string) {
+/** Role of the signed-in user */
+export async function getProfileRole(_userId?: string) {
   try {
+    const userId = await requireUserId();
     const profile = await prisma.profile.findUnique({
       where: { user_id: userId },
       select: { role: true },
@@ -46,12 +64,9 @@ export async function getProfileRole(userId: string) {
   }
 }
 
-export async function clearDatabaseAction(isAdmin: boolean) {
-  if (!isAdmin) {
-    return { success: false, error: "Unauthorized" };
-  }
-
+export async function clearDatabaseAction(_isAdmin?: boolean) {
   try {
+    await requireAdmin();
     await prisma.$transaction([
       prisma.transaction.deleteMany({}),
       prisma.bookMember.deleteMany({}),
@@ -61,7 +76,7 @@ export async function clearDatabaseAction(isAdmin: boolean) {
       prisma.notification.deleteMany({}),
       prisma.profile.deleteMany({}),
     ]);
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     return { success: true, error: null };
   } catch (error: any) {
     return { success: false, error: error.message };

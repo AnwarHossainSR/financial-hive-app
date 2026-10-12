@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
+import { invalidateUser } from "@/lib/cache";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -21,6 +23,7 @@ export async function getUsersAction(params: {
   } = params;
 
   try {
+    await requireAdmin();
     const where: any = {};
     if (searchTerm) {
       where.OR = [
@@ -58,8 +61,12 @@ export async function getUsersAction(params: {
   }
 }
 
+const ROLES = ["user", "moderator", "admin"];
+
 export async function updateUserRoleAction(userId: string, newRole: string) {
   try {
+    await requireAdmin();
+    if (!ROLES.includes(newRole)) throw new Error("Invalid role");
     await prisma.profile.update({
       where: { user_id: userId },
       data: {
@@ -76,6 +83,7 @@ export async function updateUserRoleAction(userId: string, newRole: string) {
 
 export async function deleteUserAction(userId: string) {
   try {
+    await requireAdmin();
     await prisma.$transaction([
       prisma.transaction.deleteMany({ where: { user_id: userId } }),
       prisma.bookMember.deleteMany({
@@ -93,6 +101,7 @@ export async function deleteUserAction(userId: string) {
       prisma.notification.deleteMany({ where: { user_id: userId } }),
       prisma.profile.delete({ where: { user_id: userId } }),
     ]);
+    await invalidateUser(userId);
     revalidatePath("/users");
     return { success: true, error: null };
   } catch (error: any) {
@@ -102,6 +111,7 @@ export async function deleteUserAction(userId: string) {
 
 export async function getUserStatsAction() {
   try {
+    await requireAdmin();
     const profilesData = await prisma.profile.findMany({
       select: { role: true },
     });

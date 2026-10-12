@@ -1,6 +1,8 @@
 "use server";
 
+import { assertOwnsBook, requireUser, requireUserId } from "@/lib/auth";
 import { setBudgetNotification } from "@/lib/notificationHelpers";
+import { invalidate } from "@/lib/cache";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -17,8 +19,6 @@ export async function updateProfileAction(data: {
   if (!user) {
     return { error: "Not authenticated" };
   }
-
-  console.log("user", user);
 
   try {
     // 1. Update Supabase Auth user metadata
@@ -55,26 +55,29 @@ export async function updateProfileAction(data: {
 }
 
 export async function ensureProfileExistsAction(userData: {
-  id: string;
+  id?: string;
   email?: string;
   display_name?: string;
   avatar_url?: string;
 }) {
   try {
+    // id and email come from the verified session, not the client payload
+    const user = await requireUser();
+    const email = user.email;
     const displayName =
-      userData.display_name || userData.email?.split("@")[0] || "User";
+      userData.display_name || email?.split("@")[0] || "User";
 
     await prisma.profile.upsert({
-      where: { user_id: userData.id },
+      where: { user_id: user.id },
       update: {
-        email: userData.email,
+        email,
         display_name: displayName,
         avatar_url: userData.avatar_url,
         updated_at: new Date(),
       },
       create: {
-        user_id: userData.id,
-        email: userData.email || "",
+        user_id: user.id,
+        email: email || "",
         display_name: displayName,
         avatar_url: userData.avatar_url,
       },
@@ -93,6 +96,8 @@ export async function setMonthlyBudgetAction(
   amount: number
 ) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsBook(userId, bookId);
     const budget = await prisma.monthlyBudget.upsert({
       where: {
         book_id_month: {
@@ -110,6 +115,8 @@ export async function setMonthlyBudgetAction(
         amount: amount,
       },
     });
+
+    await invalidate("books", userId);
 
     // Create notification
     const book = await prisma.book.findUnique({

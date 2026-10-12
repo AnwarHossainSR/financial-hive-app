@@ -21,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Book, useBooks } from "@/hooks/useBooks";
+import { usePrefetchBook } from "@/hooks/useTransactions";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -60,6 +61,7 @@ export const BookSelector = ({
   });
   const searchParams = useSearchParams();
   const router = useRouter();
+  const prefetchBook = usePrefetchBook();
 
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +143,7 @@ export const BookSelector = ({
     if (!error) {
       onSelectBook(null);
       setShowEditDialog(false);
-      router.push("/");
+      router.push("/dashboard");
       toast({
         title: "Book Deleted",
         description: "The book was successfully deleted.",
@@ -181,7 +183,7 @@ export const BookSelector = ({
               size="sm"
               onClick={() => {
                 onSelectBook(null);
-                router.push("/");
+                router.push("/dashboard");
               }}
               className="border-border text-foreground hover:bg-primary/5 hover:border-primary/50 transition-all duration-300 rounded-lg"
             >
@@ -258,6 +260,8 @@ export const BookSelector = ({
                       book.is_default &&
                         "ring-2 ring-amber-200 dark:ring-amber-800/50 shadow-md",
                     )}
+                    onMouseEnter={() => prefetchBook(book.id)}
+                    onTouchStart={() => prefetchBook(book.id)}
                     onClick={() => {
                       onSelectBook(book);
                       router.push(`/book/${book.id}`);

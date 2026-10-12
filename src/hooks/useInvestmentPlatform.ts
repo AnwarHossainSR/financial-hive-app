@@ -83,7 +83,7 @@ export const useInvestmentPlatform = (platformId: string) => {
         title: "Success",
         description: "Platform deleted successfully",
       });
-      router.push("/");
+      router.push("/dashboard");
     },
     onError: (error: Error) => {
       toast({

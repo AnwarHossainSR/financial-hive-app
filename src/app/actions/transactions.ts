@@ -1,5 +1,6 @@
 "use server";
 
+import { assertOwnsBook, requireUserId, stripOwnership } from "@/lib/auth";
 import {
   createTransactionNotification,
   deleteTransactionNotification,
@@ -10,56 +11,99 @@ import prisma from "@/lib/prisma";
 import { CATEGORY_SEPARATOR } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
-export async function getTransactionsAction(params: {
-  userId: string;
+// `userId` / `_userId` inputs are kept for caller compatibility but ignored:
+// the session decides who the user is (see src/lib/auth.ts).
+
+interface TransactionQueryFilters {
+  userId?: string;
   bookId?: string;
   type?: string;
   category?: string;
   startDate?: string;
   endDate?: string;
   search?: string;
-  page?: number;
-  limit?: number;
-}) {
-  const { userId, page = 0, limit = 50, ...filters } = params;
-  if (!userId) return { transactions: [], total: 0, error: "User ID required" };
+  note?: string;
+}
+
+function buildTransactionWhere(
+  filters: TransactionQueryFilters,
+  userId: string,
+) {
+  const where: any = { user_id: userId };
+
+  if (filters.bookId) where.book_id = filters.bookId;
+  if (filters.type) where.type = filters.type as any;
+  if (filters.category) {
+    // Categories are stored comma-separated ("Food & Dining, Wife"), so match
+    // the category as a whole token anywhere in the list. Legacy rows with a
+    // single category still match via the exact-equality branch.
+    const cat = filters.category;
+    where.OR = [
+      { category: cat },
+      { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
+      { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
+      {
+        category: {
+          contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
+        },
+      },
+    ];
+  }
+  if (filters.startDate) {
+    const start = new Date(filters.startDate);
+    if (filters.startDate.length <= 10) start.setHours(0, 0, 0, 0);
+    where.date = { ...where.date, gte: start };
+  }
+  if (filters.endDate) {
+    const end = new Date(filters.endDate);
+    if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
+    where.date = { ...where.date, lte: end };
+  }
+  const noteTerms = [filters.search, filters.note].filter(Boolean);
+  if (noteTerms.length > 0) {
+    where.AND = noteTerms.map((term) => ({
+      note: { contains: term, mode: "insensitive" },
+    }));
+  }
+  return where;
+}
+
+async function sumByType(where: any) {
+  const sums = await prisma.transaction.groupBy({
+    by: ["type"],
+    where,
+    _sum: { amount: true },
+  });
+  const sumFor = (type: string) =>
+    Number(sums.find((s) => s.type === type)?._sum.amount ?? 0);
+  return { income: sumFor("income"), expense: sumFor("expense") };
+}
+
+/** Income/expense totals for a filter set, e.g. the previous month for trends */
+export async function getTransactionTotalsAction(
+  filters: TransactionQueryFilters,
+) {
+  try {
+    const userId = await requireUserId();
+    return {
+      totals: await sumByType(buildTransactionWhere(filters, userId)),
+      error: null,
+    };
+  } catch (error: any) {
+    return { totals: null, error: error.message };
+  }
+}
+
+export async function getTransactionsAction(
+  params: TransactionQueryFilters & { page?: number; limit?: number },
+) {
+  const { page = 0, limit = 50, ...filters } = params;
 
   try {
-    const where: any = { user_id: userId };
+    const userId = await requireUserId();
+    const where = buildTransactionWhere(filters, userId);
 
-    if (filters.bookId) where.book_id = filters.bookId;
-    if (filters.type) where.type = filters.type as any;
-    if (filters.category) {
-      // Categories are stored comma-separated ("Food & Dining, Wife"), so match
-      // the category as a whole token anywhere in the list. Legacy rows with a
-      // single category still match via the exact-equality branch.
-      const cat = filters.category;
-      where.OR = [
-        { category: cat },
-        { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
-        { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
-        {
-          category: {
-            contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
-          },
-        },
-      ];
-    }
-    if (filters.startDate) {
-      const start = new Date(filters.startDate);
-      if (filters.startDate.length <= 10) start.setHours(0, 0, 0, 0);
-      where.date = { ...where.date, gte: start };
-    }
-    if (filters.endDate) {
-      const end = new Date(filters.endDate);
-      if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
-      where.date = { ...where.date, lte: end };
-    }
-    if (filters.search) {
-      where.note = { contains: filters.search, mode: "insensitive" };
-    }
-
-    const [transactions, total] = await Promise.all([
+    const [transactions, total, totals] = await Promise.all([
       prisma.transaction.findMany({
         where,
         orderBy: [{ date: "desc" }, { created_at: "desc" }],
@@ -67,6 +111,9 @@ export async function getTransactionsAction(params: {
         take: limit,
       }),
       prisma.transaction.count({ where }),
+      // Totals across every matching row, not just the loaded page; only
+      // needed once per query so later pages skip it.
+      page === 0 ? sumByType(where) : Promise.resolve(null),
     ]);
 
     return {
@@ -80,18 +127,21 @@ export async function getTransactionsAction(params: {
         updated_at: t.updated_at.toISOString(),
       })),
       total,
+      totals,
       error: null,
     };
   } catch (error: any) {
-    return { transactions: [], total: 0, error: error.message };
+    return { transactions: [], total: 0, totals: null, error: error.message };
   }
 }
 
-export async function createTransactionAction(userId: string, data: any) {
+export async function createTransactionAction(_userId: string, data: any) {
   try {
+    const userId = await requireUserId();
+    await assertOwnsBook(userId, data.book_id);
     const transaction = await prisma.transaction.create({
       data: {
-        ...data,
+        ...stripOwnership(data),
         user_id: userId,
         amount: Number(data.amount),
         date: new Date(data.date),
@@ -106,7 +156,6 @@ export async function createTransactionAction(userId: string, data: any) {
       note: transaction.note || undefined,
     });
 
-    revalidatePath("/");
     revalidatePath(`/book/${data.book_id}`);
     return { transaction, error: null };
   } catch (error: any) {
@@ -116,14 +165,25 @@ export async function createTransactionAction(userId: string, data: any) {
 
 export async function updateTransactionAction(
   transactionId: string,
-  userId: string,
+  _userId: string,
   updates: any
 ) {
   try {
+    const userId = await requireUserId();
+    const existing = await prisma.transaction.findFirst({
+      where: { id: transactionId, user_id: userId },
+      select: { book_id: true },
+    });
+    if (!existing) throw new Error("Transaction not found");
+    // Moving a transaction is only allowed into another book the user owns
+    if (updates.book_id && updates.book_id !== existing.book_id) {
+      await assertOwnsBook(userId, updates.book_id);
+    }
+
     const transaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {
-        ...updates,
+        ...stripOwnership(updates),
         amount:
           updates.amount !== undefined ? Number(updates.amount) : undefined,
         date: updates.date !== undefined ? new Date(updates.date) : undefined,
@@ -138,7 +198,6 @@ export async function updateTransactionAction(
       category: transaction.category,
     });
 
-    revalidatePath("/");
     revalidatePath(`/book/${transaction.book_id}`);
     return { transaction, error: null };
   } catch (error: any) {
@@ -148,11 +207,12 @@ export async function updateTransactionAction(
 
 export async function deleteTransactionAction(
   transactionId: string,
-  userId: string
+  _userId: string
 ) {
   try {
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId },
+    const userId = await requireUserId();
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: transactionId, user_id: userId },
     });
 
     if (!transaction) throw new Error("Transaction not found");
@@ -167,7 +227,6 @@ export async function deleteTransactionAction(
       amount: Number(transaction.amount),
     });
 
-    revalidatePath("/");
     revalidatePath(`/book/${transaction.book_id}`);
     return { success: true, error: null };
   } catch (error: any) {
@@ -176,12 +235,20 @@ export async function deleteTransactionAction(
 }
 
 export async function importTransactionsAction(
-  userId: string,
+  _userId: string,
   transactions: any[]
 ) {
   try {
+    const userId = await requireUserId();
+    // Every target book must belong to the importer
+    const bookIds = [...new Set(transactions.map((t) => t.book_id))];
+    const owned = await prisma.book.count({
+      where: { id: { in: bookIds }, owner_id: userId },
+    });
+    if (owned !== bookIds.length) throw new Error("Book not found");
+
     const data = transactions.map((t) => ({
-      ...t,
+      ...stripOwnership(t),
       user_id: userId,
       amount: Number(t.amount),
       date: t.date ? new Date(t.date) : new Date(),
@@ -193,7 +260,7 @@ export async function importTransactionsAction(
 
     await importTransactionsNotification(userId, result.count);
 
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     return { count: result.count, error: null };
   } catch (error: any) {
     return { count: 0, error: error.message };

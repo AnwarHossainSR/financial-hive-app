@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -74,7 +75,13 @@ function LoginContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Extract redirect URL from query params
-  const redirectTo = searchParams?.get("redirect") || "/";
+  const redirectParam = searchParams?.get("redirect");
+  // Only same-site paths, so ?redirect= can't bounce users to another domain
+  const redirectTo =
+    redirectParam?.startsWith("/") && !redirectParam.startsWith("//")
+      ? redirectParam
+      : "/dashboard";
+  const initialTab = searchParams?.get("tab") === "signup" ? "signup" : "signin";
 
   // Form instances with react-hook-form
   const signInForm = useForm<SignInData>({
@@ -388,7 +395,10 @@ function LoginContent() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4 animate-in fade-in slide-in-from-bottom-5 duration-300">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
+          <Link
+            href="/"
+            className="flex items-center justify-center gap-3 mb-4 hover:opacity-80 transition-opacity"
+          >
             <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-md">
               <img
                 src="/cheque.png"
@@ -397,12 +407,12 @@ function LoginContent() {
               />
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900">CashBook</h1>
-          </div>
+          </Link>
         </div>
 
         <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
           <CardContent className="p-6">
-            <Tabs defaultValue="signin" className="w-full">
+            <Tabs defaultValue={initialTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 bg-gray-100 rounded-lg p-1">
                 <TabsTrigger
                   value="signin"

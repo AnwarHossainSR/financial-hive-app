@@ -4,6 +4,7 @@ import { BookAndMonthSelector } from "@/components/BookAndMonthSelector";
 import { CSVImport } from "@/components/CSVImport";
 import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
 import { Header } from "@/components/Header";
+import { QuickCalculator } from "@/components/QuickCalculator";
 import { QuickStats } from "@/components/QuickStats";
 import { TransactionForm } from "@/components/TransactionForm";
 import { TransactionPreview } from "@/components/TransactionPreview";
@@ -19,9 +20,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
-import { useTransactions } from "@/hooks/useTransactions";
+import {
+  useTransactionTotals,
+  useTransactions,
+} from "@/hooks/useTransactions";
 import { generateStatementReceipt } from "@/lib/receiptGenerator";
-import { getMonthDateRange } from "@/lib/utils";
+import {
+  getBangladeshTime,
+  getCurrentMonth,
+  getMonthDateRange,
+  getPreviousPeriodRange,
+} from "@/lib/utils";
 import { Book } from "@/types/book";
 import { Transaction, TransactionFilters } from "@/types/transaction";
 import { useParams, useRouter } from "next/navigation";
@@ -44,13 +53,14 @@ export default function BookDetailsPage() {
     useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAllData, setShowAllData] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [addPrefill, setAddPrefill] = useState<{
+    amount: number;
+    note: string;
+  } | null>(null);
 
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    return `${year}-${month}`;
-  });
+  // Must match usePrefetchBook, which warms this month from the dashboard
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
 
   const [filters, setFilters] = useState<TransactionFilters>({
     type: undefined,
@@ -84,6 +94,7 @@ export default function BookDetailsPage() {
     loadingMore,
     initialized: transactionsInitialized,
     pagination,
+    totals,
     createTransaction,
     updateTransaction,
     deleteTransaction,
@@ -101,35 +112,62 @@ export default function BookDetailsPage() {
           description: "The book you're looking for doesn't exist.",
           variant: "destructive",
         });
-        router.push("/");
+        router.push("/dashboard");
       }
     }
   }, [books, booksInitialized, bookId, router, toast]);
 
-  const { totalIncome, totalExpense, monthlyBudget } = useMemo(() => {
-    const income = transactions
-      .filter((t) => t.type === "income")
+  // Trends compare against last month with the same filters. Skipped for
+  // "all time" and custom date ranges, where "previous period" is undefined.
+  const previousPeriod = useMemo(
+    () =>
+      showAllData || filters.startDate || filters.endDate
+        ? null
+        : getPreviousPeriodRange(selectedMonth),
+    [showAllData, filters.startDate, filters.endDate, selectedMonth],
+  );
+  const { data: previousTotals } = useTransactionTotals(
+    {
+      ...filters,
+      bookId,
+      search: searchQuery,
+      startDate: previousPeriod?.startDate,
+      endDate: previousPeriod?.endDate,
+    },
+    !!previousPeriod && !!bookId,
+  );
+
+  // Server-side sums over every matching row, not just the loaded pages
+  const totalIncome = totals.income;
+  const totalExpense = totals.expense;
+  const monthlyBudget =
+    selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
+      ?.amount || 5000;
+
+  // Today's recorded expense, for checking against the calculator tape. Only
+  // reliable when the list is the unfiltered current month.
+  const recordedToday = useMemo(() => {
+    const today = getBangladeshTime().slice(0, 10);
+    const isUnfilteredCurrentMonth =
+      !showAllData &&
+      selectedMonth === today.slice(0, 7) &&
+      !searchQuery &&
+      !Object.values(filters).some(Boolean);
+    if (!isUnfilteredCurrentMonth) return undefined;
+    return transactions
+      .filter(
+        (t) =>
+          t.type === "expense" &&
+          getBangladeshTime(t.date).slice(0, 10) === today,
+      )
       .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    const expense = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    const monthlyBudget =
-      selectedBook?.monthly_budgets?.find((b) => b.month === selectedMonth)
-        ?.amount || 5000;
-
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      monthlyBudget,
-    };
-  }, [transactions, selectedBook, selectedMonth]);
+  }, [transactions, showAllData, selectedMonth, searchQuery, filters]);
 
   const handleAddTransaction = async (newTransaction: any) => {
     const { error } = await createTransaction(newTransaction);
     if (!error) {
       setShowAddForm(false);
+      setAddPrefill(null);
       toast({
         title: "Transaction Added",
         description: "Your transaction was successfully added.",
@@ -203,9 +241,14 @@ export default function BookDetailsPage() {
     }
 
     try {
+      // Sum the rows actually exported so the PDF totals match its table
+      const sumOf = (type: Transaction["type"]) =>
+        transactions
+          .filter((t) => t.type === type)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
       const stats = {
-        income: totalIncome,
-        expense: totalExpense,
+        income: sumOf("income"),
+        expense: sumOf("expense"),
         count: transactions.length,
       };
 
@@ -297,7 +340,7 @@ export default function BookDetailsPage() {
         <BookAndMonthSelector
           selectedBook={selectedBook}
           onSelectBook={(book) =>
-            book ? router.push(`/book/${book.id}`) : router.push("/")
+            book ? router.push(`/book/${book.id}`) : router.push("/dashboard")
           }
           selectedMonth={selectedMonth}
           onSelectMonth={handleMonthChange}
@@ -312,6 +355,12 @@ export default function BookDetailsPage() {
             monthlyExpense={totalExpense}
             transactionCount={pagination.totalCount}
             monthlyBudget={monthlyBudget}
+            periodLabel={showAllData ? "All time" : "This month"}
+            previous={
+              previousPeriod && previousTotals
+                ? { ...previousTotals, label: previousPeriod.label }
+                : undefined
+            }
           />
         )}
 
@@ -333,13 +382,20 @@ export default function BookDetailsPage() {
             onFilterChange={setFilters}
             onEditTransaction={handleEditTransaction}
             onExportPDF={handleExportPDF}
+            onOpenCalculator={() => setShowCalculator(true)}
             showEditForm={showEditForm}
             setShowEditForm={setShowEditForm}
           />
         )}
       </main>
 
-      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+      <Dialog
+        open={showAddForm}
+        onOpenChange={(open) => {
+          setShowAddForm(open);
+          if (!open) setAddPrefill(null);
+        }}
+      >
         <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
           <DialogHeader className="hidden sm:block">
             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent ">
@@ -354,10 +410,27 @@ export default function BookDetailsPage() {
           <TransactionForm
             bookId={bookId || ""}
             onSubmit={handleAddTransaction}
-            onCancel={() => setShowAddForm(false)}
+            onCancel={() => {
+              setShowAddForm(false);
+              setAddPrefill(null);
+            }}
+            initialAmount={addPrefill?.amount}
+            initialNote={addPrefill?.note}
           />
         </DialogContent>
       </Dialog>
+
+      <QuickCalculator
+        open={showCalculator}
+        onOpenChange={setShowCalculator}
+        storageKey={`calc-tape:${bookId}`}
+        recordedToday={recordedToday}
+        onUseTotal={(amount, note) => {
+          setAddPrefill({ amount, note });
+          setShowCalculator(false);
+          setShowAddForm(true);
+        }}
+      />
 
       <CSVImport
         open={showImportDialog}

@@ -232,7 +232,7 @@ export default function PlatformDetailsPage() {
           The platform you are looking for does not exist or you do not have
           permission to view it.
         </p>
-        <Link href="/">
+        <Link href="/dashboard">
           <Button variant="ghost" className="mt-4">
             Back to Home
           </Button>
@@ -246,7 +246,7 @@ export default function PlatformDetailsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/">
+          <Link href="/dashboard">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>

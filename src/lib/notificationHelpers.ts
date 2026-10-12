@@ -1,4 +1,6 @@
-"use server";
+// Server-only helpers, called from server actions after they have verified
+// the user. Deliberately NOT "use server": that would expose each helper as a
+// public endpoint that could create notifications for any user id.
 
 // Helper functions to create notifications for different events
 // Import these into your transaction and book hooks

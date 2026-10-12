@@ -1,3 +1,4 @@
+import { CategoryTags } from "@/components/CategoryTags";
 import { Transaction } from "@/types/transaction";
 
 export const TransactionPreview = ({
@@ -21,9 +22,11 @@ export const TransactionPreview = ({
             {isIncome ? "+" : "-"}৳
             {Math.abs(transaction.amount).toLocaleString()}
           </span>
-          <span className="text-sm bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-full text-gray-700 dark:text-gray-300">
-            {transaction.category}
-          </span>
+          <CategoryTags
+            category={transaction.category}
+            type={transaction.type}
+            className="flex-wrap"
+          />
         </div>
         {transaction.note && (
           <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
