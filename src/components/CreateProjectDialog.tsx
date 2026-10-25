@@ -13,9 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/hooks/useAuth";
 import { useInvestmentProjects } from "@/hooks/useInvestmentProjects";
-import { useRouter } from "next/navigation";
+import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export function CreateProjectDialog({
@@ -28,60 +27,91 @@ export function CreateProjectDialog({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // The hook's mutation shows the success/error toast and refreshes lists
   const { createProject } = useInvestmentProjects();
-  const { user } = useAuth();
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!name.trim()) return;
 
-    await createProject({
-      name,
-      description,
-      platform_id: platformId,
-    });
-
-    setOpen(false);
-    setName("");
-    setDescription("");
-    router.refresh();
+    setIsSubmitting(true);
+    try {
+      await createProject({
+        name: name.trim(),
+        description: description.trim(),
+        platform_id: platformId,
+      });
+      setOpen(false);
+      setName("");
+      setDescription("");
+    } catch {
+      // Toast already shown by the mutation; keep the form filled in
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create Investment Project</DialogTitle>
-            <DialogDescription>
-              Create a new project to track your investments effectively.
-            </DialogDescription>
+      <DialogContent className="max-w-md rounded-2xl bg-card p-6 sm:rounded-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <DialogHeader className="items-start space-y-3 text-left">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FolderPlus className="h-5 w-5" />
+            </span>
+            <div className="space-y-1">
+              <DialogTitle>New project</DialogTitle>
+              <DialogDescription>
+                A project holds the individual investment entries you make
+                in it.
+              </DialogDescription>
+            </div>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Project Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Learner Project"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief details about this investment..."
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="project-name">Name</Label>
+            <Input
+              id="project-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Cattle batch 4"
+              className="h-11 rounded-xl"
+              autoComplete="off"
+              required
+            />
           </div>
-          <DialogFooter>
-            <Button type="submit">Create Project</Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="project-description">
+              Description{" "}
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea
+              id="project-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Terms, contacts, anything worth remembering"
+              rows={3}
+              className="resize-none rounded-xl"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting || !name.trim()}
+              className="rounded-xl"
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create project
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { Layers, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -28,47 +29,38 @@ export function CreatePlatformDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🟡 CreatePlatformDialog handleSubmit called");
-    if (!name || !user?.id) {
-      console.log("❌ Missing name or user ID:", { name, userId: user?.id });
-      return;
-    }
+    if (!name.trim()) return;
 
     setIsLoading(true);
     try {
-      console.log("📤 Calling createIsolatedInvestmentPlatformAction with:", {
-        name,
-        description,
-      });
       const { platform, error } = await createIsolatedInvestmentPlatformAction(
-        user.id,
-        {
-          name,
-          description,
-        },
+        "",
+        { name: name.trim(), description: description.trim() },
       );
+      if (error || !platform) throw new Error(error ?? "Could not create platform");
 
-      if (error) throw new Error(error);
-
+      // The platform lists are React Query data, so refresh them directly
+      await queryClient.invalidateQueries({
+        queryKey: ["investment-platforms"],
+      });
       toast({
         title: "Platform created",
-        description: "Investment platform has been created successfully.",
+        description: `${platform.name} is ready for its first project.`,
       });
 
       setOpen(false);
       setName("");
       setDescription("");
-      router.refresh();
+      router.push(`/investments/platforms/${platform.id}`);
     } catch (error: any) {
-      console.error("❌ CreatePlatformDialog error:", error);
       toast({
-        title: "Error",
+        title: "Couldn't create platform",
         description: error.message,
         variant: "destructive",
       });
@@ -80,39 +72,62 @@ export function CreatePlatformDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create Investment Platform</DialogTitle>
-            <DialogDescription>
-              Create a new platform (e.g., i-Farmer, WeGrow) to categorize your
-              projects.
-            </DialogDescription>
+      <DialogContent className="max-w-md rounded-2xl bg-card p-6 sm:rounded-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <DialogHeader className="items-start space-y-3 text-left">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Layers className="h-5 w-5" />
+            </span>
+            <div className="space-y-1">
+              <DialogTitle>New investment platform</DialogTitle>
+              <DialogDescription>
+                A platform groups the projects you invest in through one
+                provider, e.g. i-Farmer or WeGrow.
+              </DialogDescription>
+            </div>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Platform Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., i-Farmer"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief details about this platform..."
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="platform-name">Name</Label>
+            <Input
+              id="platform-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. i-Farmer"
+              className="h-11 rounded-xl"
+              autoComplete="off"
+              required
+            />
           </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Creating..." : "Create Platform"}
+          <div className="space-y-1.5">
+            <Label htmlFor="platform-description">
+              Description{" "}
+              <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea
+              id="platform-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Anything worth remembering about this platform"
+              rows={3}
+              className="resize-none rounded-xl"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isLoading || !name.trim()}
+              className="rounded-xl"
+            >
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create platform
             </Button>
           </DialogFooter>
         </form>

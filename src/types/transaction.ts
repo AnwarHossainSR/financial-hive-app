@@ -12,6 +12,17 @@ export interface Transaction {
   updated_at: string;
 }
 
+/** What the add/edit transaction form submits */
+export interface TransactionFormValues {
+  book_id: string;
+  type: "income" | "expense";
+  amount: number;
+  category: string;
+  /** null clears an existing note when editing */
+  note?: string | null;
+  date: Date;
+}
+
 export interface PaginationInfo {
   currentPage: number;
   totalPages: number;
@@ -35,18 +46,15 @@ export interface TransactionsSectionProps {
   transactions: Transaction[];
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
+  /** Filters other than search; the section edits them via its filter UI */
+  filters: TransactionFilters;
+  onFilterChange: (filters: TransactionFilters) => void;
   onDeleteTransaction: (transaction: Transaction) => void;
+  onEditTransaction: (transaction: Transaction) => void;
   onAddTransaction: () => void;
-  onImportCSV: () => void;
   canAddTransaction: boolean;
   pagination: PaginationInfo;
   onLoadMore: () => void;
   loadingMore: boolean;
   loading: boolean;
-  onFilterChange: (filters: TransactionFilters) => void;
-  onEditTransaction: (transaction: Transaction) => void;
-  onExportPDF: () => void;
-  onOpenCalculator?: () => void;
-  showEditForm?: boolean;
-  setShowEditForm?: (show: boolean) => void;
 }

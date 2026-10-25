@@ -1,5 +1,6 @@
 import { HeroTape } from "@/components/landing/HeroTape";
 import { SignedInRedirect } from "@/components/landing/SignedInRedirect";
+import { BrandMark } from "@/components/shell/BrandMark";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -61,10 +62,7 @@ export default function LandingPage() {
           href="/"
           className={cn("flex items-center gap-2.5 rounded-lg", focusRing)}
         >
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-[#3B5BFD] to-[#7C4DFF]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cheque.png" alt="" className="h-5 w-5" />
-          </span>
+          <BrandMark />
           <span className="text-lg font-bold tracking-tight [font-family:var(--font-display)]">
             Financial Hive
           </span>

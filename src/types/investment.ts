@@ -13,6 +13,18 @@ export interface InvestmentPlatform {
   };
 }
 
+/** Per-project figures included with each platform in platform lists */
+export interface PlatformProjectSummary {
+  total_investment?: number;
+  total_profit_loss?: number;
+  remaining_capital?: number;
+  status?: string;
+}
+
+export interface PlatformWithProjects extends InvestmentPlatform {
+  projects?: PlatformProjectSummary[];
+}
+
 export interface InvestmentProject {
   id: string;
   user_id: string;

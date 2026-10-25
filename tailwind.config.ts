@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss";
+import type { PluginAPI } from "tailwindcss/types/config";
 import tailwindAnimate from "tailwindcss-animate";
+import defaultTheme from "tailwindcss/defaultTheme";
 
 export default {
   darkMode: ["class"],
@@ -19,6 +21,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-geist-sans)", ...defaultTheme.fontFamily.sans],
+        mono: ["var(--font-geist-mono)", ...defaultTheme.fontFamily.mono],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -89,6 +95,8 @@ export default {
       },
       boxShadow: {
         card: "var(--shadow-card)",
+        elevated: "var(--shadow-elevated)",
+        primary: "var(--shadow-primary)",
         income: "var(--shadow-income)",
         expense: "var(--shadow-expense)",
       },
@@ -165,7 +173,7 @@ export default {
   },
   plugins: [
     tailwindAnimate,
-    function ({ addUtilities }) {
+    function ({ addUtilities }: PluginAPI) {
       addUtilities({
         ".scrollbar-hide": {
           /* IE and Edge */

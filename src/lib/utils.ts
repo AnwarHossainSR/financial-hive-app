@@ -96,6 +96,25 @@ export const getMonthDateRange = (monthString: string) => {
 };
 
 /**
+ * The `count` months ending with `endMonth` ("YYYY-MM"), oldest first, with
+ * each month's date range for querying.
+ */
+export const getRecentMonths = (count: number, endMonth = getCurrentMonth()) => {
+  const [year, month] = endMonth.split("-").map(Number);
+  const end = new Date(year, month - 1);
+  return Array.from({ length: count }, (_, i) => {
+    const date = subMonths(end, count - 1 - i);
+    const value = format(date, "yyyy-MM");
+    return {
+      month: value,
+      label: format(date, "MMM"),
+      longLabel: format(date, "MMMM yyyy"),
+      ...getMonthDateRange(value),
+    };
+  });
+};
+
+/**
  * The period to compare a month against for trends. For the current month it's
  * the same days of last month (Sep 1–12 vs Oct 1–12), so a half-finished month
  * isn't measured against a full one. For past months it's the whole prior month.
@@ -123,13 +142,24 @@ export const getPreviousPeriodRange = (monthString: string) => {
   };
 };
 
-export const formatCurrency = (amount: number | string) => {
-  const numericAmount =
-    typeof amount === "string" ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat("en-BD", {
-    style: "currency",
-    currency: "BDT",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(numericAmount);
+/**
+ * "৳1,234.5". `signed` prefixes "+" on positive values; negatives always get
+ * a minus. `compact` gives "৳12.5K" for tight spaces like chart axes.
+ */
+export const formatTaka = (
+  amount: number | string,
+  { signed = false, compact = false } = {},
+) => {
+  const value = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (!Number.isFinite(value)) return "৳0";
+  const digits = Math.abs(value).toLocaleString("en-US", {
+    maximumFractionDigits: compact ? 1 : 2,
+    ...(compact && { notation: "compact" }),
+  });
+  const sign = value < 0 ? "−" : signed && value > 0 ? "+" : "";
+  return `${sign}৳${digits}`;
 };
+
+// Intl's BDT output differs by runtime ("BDT 1,000" vs "৳1,000"), so use the
+// same ৳ formatting as the rest of the app.
+export const formatCurrency = (amount: number | string) => formatTaka(amount);

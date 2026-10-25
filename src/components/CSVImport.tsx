@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -7,19 +6,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Book } from "@/hooks/useBooks";
 import { useTransactions } from "@/hooks/useTransactions";
-import { AlertCircle, CheckCircle, FileText, Upload, X } from "lucide-react";
+import {
+  cn,
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  joinCategories,
+  parseCategories,
+} from "@/lib/utils";
+import {
+  AlertCircle,
+  Check,
+  FileSpreadsheet,
+  Loader2,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import Papa from "papaparse";
 import { useCallback, useState } from "react";
 
@@ -42,22 +56,52 @@ interface MappedTransaction {
   book_id: string;
 }
 
-const TRANSACTION_CATEGORIES = [
-  "Food & Dining",
-  "Transportation",
-  "Shopping",
-  "Entertainment",
-  "Bills & Utilities",
-  "Healthcare",
-  "Travel",
-  "Education",
-  "Business",
-  "Investment",
-  "Income",
-  "Transfer",
-  "Marriage",
-  "Other",
-];
+// Values older imports accepted that aren't in either category list; kept so
+// re-importing an old export doesn't change how those rows are categorized.
+const LEGACY_IMPORT_CATEGORIES = ["Income", "Transfer"];
+
+// Canonical spelling by lowercase name, so "salary" or "SALARY" in a CSV maps
+// to "Salary" instead of silently falling back to the default category.
+const KNOWN_CATEGORIES = new Map(
+  [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES, ...LEGACY_IMPORT_CATEGORIES].map(
+    (c) => [c.toLowerCase(), c],
+  ),
+);
+
+const categoriesForType = (type: "income" | "expense") =>
+  type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+/**
+ * The default category only applies to rows of its own type: an income row
+ * with the (expense) default "Other" becomes "Other Income" instead.
+ */
+const fallbackCategory = (
+  defaultCategory: string,
+  type: "income" | "expense",
+) => {
+  const belongsToType = categoriesForType(type).includes(defaultCategory);
+  const belongsToOther = categoriesForType(
+    type === "income" ? "expense" : "income",
+  ).includes(defaultCategory);
+  if (belongsToType || !belongsToOther) return defaultCategory;
+  return type === "income" ? "Other Income" : "Other";
+};
+
+const STEPS = [
+  { id: "upload", label: "Upload" },
+  { id: "map", label: "Map columns" },
+  { id: "preview", label: "Review" },
+] as const;
+
+type Step = "upload" | "map" | "preview" | "importing";
+
+const EMPTY_MAPPING = {
+  date: "none",
+  amount: "none",
+  description: "none",
+  type: "none",
+  category: "none",
+};
 
 export const CSVImport = ({
   open,
@@ -70,20 +114,12 @@ export const CSVImport = ({
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<ParsedRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [mapping, setMapping] = useState({
-    date: "none",
-    amount: "none",
-    description: "none",
-    type: "none",
-    category: "none",
-  });
+  const [mapping, setMapping] = useState(EMPTY_MAPPING);
   const [defaultType, setDefaultType] = useState<"income" | "expense">(
-    "expense"
+    "expense",
   );
   const [defaultCategory, setDefaultCategory] = useState("Other");
-  const [step, setStep] = useState<"upload" | "map" | "preview" | "importing">(
-    "upload"
-  );
+  const [step, setStep] = useState<Step>("upload");
   const [previewData, setPreviewData] = useState<MappedTransaction[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -91,13 +127,7 @@ export const CSVImport = ({
     setFile(null);
     setCsvData([]);
     setHeaders([]);
-    setMapping({
-      date: "none",
-      amount: "none",
-      description: "none",
-      type: "none",
-      category: "none",
-    });
+    setMapping(EMPTY_MAPPING);
     setStep("upload");
     setPreviewData([]);
     setErrors([]);
@@ -146,29 +176,31 @@ export const CSVImport = ({
           const autoMapping = {
             date:
               csvHeaders.find((_, i) =>
-                /^(date|transaction_date|trans_date|dt)$/i.test(lowerHeaders[i])
+                /^(date|transaction_date|trans_date|dt)$/i.test(
+                  lowerHeaders[i],
+                ),
               ) || "none",
             amount:
               csvHeaders.find((_, i) =>
                 /^(cash in|cash out|amount|amt|value|sum|total)$/i.test(
-                  lowerHeaders[i]
-                )
+                  lowerHeaders[i],
+                ),
               ) || "none",
             description:
               csvHeaders.find((_, i) =>
                 /^(remark|description|desc|note|memo|details|transaction|reference)$/i.test(
-                  lowerHeaders[i]
-                )
+                  lowerHeaders[i],
+                ),
               ) || "none",
             type:
               csvHeaders.find((_, i) =>
                 /^(type|transaction_type|trans_type|debit_credit|cash in|cash out)$/i.test(
-                  lowerHeaders[i]
-                )
+                  lowerHeaders[i],
+                ),
               ) || "none",
             category:
               csvHeaders.find((_, i) =>
-                /^(category|cat|classification)$/i.test(lowerHeaders[i])
+                /^(category|cat|classification)$/i.test(lowerHeaders[i]),
               ) || "none",
           };
 
@@ -183,7 +215,7 @@ export const CSVImport = ({
         },
       });
     },
-    [toast]
+    [toast],
   );
 
   const generatePreview = () => {
@@ -213,10 +245,10 @@ export const CSVImport = ({
 
         // Check if we have Cash In/Cash Out columns
         const cashInCol = headers.find((h) =>
-          h.toLowerCase().includes("cash in")
+          h.toLowerCase().includes("cash in"),
         );
         const cashOutCol = headers.find((h) =>
-          h.toLowerCase().includes("cash out")
+          h.toLowerCase().includes("cash out"),
         );
 
         if (cashInCol && cashOutCol) {
@@ -234,7 +266,9 @@ export const CSVImport = ({
             return;
           }
         } else if (mapping.amount !== "none" && row[mapping.amount]) {
-          const amountStr = row[mapping.amount].trim().replace(/[^0-9.-]/g, "");
+          const amountStr = row[mapping.amount]
+            .trim()
+            .replace(/[^0-9.-]/g, "");
           amount = parseFloat(amountStr);
           if (isNaN(amount) || amount <= 0) {
             validationErrors.push(`Row ${index + 1}: Invalid amount`);
@@ -265,14 +299,19 @@ export const CSVImport = ({
           return;
         }
 
-        // Get category
-        let category = defaultCategory;
-        if (mapping.category !== "none" && row[mapping.category]) {
-          const csvCategory = row[mapping.category].trim();
-          if (TRANSACTION_CATEGORIES.includes(csvCategory)) {
-            category = csvCategory;
-          }
-        }
+        // Category cells may hold several names ("Salary, Bonus"); keep the
+        // ones we recognize, in canonical spelling.
+        const matched =
+          mapping.category !== "none" && row[mapping.category]
+            ? parseCategories(row[mapping.category]).flatMap((c) => {
+                const known = KNOWN_CATEGORIES.get(c.toLowerCase());
+                return known ? [known] : [];
+              })
+            : [];
+        const category =
+          matched.length > 0
+            ? joinCategories(matched)
+            : fallbackCategory(defaultCategory, type);
 
         // Get description/note
         const note =
@@ -303,13 +342,10 @@ export const CSVImport = ({
 
     setStep("importing");
 
+    // The mutation shows the success/error toast
     const { error } = await importTransactions(previewData);
 
     if (!error) {
-      toast({
-        title: "Import successful",
-        description: `Successfully imported ${previewData.length} transactions.`,
-      });
       onOpenChange(false);
       resetState();
     } else {
@@ -322,217 +358,167 @@ export const CSVImport = ({
     resetState();
   };
 
+  const activeStepIndex =
+    step === "importing" ? 2 : STEPS.findIndex((s) => s.id === step);
+
+  const columnSelect = (
+    field: keyof typeof EMPTY_MAPPING,
+    label: string,
+    noneLabel: string,
+  ) => (
+    <div className="space-y-1.5">
+      <Label htmlFor={`${field}-mapping`} className="text-xs font-medium">
+        {label}
+      </Label>
+      <Select
+        value={mapping[field]}
+        onValueChange={(value) =>
+          setMapping((prev) => ({ ...prev, [field]: value }))
+        }
+      >
+        <SelectTrigger id={`${field}-mapping`} className="h-10 rounded-xl">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">{noneLabel}</SelectItem>
+          {headers.map((header) => (
+            <SelectItem key={header} value={header}>
+              {header}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Import Transactions from CSV</DialogTitle>
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-3xl gap-0 overflow-y-auto rounded-2xl bg-card p-0 sm:w-full sm:rounded-2xl">
+        <DialogHeader className="space-y-1 border-b px-6 pb-4 pr-12 pt-6 text-left">
+          <DialogTitle className="text-lg font-semibold">
+            Import transactions
+          </DialogTitle>
           <DialogDescription>
             {!selectedBook
-              ? "Please select a book before importing transactions."
-              : `Import transactions into "${selectedBook.name}"`}
+              ? "Open a book before importing transactions."
+              : `Bring a CSV export into “${selectedBook.name}”.`}
           </DialogDescription>
+          {selectedBook && (
+            <ol className="flex items-center gap-2 pt-3">
+              {STEPS.map((s, i) => (
+                <li key={s.id} className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold",
+                      i < activeStepIndex
+                        ? "bg-primary text-primary-foreground"
+                        : i === activeStepIndex
+                          ? "bg-primary/10 text-primary ring-1 ring-primary/40"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {i < activeStepIndex ? <Check className="h-3 w-3" /> : i + 1}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-xs font-medium",
+                      i === activeStepIndex
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {s.label}
+                  </span>
+                  {i < STEPS.length - 1 && (
+                    <span className="mx-1 h-px w-6 bg-border sm:w-10" />
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </DialogHeader>
 
-        {!selectedBook ? (
-          <Card>
-            <CardContent className="py-8">
-              <div className="text-center">
-                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">
-                  Please select a book first
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {/* Step 1: Upload */}
-            {step === "upload" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="w-5 h-5" />
-                    Upload CSV File
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                    <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <Label htmlFor="csv-upload" className="cursor-pointer">
-                      <span className="text-lg font-medium">
-                        Choose CSV file
-                      </span>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Supports comma, tab, pipe, or semicolon delimited files
-                      </p>
-                    </Label>
-                    <Input
+        <div className="px-6 pb-6 pt-5">
+          {!selectedBook ? (
+            <div className="flex flex-col items-center py-10 text-center">
+              <AlertCircle className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                Please open a book first.
+              </p>
+            </div>
+          ) : (
+            <>
+              {step === "upload" && (
+                <div className="space-y-4">
+                  <label
+                    htmlFor="csv-upload"
+                    className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/40 px-6 py-12 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-transform group-hover:-translate-y-0.5">
+                      <UploadCloud className="h-6 w-6" />
+                    </span>
+                    <span className="text-sm font-semibold">
+                      Choose a CSV file
+                    </span>
+                    <span className="mt-1 text-xs text-muted-foreground">
+                      Comma, tab, pipe or semicolon delimited
+                    </span>
+                    <input
                       id="csv-upload"
                       type="file"
                       accept=".csv"
                       onChange={handleFileUpload}
-                      className="hidden"
+                      className="sr-only"
                     />
-                  </div>
+                  </label>
                   {file && (
-                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                      <FileText className="w-4 h-4" />
-                      <span className="text-sm">{file.name}</span>
+                    <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5">
+                      <FileSpreadsheet className="h-4 w-4 text-primary" />
+                      <span className="truncate text-sm">{file.name}</span>
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon"
+                        aria-label="Remove file"
                         onClick={() => setFile(null)}
-                        className="ml-auto"
+                        className="ml-auto h-7 w-7"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            {/* Step 2: Map Columns */}
-            {step === "map" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Map CSV Columns</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Match your CSV columns to transaction fields. Required
-                    fields are marked with *
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {step === "map" && (
+                <div className="space-y-6">
+                  <section className="space-y-3">
                     <div>
-                      <Label htmlFor="date-mapping">Date</Label>
-                      <Select
-                        value={mapping.date}
-                        onValueChange={(value) =>
-                          setMapping((prev) => ({ ...prev, date: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select date column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">-- Skip --</SelectItem>
-                          {headers.map((header) => (
-                            <SelectItem key={header} value={header}>
-                              {header}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <h4 className="text-sm font-semibold">Columns</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Match your file&apos;s columns to transaction fields.
+                      </p>
                     </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {columnSelect("amount", "Amount *", "— Select required —")}
+                      {columnSelect("date", "Date", "— Use today —")}
+                      {columnSelect("description", "Note", "— Skip —")}
+                      {columnSelect("type", "Type", "— Use default —")}
+                      {columnSelect("category", "Category", "— Use default —")}
+                    </div>
+                  </section>
 
+                  <section className="space-y-3 rounded-2xl bg-muted/40 p-4">
                     <div>
-                      <Label htmlFor="amount-mapping">Amount *</Label>
-                      <Select
-                        value={mapping.amount}
-                        onValueChange={(value) =>
-                          setMapping((prev) => ({ ...prev, amount: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select amount column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            -- Select Required --
-                          </SelectItem>
-                          {headers.map((header) => (
-                            <SelectItem key={header} value={header}>
-                              {header}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <h4 className="text-sm font-semibold">Defaults</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Used when a row has no type or an unrecognized
+                        category. Income rows never get an expense default.
+                      </p>
                     </div>
-
-                    <div>
-                      <Label htmlFor="description-mapping">
-                        Description/Note
-                      </Label>
-                      <Select
-                        value={mapping.description}
-                        onValueChange={(value) =>
-                          setMapping((prev) => ({
-                            ...prev,
-                            description: value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select description column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">-- Skip --</SelectItem>
-                          {headers.map((header) => (
-                            <SelectItem key={header} value={header}>
-                              {header}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="type-mapping">Transaction Type</Label>
-                      <Select
-                        value={mapping.type}
-                        onValueChange={(value) =>
-                          setMapping((prev) => ({ ...prev, type: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            -- Use default --
-                          </SelectItem>
-                          {headers.map((header) => (
-                            <SelectItem key={header} value={header}>
-                              {header}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="category-mapping">Category</Label>
-                      <Select
-                        value={mapping.category}
-                        onValueChange={(value) =>
-                          setMapping((prev) => ({ ...prev, category: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category column" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            -- Use default --
-                          </SelectItem>
-                          {headers.map((header) => (
-                            <SelectItem key={header} value={header}>
-                              {header}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4 space-y-4">
-                    <h4 className="font-medium">Default Values</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="default-type">
-                          Default Transaction Type
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="default-type" className="text-xs">
+                          Type
                         </Label>
                         <Select
                           value={defaultType}
@@ -540,7 +526,10 @@ export const CSVImport = ({
                             setDefaultType(value)
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            id="default-type"
+                            className="h-10 rounded-xl bg-background"
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -549,59 +538,71 @@ export const CSVImport = ({
                           </SelectContent>
                         </Select>
                       </div>
-
-                      <div>
-                        <Label htmlFor="default-category">
-                          Default Category
+                      <div className="space-y-1.5">
+                        <Label htmlFor="default-category" className="text-xs">
+                          Category
                         </Label>
                         <Select
                           value={defaultCategory}
                           onValueChange={setDefaultCategory}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            id="default-category"
+                            className="h-10 rounded-xl bg-background"
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {TRANSACTION_CATEGORIES.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
-                              </SelectItem>
-                            ))}
+                            <SelectGroup>
+                              <SelectLabel>Income</SelectLabel>
+                              {INCOME_CATEGORIES.map((category) => (
+                                <SelectItem key={category} value={category}>
+                                  {category}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                            <SelectGroup>
+                              <SelectLabel>Expense</SelectLabel>
+                              {EXPENSE_CATEGORIES.map((category) => (
+                                <SelectItem key={category} value={category}>
+                                  {category}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
-                  </div>
+                  </section>
 
-                  {/* Sample Data Preview */}
                   {csvData.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-medium mb-2">
-                        Sample Data (First 3 rows)
+                    <section className="space-y-2">
+                      <h4 className="text-sm font-semibold">
+                        First rows of your file
                       </h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm border-collapse border border-muted">
-                          <thead>
-                            <tr className="bg-muted/50">
+                      <div className="overflow-x-auto rounded-xl border">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/60 text-muted-foreground">
+                            <tr>
                               {headers.map((header) => (
                                 <th
                                   key={header}
-                                  className="border border-muted px-2 py-1 text-left"
+                                  className="whitespace-nowrap px-3 py-2 text-left font-medium"
                                 >
                                   {header}
                                 </th>
                               ))}
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="divide-y">
                             {csvData.slice(0, 3).map((row, index) => (
                               <tr key={index}>
                                 {headers.map((header) => (
                                   <td
                                     key={header}
-                                    className="border border-muted px-2 py-1"
+                                    className="whitespace-nowrap px-3 py-2"
                                   >
-                                    {row[header] || "--"}
+                                    {row[header] || "—"}
                                   </td>
                                 ))}
                               </tr>
@@ -609,154 +610,146 @@ export const CSVImport = ({
                           </tbody>
                         </table>
                       </div>
-                    </div>
+                    </section>
                   )}
 
-                  <div className="flex justify-between pt-4">
-                    <Button variant="outline" onClick={() => setStep("upload")}>
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setStep("upload")}
+                      className="rounded-xl"
+                    >
                       Back
                     </Button>
                     <Button
                       onClick={generatePreview}
                       disabled={mapping.amount === "none"}
+                      className="rounded-xl"
                     >
-                      Preview Import
+                      Preview import
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            {/* Step 3: Preview */}
-            {step === "preview" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5" />
-                    Import Preview
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Review {previewData.length} transactions to be imported
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              {step === "preview" && (
+                <div className="space-y-5">
                   {errors.length > 0 && (
-                    <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                        <span className="font-medium text-red-600">
-                          Import Errors
-                        </span>
+                    <div className="rounded-xl border border-expense/30 bg-expense/5 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-expense">
+                        <AlertCircle className="h-4 w-4" />
+                        {errors.length} row{errors.length === 1 ? "" : "s"}{" "}
+                        need attention
                       </div>
-                      <ul className="text-sm text-red-600 space-y-1">
+                      <ul className="space-y-1 text-xs text-expense">
                         {errors.slice(0, 10).map((error, index) => (
                           <li key={index}>• {error}</li>
                         ))}
                         {errors.length > 10 && (
-                          <li>• ... and {errors.length - 10} more errors</li>
+                          <li>• … and {errors.length - 10} more</li>
                         )}
                       </ul>
                     </div>
                   )}
 
                   {previewData.length > 0 && (
-                    <div>
-                      <h4 className="font-medium mb-2">
-                        Transactions to Import (First 10)
+                    <section className="space-y-2">
+                      <h4 className="text-sm font-semibold">
+                        {previewData.length} transaction
+                        {previewData.length === 1 ? "" : "s"} ready
+                        {previewData.length > 10 && (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            · showing first 10
+                          </span>
+                        )}
                       </h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm border-collapse border border-muted">
-                          <thead>
-                            <tr className="bg-muted/50">
-                              <th className="border border-muted px-2 py-1 text-left">
-                                Date
-                              </th>
-                              <th className="border border-muted px-2 py-1 text-left">
-                                Type
-                              </th>
-                              <th className="border border-muted px-2 py-1 text-left">
-                                Amount
-                              </th>
-                              <th className="border border-muted px-2 py-1 text-left">
-                                Category
-                              </th>
-                              <th className="border border-muted px-2 py-1 text-left">
-                                Note
-                              </th>
+                      <div className="overflow-x-auto rounded-xl border">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/60 text-muted-foreground">
+                            <tr>
+                              {["Date", "Type", "Amount", "Category", "Note"].map(
+                                (h) => (
+                                  <th
+                                    key={h}
+                                    className={cn(
+                                      "whitespace-nowrap px-3 py-2 text-left font-medium",
+                                      h === "Amount" && "text-right",
+                                    )}
+                                  >
+                                    {h}
+                                  </th>
+                                ),
+                              )}
                             </tr>
                           </thead>
-                          <tbody>
-                            {previewData
-                              .slice(0, 10)
-                              .map((transaction, index) => (
-                                <tr key={index}>
-                                  <td className="border border-muted px-2 py-1">
-                                    {transaction.date}
-                                  </td>
-                                  <td className="border border-muted px-2 py-1">
-                                    <span
-                                      className={`px-2 py-1 rounded text-xs ${
-                                        transaction.type === "income"
-                                          ? "bg-green-100 text-green-700"
-                                          : "bg-red-100 text-red-700"
-                                      }`}
-                                    >
-                                      {transaction.type}
-                                    </span>
-                                  </td>
-                                  <td className="border border-muted px-2 py-1">
-                                    ৳{transaction.amount.toFixed(2)}
-                                  </td>
-                                  <td className="border border-muted px-2 py-1">
-                                    {transaction.category}
-                                  </td>
-                                  <td className="border border-muted px-2 py-1">
-                                    {transaction.note || "--"}
-                                  </td>
-                                </tr>
-                              ))}
+                          <tbody className="divide-y">
+                            {previewData.slice(0, 10).map((t, index) => (
+                              <tr key={index}>
+                                <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                                  {t.date}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-[11px] font-medium capitalize",
+                                      t.type === "income"
+                                        ? "bg-income/10 text-income"
+                                        : "bg-expense/10 text-expense",
+                                    )}
+                                  >
+                                    {t.type}
+                                  </span>
+                                </td>
+                                <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums">
+                                  ৳{t.amount.toLocaleString("en-US")}
+                                </td>
+                                <td className="px-3 py-2">{t.category}</td>
+                                <td className="max-w-[200px] truncate px-3 py-2 text-muted-foreground">
+                                  {t.note || "—"}
+                                </td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>
-                      {previewData.length > 10 && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          ... and {previewData.length - 10} more transactions
-                        </p>
-                      )}
-                    </div>
+                    </section>
                   )}
 
-                  <div className="flex justify-between pt-4">
-                    <Button variant="outline" onClick={() => setStep("map")}>
-                      Back to Mapping
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setStep("map")}
+                      className="rounded-xl"
+                    >
+                      Back to mapping
                     </Button>
                     <Button
                       onClick={handleImport}
                       disabled={previewData.length === 0 || errors.length > 0}
+                      className="rounded-xl"
                     >
-                      Import {previewData.length} Transactions
+                      Import {previewData.length} transaction
+                      {previewData.length === 1 ? "" : "s"}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            {/* Step 4: Importing */}
-            {step === "importing" && (
-              <Card>
-                <CardContent className="py-8">
-                  <div className="text-center">
-                    <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="font-medium">Importing transactions...</p>
-                    <p className="text-sm text-muted-foreground">
-                      Please wait while we process your data.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
+              {step === "importing" && (
+                <div className="flex flex-col items-center py-12 text-center">
+                  <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm font-semibold">
+                    Importing transactions…
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This only takes a moment.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

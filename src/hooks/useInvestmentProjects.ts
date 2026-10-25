@@ -42,7 +42,8 @@ export const useInvestmentProjects = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investment-projects"] });
-      queryClient.invalidateQueries({ queryKey: ["investment-platform"] }); // Refresh platform details if needed
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platforms"] });
       toast({
         title: "Project created",
         description: "Your investment project has been created.",
@@ -71,6 +72,8 @@ export const useInvestmentProjects = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investment-projects"] });
       queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platforms"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-project"] });
       toast({
         title: "Project updated",
         description: "Your investment project has been updated.",
@@ -98,6 +101,8 @@ export const useInvestmentProjects = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investment-projects"] });
       queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platforms"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-project"] });
       toast({
         title: "Project deleted",
         description: "Your investment project has been deleted.",

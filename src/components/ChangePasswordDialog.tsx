@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { useState } from "react";
 
@@ -143,7 +144,10 @@ export const ChangePasswordDialog = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (
+    field: keyof typeof formData,
+    value: string,
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -158,7 +162,7 @@ export const ChangePasswordDialog = () => {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !loading) {
       handleSubmit();
     }
@@ -167,16 +171,16 @@ export const ChangePasswordDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="rounded-xl">
           Change
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Lock className="w-5 h-5" />
-            Change Password
-          </DialogTitle>
+      <DialogContent className="max-w-md rounded-2xl bg-card p-6 sm:rounded-2xl">
+        <DialogHeader className="items-start space-y-3 text-left">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Lock className="h-5 w-5" />
+          </span>
+          <DialogTitle>Change password</DialogTitle>
           <DialogDescription>
             Enter your current password and choose a new secure password.
           </DialogDescription>
@@ -194,7 +198,7 @@ export const ChangePasswordDialog = () => {
                   handleInputChange("currentPassword", e.target.value)
                 }
                 onKeyPress={handleKeyPress}
-                className={errors.currentPassword ? "border-red-500" : ""}
+                className={cn("h-10 rounded-xl pr-10", errors.currentPassword && "border-destructive")}
                 disabled={loading}
               />
               <Button
@@ -213,7 +217,7 @@ export const ChangePasswordDialog = () => {
               </Button>
             </div>
             {errors.currentPassword && (
-              <p className="text-sm text-red-500">{errors.currentPassword}</p>
+              <p className="text-xs text-destructive">{errors.currentPassword}</p>
             )}
           </div>
 
@@ -228,7 +232,7 @@ export const ChangePasswordDialog = () => {
                   handleInputChange("newPassword", e.target.value)
                 }
                 onKeyPress={handleKeyPress}
-                className={errors.newPassword ? "border-red-500" : ""}
+                className={cn("h-10 rounded-xl pr-10", errors.newPassword && "border-destructive")}
                 disabled={loading}
                 placeholder="At least 8 characters"
               />
@@ -248,7 +252,7 @@ export const ChangePasswordDialog = () => {
               </Button>
             </div>
             {errors.newPassword && (
-              <p className="text-sm text-red-500">{errors.newPassword}</p>
+              <p className="text-xs text-destructive">{errors.newPassword}</p>
             )}
           </div>
 
@@ -263,7 +267,7 @@ export const ChangePasswordDialog = () => {
                   handleInputChange("confirmPassword", e.target.value)
                 }
                 onKeyPress={handleKeyPress}
-                className={errors.confirmPassword ? "border-red-500" : ""}
+                className={cn("h-10 rounded-xl pr-10", errors.confirmPassword && "border-destructive")}
                 disabled={loading}
                 placeholder="Re-enter new password"
               />
@@ -283,15 +287,13 @@ export const ChangePasswordDialog = () => {
               </Button>
             </div>
             {errors.confirmPassword && (
-              <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+              <p className="text-xs text-destructive">{errors.confirmPassword}</p>
             )}
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-            <p className="text-sm text-blue-600 dark:text-blue-400">
-              <strong>Password Requirements:</strong>
-            </p>
-            <ul className="text-xs text-blue-600 dark:text-blue-400 mt-1 space-y-1">
+          <div className="rounded-xl bg-muted/60 p-3">
+            <p className="text-xs font-semibold">Password requirements</p>
+            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
               <li>• At least 8 characters long</li>
               <li>• Contains uppercase and lowercase letters</li>
               <li>• Contains at least one number</li>
@@ -299,16 +301,21 @@ export const ChangePasswordDialog = () => {
             </ul>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:space-x-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
               disabled={loading}
+              className="rounded-xl"
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="rounded-xl"
+            >
               {loading ? (
                 <>
                   <Loader size="sm" />

@@ -12,7 +12,7 @@ export interface VirtualScrollConfig {
 }
 
 export interface VirtualScrollResult {
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   scrollTop: number;
   startIndex: number;
   endIndex: number;

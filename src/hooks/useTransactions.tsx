@@ -1,6 +1,8 @@
 import {
   createTransactionAction,
   deleteTransactionAction,
+  getCategoryTotalsAction,
+  getPeriodTotalsAction,
   getTransactionTotalsAction,
   getTransactionsAction,
   importTransactionsAction,
@@ -61,6 +63,25 @@ export const transactionKeys = {
     ] as const,
   totals: (userId: string, filters: TransactionFilters) =>
     [...transactionKeys.all, "totals", userId, normalizeFilters(filters)] as const,
+  periods: (
+    userId: string,
+    filters: TransactionFilters,
+    ranges: { startDate: string; endDate: string }[],
+  ) =>
+    [
+      ...transactionKeys.all,
+      "periods",
+      userId,
+      normalizeFilters(filters),
+      ranges,
+    ] as const,
+  categories: (userId: string, filters: TransactionFilters) =>
+    [
+      ...transactionKeys.all,
+      "categories",
+      userId,
+      normalizeFilters(filters),
+    ] as const,
 };
 
 const toActionFilters = (filters: TransactionFilters) => ({
@@ -494,6 +515,50 @@ const useTransactionTotals = (
 };
 
 /**
+ * Income/expense totals for each of several date ranges (e.g. one per month
+ * for a chart), fetched in a single request. Mutations refresh it via the
+ * shared transactions key prefix.
+ */
+const usePeriodTotals = (
+  filters: TransactionFilters,
+  ranges: { startDate: string; endDate: string }[],
+  enabled = true,
+) => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: transactionKeys.periods(user?.id ?? "", filters, ranges),
+    queryFn: async () => {
+      const { totals, error } = await getPeriodTotalsAction(
+        toActionFilters(filters),
+        ranges,
+      );
+      if (error || !totals) throw new Error(error ?? "Failed to load totals");
+      return totals;
+    },
+    enabled: enabled && !!user && ranges.length > 0,
+    placeholderData: keepPreviousData,
+  });
+};
+
+/** Amount per (first) category and type for a filter set */
+const useCategoryTotals = (filters: TransactionFilters, enabled = true) => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: transactionKeys.categories(user?.id ?? "", filters),
+    queryFn: async () => {
+      const { categories, error } = await getCategoryTotalsAction(
+        toActionFilters(filters),
+      );
+      if (error || !categories)
+        throw new Error(error ?? "Failed to load categories");
+      return categories;
+    },
+    enabled: enabled && !!user,
+    placeholderData: keepPreviousData,
+  });
+};
+
+/**
  * Warms everything the book page shows first — this month's transactions and
  * last month's totals for the trend badges — plus the route's code. Call on
  * hover/focus/touch of a link to a book so the page opens with data in place.
@@ -530,4 +595,10 @@ const usePrefetchBook = () => {
   );
 };
 
-export { usePrefetchBook, useTransactions, useTransactionTotals };
+export {
+  useCategoryTotals,
+  usePeriodTotals,
+  usePrefetchBook,
+  useTransactions,
+  useTransactionTotals,
+};
