@@ -313,7 +313,7 @@ export function QuickCalculator({
           <Button
             onClick={handleUseTotal}
             disabled={total === 0}
-            className="rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
+            className="rounded-xl"
           >
             <Plus className="mr-1.5 h-4 w-4" />
             Add

@@ -1,6 +1,6 @@
+import { EmptyState } from "@/components/EmptyState";
 import { TransactionCard } from "@/components/TransactionCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,9 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -22,6 +24,7 @@ import { useVirtualScroll } from "@/hooks/useVirtualScroll";
 import {
   cn,
   EXPENSE_CATEGORIES,
+  formatTaka,
   getBangladeshTime,
   INCOME_CATEGORIES,
 } from "@/lib/utils";
@@ -30,25 +33,31 @@ import {
   TransactionFilters,
   TransactionsSectionProps,
 } from "@/types/transaction";
+import { format } from "date-fns";
 import {
-  Calculator,
-  ChevronDown,
-  Download,
-  Filter,
   Loader2,
   Plus,
+  Receipt,
   Search,
-  TrendingUp,
-  Upload,
+  SearchX,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { TransactionEditForm } from "./TransactionEditForm";
+import { useMemo, useState } from "react";
 
-// Fixed row slots (card + gap, day header) so virtual-scroll offsets stay exact
-const ITEM_HEIGHT = 92;
+// Fixed row slots (row + gap, day header) so virtual-scroll offsets stay exact
+const ITEM_HEIGHT = 68;
 const HEADER_HEIGHT = 40;
 const CONTAINER_HEIGHT = 600;
+// Room below the rows for the "loading more" / "end of list" line
+const LIST_END_SPACE = 64;
 const OVERSCAN = 10;
+
+const TYPE_TABS = [
+  { value: undefined, label: "All" },
+  { value: "income" as const, label: "Income" },
+  { value: "expense" as const, label: "Expense" },
+];
 
 interface DayRow {
   kind: "day";
@@ -82,9 +91,6 @@ const formatDayLabel = (key: string) => {
   });
 };
 
-const formatTaka = (n: number) =>
-  `৳${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-
 function buildRows(transactions: Transaction[], hasNextPage: boolean) {
   const rows: ListRow[] = [];
   let header: DayRow | undefined;
@@ -113,24 +119,25 @@ function buildRows(transactions: Transaction[], hasNextPage: boolean) {
   return rows;
 }
 
+const formatDateChip = (value: string) => {
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
+};
+
 export const TransactionsSection = ({
   transactions,
   searchQuery,
   onSearchQueryChange,
+  filters,
+  onFilterChange,
   onDeleteTransaction,
+  onEditTransaction,
   onAddTransaction,
-  onImportCSV,
   canAddTransaction,
   pagination,
   onLoadMore,
   loadingMore,
   loading,
-  onFilterChange,
-  onEditTransaction,
-  onExportPDF,
-  onOpenCalculator,
-  showEditForm,
-  setShowEditForm,
 }: TransactionsSectionProps) => {
   const rows = useMemo(
     () => buildRows(transactions, pagination.hasNextPage),
@@ -139,6 +146,12 @@ export const TransactionsSection = ({
   const rowSizes = useMemo(
     () => rows.map((r) => (r.kind === "day" ? HEADER_HEIGHT : ITEM_HEIGHT)),
     [rows],
+  );
+  // Short lists get a short box instead of a mostly-empty 600px one
+  const contentHeight = rowSizes.reduce((sum, h) => sum + h, 0);
+  const viewportHeight = Math.min(
+    CONTAINER_HEIGHT,
+    contentHeight + LIST_END_SPACE,
   );
 
   const {
@@ -151,7 +164,7 @@ export const TransactionsSection = ({
   } = useVirtualScroll({
     itemHeight: ITEM_HEIGHT,
     itemSizes: rowSizes,
-    containerHeight: CONTAINER_HEIGHT,
+    containerHeight: viewportHeight,
     overscan: OVERSCAN,
     totalItems: rows.length,
     onLoadMore,
@@ -168,488 +181,404 @@ export const TransactionsSection = ({
     .slice(startIndex, endIndex)
     .reduce((sum, h) => sum + h, 0);
 
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<Transaction | null>(null);
+  // Filter dialog edits a draft; nothing changes until "Apply"
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [showScrollHint, setShowScrollHint] = useState(false);
-  const [filters, setFilters] = useState<TransactionFilters>({
-    type: undefined,
-    category: undefined,
-    startDate: undefined,
-    endDate: undefined,
-    note: undefined,
-    search: undefined,
-  });
+  const [draft, setDraft] = useState<TransactionFilters>(filters);
 
-  // Check if any filters are applied
-  const hasFiltersApplied = Object.values(filters).some(
-    (value) => value !== undefined && value !== "",
-  );
-
-  // Show scroll hint when there are more transactions to load or scroll
-  useEffect(() => {
-    const shouldShowHint =
-      (transactions.length > 5 && endIndex < rows.length) ||
-      pagination.hasNextPage;
-
-    // Use requestAnimationFrame or microtask to avoid immediate cascading render warning
-    const timeout = setTimeout(() => {
-      setShowScrollHint(shouldShowHint);
-    }, 0);
-    return () => clearTimeout(timeout);
-  }, [transactions.length, rows.length, endIndex, pagination.hasNextPage]);
-
-  // Hide scroll hint after user scrolls
-  const handleScrollWithHint = (e: React.UIEvent<HTMLDivElement>) => {
-    handleScroll(e);
-    if (showScrollHint && e.currentTarget.scrollTop > 50) {
-      setShowScrollHint(false);
-    }
+  const openFilters = () => {
+    setDraft(filters);
+    setIsFilterOpen(true);
   };
 
-  const handleApplyFilters = () => {
-    onFilterChange(filters);
-    setIsFilterOpen(false);
+  const chips = [
+    filters.category && {
+      key: "category" as const,
+      label: filters.category,
+    },
+    filters.startDate && {
+      key: "startDate" as const,
+      label: `From ${formatDateChip(filters.startDate)}`,
+    },
+    filters.endDate && {
+      key: "endDate" as const,
+      label: `Until ${formatDateChip(filters.endDate)}`,
+    },
+    filters.note && {
+      key: "note" as const,
+      label: `Note: “${filters.note}”`,
+    },
+  ].filter(Boolean) as { key: keyof TransactionFilters; label: string }[];
+
+  const isFiltered = chips.length > 0 || !!filters.type || !!searchQuery;
+
+  const clearAll = () => {
+    onFilterChange({});
+    onSearchQueryChange("");
   };
 
-  const handleResetFilters = () => {
-    setFilters({
-      type: undefined,
-      category: undefined,
-      startDate: undefined,
-      endDate: undefined,
-      note: undefined,
-      search: undefined,
-    });
-    onFilterChange({
-      type: undefined,
-      category: undefined,
-      startDate: undefined,
-      endDate: undefined,
-      note: undefined,
-      search: searchQuery, // Preserve search query
-    });
-    setIsFilterOpen(false);
-  };
-
-  const handleEditTransaction = (transaction: Transaction) => {
-    setShowEditForm?.(true);
-    setSelectedTransaction(transaction);
-  };
+  const draftCategories =
+    draft.type === "income"
+      ? [{ label: "Income", items: INCOME_CATEGORIES }]
+      : draft.type === "expense"
+        ? [{ label: "Expense", items: EXPENSE_CATEGORIES }]
+        : [
+            { label: "Income", items: INCOME_CATEGORIES },
+            { label: "Expense", items: EXPENSE_CATEGORIES },
+          ];
 
   return (
-    <Card className="border-none shadow-xl rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg overflow-hidden transform transition-all duration-300 hover:shadow-2xl">
-      <CardHeader className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-blue-50/30 dark:from-gray-800/50 dark:to-gray-700/30">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-500" />
-            Recent Transactions
-            {pagination.totalCount > 0 && (
-              <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                ({pagination.totalCount.toLocaleString()} total)
-              </span>
-            )}
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search transactions..."
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                className="pl-10 text-sm bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all backdrop-blur-sm"
-              />
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsFilterOpen(true)}
-              className={cn(
-                "border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all rounded-xl backdrop-blur-sm",
-                hasFiltersApplied &&
-                  "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600",
-              )}
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">
-                {hasFiltersApplied ? "Filters Applied" : "Filter"}
-              </span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onImportCSV}
-              disabled={!canAddTransaction}
-              className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all rounded-xl backdrop-blur-sm disabled:opacity-50"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Import</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExportPDF}
-              disabled={transactions.length === 0}
-              className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all rounded-xl backdrop-blur-sm disabled:opacity-50"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Export PDF</span>
-            </Button>
-
-            {onOpenCalculator && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenCalculator}
-                aria-label="Open calculator"
-                className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:border-amber-300 dark:hover:border-amber-600 transition-all rounded-xl backdrop-blur-sm"
-              >
-                <Calculator className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Calculator</span>
-              </Button>
-            )}
-
-            <Button
-              size="sm"
-              onClick={onAddTransaction}
-              disabled={!canAddTransaction}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:transform-none"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Add Transaction</span>
-            </Button>
+    <section className="flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card">
+      {/* Toolbar */}
+      <div className="space-y-3 border-b p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Transactions</h2>
+            <p className="text-sm text-muted-foreground">
+              {pagination.totalCount.toLocaleString()}{" "}
+              {pagination.totalCount === 1 ? "entry" : "entries"}
+              {isFiltered && " match"}
+            </p>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="Transaction type"
+            className="flex rounded-xl bg-muted p-1"
+          >
+            {TYPE_TABS.map(({ value, label }) => {
+              const selected = filters.type === value;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => onFilterChange({ ...filters, type: value })}
+                  className={cn(
+                    "h-8 rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-4",
+                    selected
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="p-0 relative">
-        {loading && transactions.length === 0 ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              <p className="text-gray-500 dark:text-gray-400">
-                Loading transactions...
-              </p>
-            </div>
-          </div>
-        ) : transactions.length > 0 ? (
-          <div className="relative">
-            <div
-              ref={containerRef}
-              className="relative overflow-auto scrollbar-hide"
-              style={{ height: CONTAINER_HEIGHT }}
-              onScroll={handleScrollWithHint}
-            >
-              <div style={{ height: offsetY }} />
-              <div className="px-3 sm:px-6">
-                {visibleRows.map((row, index) =>
-                  row.kind === "day" ? (
-                    <div
-                      key={row.key}
-                      className="flex items-end justify-between gap-3 px-1 pb-2 text-xs"
-                      style={{ height: HEADER_HEIGHT }}
-                    >
-                      <span className="font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {row.label}
-                      </span>
-                      <span
-                        className="flex items-center gap-2 font-medium tabular-nums"
-                        title={
-                          row.partial
-                            ? "Scroll to load the rest of this day"
-                            : undefined
-                        }
-                      >
-                        {row.income > 0 && (
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            +{formatTaka(row.income)}
-                          </span>
-                        )}
-                        {row.expense > 0 && (
-                          <span className="text-rose-600 dark:text-rose-400">
-                            -{formatTaka(row.expense)}
-                          </span>
-                        )}
-                        {row.partial && (
-                          <span className="font-normal text-gray-400 dark:text-gray-500">
-                            so far
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      key={row.key}
-                      className="pb-3 opacity-0 animate-[fadeInUp_0.5s_ease-out_forwards]"
-                      style={{
-                        animationDelay: `${(index % 10) * 50}ms`,
-                        height: ITEM_HEIGHT,
-                      }}
-                    >
-                      <TransactionCard
-                        transaction={row.transaction}
-                        onDelete={() => onDeleteTransaction(row.transaction)}
-                        onEdit={() => handleEditTransaction(row.transaction)}
-                      />
-                    </div>
-                  ),
-                )}
-              </div>
-              <div
-                style={{
-                  height: Math.max(0, totalHeight - offsetY - visibleHeight),
-                }}
-              />
-              {loadingMore && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Loading more transactions...
-                    </span>
-                  </div>
-                </div>
-              )}
-              {!pagination.hasNextPage &&
-                transactions.length > 0 &&
-                !loadingMore && (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      You&apos;ve reached the end of your transactions
-                    </p>
-                  </div>
-                )}
-            </div>
-
-            {/* Scroll Hint */}
-            {showScrollHint && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-                <div className="bg-blue-500/90 text-white px-4 py-2 rounded-full shadow-lg backdrop-blur-sm flex items-center gap-2 animate-bounce">
-                  <span className="text-sm font-medium">
-                    Scroll to see more
-                  </span>
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-16 px-6 opacity-0 animate-[fadeInUp_0.5s_ease-out_0.2s_forwards]">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full blur-2xl opacity-10 scale-150"></div>
-              <TrendingUp className="relative w-16 h-16 mx-auto mb-6 text-gray-400 dark:text-gray-500" />
-            </div>
-            <h4 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
-              {searchQuery ? "No matching transactions" : "No transactions yet"}
-            </h4>
-            <p className="text-gray-500 dark:text-gray-500 mb-6">
-              {searchQuery
-                ? "Try adjusting your search terms."
-                : "Add your first transaction to get started with tracking your finances!"}
-            </p>
-            {!searchQuery && (
-              <Button
-                onClick={onAddTransaction}
-                disabled={!canAddTransaction}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:transform-none"
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search notes…"
+              aria-label="Search transactions"
+              value={searchQuery}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+              className="h-10 rounded-xl bg-background pl-9 pr-9"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => onSearchQueryChange("")}
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Transaction
-              </Button>
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
-        )}
-      </CardContent>
-
-      {transactions.length > 0 && (
-        <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <span>
-              Showing {transactions.length} of{" "}
-              {pagination.totalCount.toLocaleString()} transactions
-            </span>
-            {pagination.hasNextPage && (
-              <span className="flex items-center gap-1">
-                <span>More available</span>
+          <Button
+            variant="outline"
+            onClick={openFilters}
+            className={cn(
+              "h-10 gap-2 rounded-xl",
+              chips.length > 0 && "border-primary/40 bg-primary/5 text-primary",
+            )}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">Filters</span>
+            {chips.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
+                {chips.length}
               </span>
             )}
+          </Button>
+        </div>
+
+        {chips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {chips.map((chip) => (
+              <span
+                key={chip.key}
+                className="inline-flex h-7 items-center gap-1 rounded-full border bg-muted/50 pl-3 pr-1 text-xs font-medium"
+              >
+                {chip.label}
+                <button
+                  type="button"
+                  aria-label={`Remove filter ${chip.label}`}
+                  onClick={() =>
+                    onFilterChange({ ...filters, [chip.key]: undefined })
+                  }
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Clear all
+            </button>
           </div>
+        )}
+      </div>
+
+      {/* List */}
+      {loading && transactions.length === 0 ? (
+        <div className="flex items-center justify-center gap-3 py-16 text-sm text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          Loading transactions…
+        </div>
+      ) : transactions.length > 0 ? (
+        <div className="relative">
+          <div
+            ref={containerRef}
+            className="relative overflow-auto overscroll-contain scrollbar-hide"
+            style={{ height: viewportHeight }}
+            onScroll={handleScroll}
+          >
+            <div style={{ height: offsetY }} />
+            <div className="px-2 sm:px-3">
+              {visibleRows.map((row) =>
+                row.kind === "day" ? (
+                  <div
+                    key={row.key}
+                    className="flex items-end justify-between gap-3 px-2 pb-2 text-xs sm:px-3"
+                    style={{ height: HEADER_HEIGHT }}
+                  >
+                    <span className="font-semibold uppercase tracking-wider text-muted-foreground">
+                      {row.label}
+                    </span>
+                    <span
+                      className="flex items-center gap-2 font-medium tabular-nums"
+                      title={
+                        row.partial
+                          ? "Scroll to load the rest of this day"
+                          : undefined
+                      }
+                    >
+                      {row.income > 0 && (
+                        <span className="text-income">
+                          {formatTaka(row.income, { signed: true })}
+                        </span>
+                      )}
+                      {row.expense > 0 && (
+                        <span className="text-muted-foreground">
+                          {formatTaka(-row.expense)}
+                        </span>
+                      )}
+                      {row.partial && (
+                        <span className="font-normal text-muted-foreground/70">
+                          so far
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    key={row.key}
+                    className="pb-1"
+                    style={{ height: ITEM_HEIGHT }}
+                  >
+                    <TransactionCard
+                      transaction={row.transaction}
+                      onDelete={() => onDeleteTransaction(row.transaction)}
+                      onEdit={() => onEditTransaction(row.transaction)}
+                    />
+                  </div>
+                ),
+              )}
+            </div>
+            <div
+              style={{
+                height: Math.max(0, totalHeight - offsetY - visibleHeight),
+              }}
+            />
+            {loadingMore ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Loading more…
+              </div>
+            ) : (
+              !pagination.hasNextPage && (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  That&apos;s everything for this view
+                </p>
+              )
+            )}
+          </div>
+          {/* Fade hints that the list scrolls */}
+          {contentHeight > viewportHeight && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
+            />
+          )}
+        </div>
+      ) : isFiltered ? (
+        <EmptyState
+          icon={SearchX}
+          title="No matching transactions"
+          description="Try a different search or remove some filters."
+          action={
+            <Button variant="outline" onClick={clearAll} className="rounded-xl">
+              Clear filters
+            </Button>
+          }
+        />
+      ) : (
+        <EmptyState
+          icon={Receipt}
+          title="No transactions yet"
+          description="Add your first income or expense and watch this month add up."
+          action={
+            <Button
+              onClick={onAddTransaction}
+              disabled={!canAddTransaction}
+              className="gap-2 rounded-xl"
+            >
+              <Plus className="h-4 w-4" />
+              Add transaction
+            </Button>
+          }
+        />
+      )}
+
+      {transactions.length > 0 && (
+        <div className="flex items-center justify-between border-t bg-muted/30 px-5 py-2.5 text-xs text-muted-foreground">
+          <span>
+            Showing {transactions.length.toLocaleString()} of{" "}
+            {pagination.totalCount.toLocaleString()}
+          </span>
+          {pagination.hasNextPage && <span>Scroll for more</span>}
         </div>
       )}
 
       <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-        <DialogContent className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-800 dark:text-gray-100">
-              Filter Transactions
-            </DialogTitle>
-            <DialogDescription className="text-gray-500 dark:text-gray-400">
-              Apply filters to narrow down your transaction list.
+        <DialogContent className="max-w-md rounded-2xl bg-card p-6 sm:rounded-2xl">
+          <DialogHeader className="text-left">
+            <DialogTitle>Filter transactions</DialogTitle>
+            <DialogDescription>
+              Narrow the list by category, date range or note.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 gap-2">
-              <Label
-                htmlFor="type"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Type
-              </Label>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-category">Category</Label>
               <Select
-                value={filters.type || ""}
+                value={draft.category ?? "all"}
                 onValueChange={(value) =>
-                  setFilters((prev) => ({
+                  setDraft((prev) => ({
                     ...prev,
-                    type: (value as "income" | "expense") || undefined,
+                    category: value === "all" ? undefined : value,
                   }))
                 }
               >
-                <SelectTrigger className="w-full bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl">
-                  <SelectValue placeholder="Select type" />
+                <SelectTrigger id="filter-category" className="h-10 rounded-xl">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              <Label
-                htmlFor="category"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Category
-              </Label>
-              <Select
-                value={filters.category || ""}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    category: value || undefined,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filters.type === "income"
-                    ? INCOME_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {draftCategories.map((group) => (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.items.map((cat) => (
+                        <SelectItem key={`${group.label}-${cat}`} value={cat}>
                           {cat}
                         </SelectItem>
-                      ))
-                    : filters.type === "expense"
-                      ? EXPENSE_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))
-                      : [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES].map(
-                          (cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ),
-                        )}
+                      ))}
+                    </SelectGroup>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="startDate"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Start Date
-                </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="filter-start">From</Label>
                 <Input
-                  id="startDate"
+                  id="filter-start"
                   type="date"
-                  value={filters.startDate || ""}
+                  value={draft.startDate || ""}
                   onChange={(e) =>
-                    setFilters((prev) => ({
+                    setDraft((prev) => ({
                       ...prev,
                       startDate: e.target.value || undefined,
                     }))
                   }
-                  className="bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl"
+                  className="h-10 rounded-xl"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="endDate"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  End Date
-                </Label>
+              <div className="grid gap-1.5">
+                <Label htmlFor="filter-end">To</Label>
                 <Input
-                  id="endDate"
+                  id="filter-end"
                   type="date"
-                  value={filters.endDate || ""}
+                  value={draft.endDate || ""}
                   onChange={(e) =>
-                    setFilters((prev) => ({
+                    setDraft((prev) => ({
                       ...prev,
                       endDate: e.target.value || undefined,
                     }))
                   }
-                  className="bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl"
+                  className="h-10 rounded-xl"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-2">
-              <Label
-                htmlFor="noteSearch"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Search Notes
-              </Label>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              A date range overrides the selected month.
+            </p>
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-note">Note contains</Label>
               <Input
-                id="noteSearch"
-                value={filters.note || ""}
+                id="filter-note"
+                value={draft.note || ""}
                 onChange={(e) =>
-                  setFilters((prev) => ({
+                  setDraft((prev) => ({
                     ...prev,
                     note: e.target.value || undefined,
                   }))
                 }
-                placeholder="Search in notes..."
-                className="bg-white/70 dark:bg-gray-700/70 border-gray-200 dark:border-gray-600 rounded-xl"
+                placeholder="e.g. rickshaw"
+                className="h-10 rounded-xl"
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:space-x-0">
             <Button
-              variant="outline"
-              onClick={handleResetFilters}
-              className="mr-2"
+              variant="ghost"
+              onClick={() => {
+                setDraft({ type: filters.type });
+              }}
+              className="rounded-xl"
             >
               Reset
             </Button>
-            <Button onClick={handleApplyFilters}>Apply Filters</Button>
+            <Button
+              onClick={() => {
+                onFilterChange(draft);
+                setIsFilterOpen(false);
+              }}
+              className="rounded-xl"
+            >
+              Apply filters
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
-        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-600 dark:from-gray-100 dark:to-blue-400 bg-clip-text text-transparent">
-              Edit Transaction
-            </DialogTitle>
-          </DialogHeader>
-          {selectedTransaction && (
-            <TransactionEditForm
-              onSubmit={onEditTransaction}
-              onCancel={() => setShowEditForm?.(false)}
-              transaction={selectedTransaction}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </Card>
+    </section>
   );
 };

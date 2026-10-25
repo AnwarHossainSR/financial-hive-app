@@ -1,8 +1,8 @@
 "use client";
 
+import { AuthLayout } from "@/components/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -75,145 +75,126 @@ export default function ResetPasswordPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-        <div className="w-full max-w-md">
-          <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
-            <CardHeader className="text-center pb-4">
-              <div className="flex items-center justify-center mb-2">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
-                Password Updated!
-              </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
-                Your password has been successfully updated. You will be
-                redirected to the dashboard shortly.
-              </p>
-            </CardHeader>
-          </Card>
+      <AuthLayout>
+        <div className="space-y-2">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-income/10 text-income">
+            <CheckCircle className="h-5 w-5" />
+          </span>
+          <h1 className="pt-2 text-2xl font-semibold tracking-tight">
+            Password updated
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            You&apos;re all set. Taking you to your dashboard…
+          </p>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
+  const tooShort = passwords.password.length > 0 && passwords.password.length < 6;
+  const mismatch =
+    passwords.confirmPassword.length > 0 &&
+    passwords.password !== passwords.confirmPassword;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-      <div className="w-full max-w-md">
-        <Card className="border border-gray-200 shadow-lg rounded-2xl bg-white/95 backdrop-blur-sm">
-          <CardHeader className="text-center pb-4">
-            <div className="flex items-center justify-center mb-2">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Lock className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              Set New Password
-            </CardTitle>
-            <p className="text-sm text-gray-600 mt-2">
-              Enter your new password below.
-            </p>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="new-password"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  New Password
-                </Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Enter new password (min. 6 characters)"
-                  value={passwords.password}
-                  onChange={(e) =>
-                    setPasswords((prev) => ({
-                      ...prev,
-                      password: e.target.value,
-                    }))
-                  }
-                  className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                  minLength={6}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="confirm-password"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  Confirm New Password
-                </Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={passwords.confirmPassword}
-                  onChange={(e) =>
-                    setPasswords((prev) => ({
-                      ...prev,
-                      confirmPassword: e.target.value,
-                    }))
-                  }
-                  className="h-11 rounded-lg border-gray-300 focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              {error && (
-                <Alert variant="destructive" className="py-2">
-                  <AlertDescription className="text-sm">
-                    {error}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-3">
-                <Button
-                  onClick={handlePasswordUpdate}
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg"
-                  disabled={
-                    isLoading ||
-                    !passwords.password ||
-                    !passwords.confirmPassword
-                  }
-                >
-                  {isLoading && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  )}
-                  Update Password
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/login")}
-                  className="w-full h-10 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg"
-                >
-                  Back to Sign In
-                </Button>
-              </div>
-
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-xs text-blue-800">
-                  <strong>Password Requirements:</strong>
-                  <br />• Minimum 6 characters
-                  <br />• Make it unique and secure
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <AuthLayout>
+      <div className="mb-8 space-y-2">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Lock className="h-5 w-5" />
+        </span>
+        <h1 className="pt-2 text-2xl font-semibold tracking-tight">
+          Choose a new password
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          At least 6 characters. Make it one you don&apos;t use anywhere else.
+        </p>
       </div>
-    </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handlePasswordUpdate();
+        }}
+        className="space-y-5"
+      >
+        <div className="space-y-1.5">
+          <Label htmlFor="new-password">New password</Label>
+          <Input
+            id="new-password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="6+ characters"
+            value={passwords.password}
+            onChange={(e) =>
+              setPasswords((prev) => ({ ...prev, password: e.target.value }))
+            }
+            className="h-11 rounded-xl"
+            minLength={6}
+            aria-invalid={tooShort}
+          />
+          {tooShort && (
+            <p className="text-xs text-muted-foreground">
+              {6 - passwords.password.length} more character
+              {6 - passwords.password.length === 1 ? "" : "s"} to go
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm-password">Confirm new password</Label>
+          <Input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Repeat it"
+            value={passwords.confirmPassword}
+            onChange={(e) =>
+              setPasswords((prev) => ({
+                ...prev,
+                confirmPassword: e.target.value,
+              }))
+            }
+            className="h-11 rounded-xl"
+            aria-invalid={mismatch}
+          />
+          {mismatch && (
+            <p className="text-xs text-destructive">Passwords don&apos;t match</p>
+          )}
+        </div>
+
+        {error && (
+          <Alert variant="destructive" className="rounded-xl py-2.5">
+            <AlertDescription className="text-sm">{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button
+          type="submit"
+          className="h-11 w-full gap-2 rounded-xl font-semibold shadow-primary"
+          disabled={
+            isLoading || !passwords.password || !passwords.confirmPassword
+          }
+        >
+          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+          Update password
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.push("/login")}
+          className="h-10 w-full rounded-xl"
+        >
+          Back to sign in
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

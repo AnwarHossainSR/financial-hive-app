@@ -8,7 +8,7 @@ import {
   updateTransactionNotification,
 } from "@/lib/notificationHelpers";
 import prisma from "@/lib/prisma";
-import { CATEGORY_SEPARATOR } from "@/lib/utils";
+import { CATEGORY_SEPARATOR, parseCategories } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
 // `userId` / `_userId` inputs are kept for caller compatibility but ignored:
@@ -91,6 +91,75 @@ export async function getTransactionTotalsAction(
     };
   } catch (error: any) {
     return { totals: null, error: error.message };
+  }
+}
+
+/**
+ * Totals for several date ranges in one round trip, e.g. the last six months
+ * for a cash-flow chart. Ranges come from the client so month boundaries use
+ * the viewer's timezone, like the rest of the month filters.
+ */
+export async function getPeriodTotalsAction(
+  filters: TransactionQueryFilters,
+  ranges: { startDate: string; endDate: string }[],
+) {
+  try {
+    const userId = await requireUserId();
+    const totals = await Promise.all(
+      ranges
+        .slice(0, 24)
+        .map((range) =>
+          sumByType(buildTransactionWhere({ ...filters, ...range }, userId)),
+        ),
+    );
+    return { totals, error: null };
+  } catch (error: any) {
+    return { totals: null, error: error.message };
+  }
+}
+
+/**
+ * Amount per category and type. A multi-category transaction counts toward
+ * its first category only (the one its icon shows), so the parts add up to
+ * the period total instead of double counting.
+ */
+export async function getCategoryTotalsAction(
+  filters: TransactionQueryFilters,
+) {
+  try {
+    const userId = await requireUserId();
+    const groups = await prisma.transaction.groupBy({
+      by: ["category", "type"],
+      where: buildTransactionWhere(filters, userId),
+      _sum: { amount: true },
+      _count: { _all: true },
+    });
+
+    const merged = new Map<
+      string,
+      {
+        category: string;
+        type: "income" | "expense";
+        amount: number;
+        count: number;
+      }
+    >();
+    for (const group of groups) {
+      const category = parseCategories(group.category)[0] || "Other";
+      const type = group.type as "income" | "expense";
+      const key = `${type}:${category}`;
+      const entry = merged.get(key) ?? { category, type, amount: 0, count: 0 };
+      entry.amount += Number(group._sum.amount ?? 0);
+      entry.count += group._count._all;
+      merged.set(key, entry);
+    }
+
+    return {
+      categories: [...merged.values()].sort((a, b) => b.amount - a.amount),
+      error: null,
+    };
+  } catch (error: any) {
+    return { categories: null, error: error.message };
   }
 }
 

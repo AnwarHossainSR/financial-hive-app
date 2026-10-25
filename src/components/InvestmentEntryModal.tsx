@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -208,20 +209,18 @@ export function InvestmentEntryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white to-gray-50/50 dark:from-slate-900 dark:to-slate-800">
-        <div className="overflow-y-auto max-h-[calc(90vh-2rem)] scrollbar-hide">
+      <DialogContent className="max-w-2xl gap-0 overflow-hidden rounded-2xl bg-card p-0 sm:rounded-2xl">
+        <div className="max-h-[90dvh] overflow-y-auto px-6 pt-6 scrollbar-hide">
           <form onSubmit={handleSubmit}>
-            <DialogHeader className="pb-6 border-b pr-12">
-              <DialogTitle className="flex items-center justify-between text-xl font-bold">
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  {getTitle()}
-                </span>
+            <DialogHeader className="space-y-1 border-b pb-5 pr-10 text-left">
+              <DialogTitle className="flex items-center justify-between gap-3 text-lg font-semibold">
+                <span>{getTitle()}</span>
                 {mode === "view" && !editMode && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-2 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 shrink-0 text-foreground"
+                    className="shrink-0 gap-2 rounded-xl"
                     onClick={() => setEditMode(true)}
                   >
                     <Edit className="h-4 w-4" />
@@ -229,15 +228,15 @@ export function InvestmentEntryModal({
                   </Button>
                 )}
               </DialogTitle>
-              <DialogDescription className="text-base text-muted-foreground">
+              <DialogDescription>
                 {getDescription()}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4 px-2">
+            <div className="grid gap-5 py-5">
               {/* Order Information */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Order Information
                 </h3>
 
@@ -251,6 +250,7 @@ export function InvestmentEntryModal({
                       value={orderNo}
                       onChange={(e) => setOrderNo(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
 
@@ -263,6 +263,7 @@ export function InvestmentEntryModal({
                       onChange={(e) => setOrderDate(e.target.value)}
                       required
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
 
@@ -274,14 +275,15 @@ export function InvestmentEntryModal({
                       value={orderId}
                       onChange={(e) => setOrderId(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Investment Details */}
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">
+              <div className="space-y-4 border-t pt-5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Investment Details
                 </h3>
 
@@ -299,6 +301,7 @@ export function InvestmentEntryModal({
                       onChange={(e) => setInvestmentAmount(e.target.value)}
                       required
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
 
@@ -311,6 +314,7 @@ export function InvestmentEntryModal({
                       value={durationMonths}
                       onChange={(e) => setDurationMonths(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
                 </div>
@@ -326,6 +330,7 @@ export function InvestmentEntryModal({
                       value={roiMin}
                       onChange={(e) => setRoiMin(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
 
@@ -339,6 +344,7 @@ export function InvestmentEntryModal({
                       value={roiMax}
                       onChange={(e) => setRoiMax(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
                 </div>
@@ -346,28 +352,28 @@ export function InvestmentEntryModal({
 
               {/* View Mode: Show calculated values */}
               {mode === "view" && !editMode && entry && (
-                <div className="space-y-4 border-t pt-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground">
+                <div className="space-y-4 border-t pt-5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Calculated Values
                   </h3>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <Label className="text-xs text-blue-600 dark:text-blue-400">
-                        Expected Profit
+                    <div className="rounded-xl bg-primary/5 p-3 ring-1 ring-inset ring-primary/15">
+                      <Label className="text-xs text-muted-foreground">
+                        Expected profit
                       </Label>
-                      <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                      <div className="text-lg font-semibold tabular-nums text-primary">
                         {entry.expected_profit
                           ? formatCurrency(entry.expected_profit)
                           : "-"}
                       </div>
                     </div>
 
-                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <Label className="text-xs text-green-600 dark:text-green-400">
-                        Expected Return
+                    <div className="rounded-xl bg-income/5 p-3 ring-1 ring-inset ring-income/15">
+                      <Label className="text-xs text-muted-foreground">
+                        Expected return
                       </Label>
-                      <div className="text-lg font-semibold text-green-700 dark:text-green-300">
+                      <div className="text-lg font-semibold tabular-nums text-income">
                         {entry.expected_return
                           ? formatCurrency(entry.expected_return)
                           : "-"}
@@ -376,11 +382,11 @@ export function InvestmentEntryModal({
                   </div>
 
                   {entry.maturity_date && (
-                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <Label className="text-xs text-purple-600 dark:text-purple-400">
-                        Maturity Date
+                    <div className="rounded-xl bg-muted/60 p-3">
+                      <Label className="text-xs text-muted-foreground">
+                        Maturity date
                       </Label>
-                      <div className="text-lg font-semibold text-purple-700 dark:text-purple-300">
+                      <div className="text-lg font-semibold">
                         {format(new Date(entry.maturity_date), "MMM d, yyyy")}
                       </div>
                     </div>
@@ -389,8 +395,8 @@ export function InvestmentEntryModal({
               )}
 
               {/* Returns & Profit */}
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">
+              <div className="space-y-4 border-t pt-5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Returns & Profit
                 </h3>
 
@@ -405,6 +411,7 @@ export function InvestmentEntryModal({
                       value={returnAmount}
                       onChange={(e) => setReturnAmount(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
 
@@ -418,6 +425,7 @@ export function InvestmentEntryModal({
                       value={actualProfit}
                       onChange={(e) => setActualProfit(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
                 </div>
@@ -433,6 +441,7 @@ export function InvestmentEntryModal({
                       value={capitalAdded}
                       onChange={(e) => setCapitalAdded(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
 
@@ -446,14 +455,15 @@ export function InvestmentEntryModal({
                       value={withdrawalAmount}
                       onChange={(e) => setWithdrawalAmount(e.target.value)}
                       readOnly={isReadOnly}
+                      className="h-10 rounded-xl read-only:bg-muted/40 read-only:focus-visible:ring-0"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Status & Completion */}
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">
+              <div className="space-y-4 border-t pt-5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Status
                 </h3>
 
@@ -465,7 +475,7 @@ export function InvestmentEntryModal({
                       onValueChange={setStatus}
                       disabled={isReadOnly}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 rounded-xl">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -479,12 +489,12 @@ export function InvestmentEntryModal({
                   </div>
 
                   <div className="flex items-center space-x-2 pt-6">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id="completed"
                       checked={isCompleted}
-                      onChange={(e) => setIsCompleted(e.target.checked)}
-                      className="rounded"
+                      onCheckedChange={(checked) =>
+                        setIsCompleted(checked === true)
+                      }
                       disabled={isReadOnly}
                     />
                     <Label htmlFor="completed">Successful Completion</Label>
@@ -493,8 +503,8 @@ export function InvestmentEntryModal({
               </div>
 
               {/* Additional Information */}
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">
+              <div className="space-y-4 border-t pt-5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Additional Information
                 </h3>
 
@@ -507,6 +517,7 @@ export function InvestmentEntryModal({
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
                     readOnly={isReadOnly}
+                    className="resize-none rounded-xl read-only:bg-muted/40"
                   />
                 </div>
 
@@ -523,7 +534,7 @@ export function InvestmentEntryModal({
                       />
                       <Label
                         htmlFor="file-upload"
-                        className="flex items-center justify-center w-full h-10 border border-input rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                        className="flex h-10 w-full cursor-pointer items-center justify-center rounded-xl border border-dashed border-input text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5"
                       >
                         <Upload className="w-4 h-4 mr-2" />
                         {file
@@ -555,12 +566,12 @@ export function InvestmentEntryModal({
                 {isReadOnly && entry?.image_url && (
                   <div className="grid gap-2">
                     <Label>Current File</Label>
-                    <div className="p-3 border rounded-md bg-muted/50">
+                    <div className="rounded-xl border bg-muted/40 p-3">
                       <a
                         href={entry.image_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 underline text-sm"
+                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                       >
                         View attached document
                       </a>
@@ -570,12 +581,12 @@ export function InvestmentEntryModal({
               </div>
             </div>
 
-            <DialogFooter className="flex justify-between pt-6 border-t bg-gray-50/50 dark:bg-slate-800/50 -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
+            <DialogFooter className="sticky bottom-0 -mx-6 flex flex-col-reverse gap-2 border-t bg-card/95 px-6 py-4 backdrop-blur sm:flex-row sm:justify-between sm:space-x-0">
               {mode === "view" && !editMode && onDelete && (
                 <Button
                   type="button"
-                  variant="destructive"
-                  className="gap-2"
+                  variant="ghost"
+                  className="gap-2 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => setShowDeleteDialog(true)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -583,11 +594,12 @@ export function InvestmentEntryModal({
                 </Button>
               )}
 
-              <div className="flex gap-3 ml-auto">
+              <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
                 {mode === "view" && editMode && (
                   <Button
                     type="button"
                     variant="outline"
+                    className="rounded-xl"
                     onClick={() => setEditMode(false)}
                   >
                     Cancel
@@ -598,7 +610,7 @@ export function InvestmentEntryModal({
                   <Button
                     type="submit"
                     disabled={isUploading}
-                    className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    className="gap-2 rounded-xl"
                   >
                     {isUploading && (
                       <Loader2 className="h-4 w-4 animate-spin" />

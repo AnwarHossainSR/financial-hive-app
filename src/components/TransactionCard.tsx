@@ -1,10 +1,10 @@
 import { CategoryTags } from "@/components/CategoryTags";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getCategoryIcon } from "@/lib/categoryIcons";
@@ -150,8 +150,8 @@ export function TransactionCard({
     <div
       ref={rootRef}
       className={cn(
-        "relative h-full touch-pan-y rounded-2xl",
-        // Clip only while swiped so the hover shadow isn't cut off on desktop
+        "relative h-full touch-pan-y rounded-xl",
+        // Clip only while swiped so focus rings aren't cut off on desktop
         offset !== 0 && "overflow-hidden",
       )}
       onTouchStart={handleTouchStart}
@@ -167,7 +167,7 @@ export function TransactionCard({
           <button
             type="button"
             onClick={() => runAction(onEdit)}
-            className="flex flex-1 flex-col items-center justify-center gap-1 bg-blue-500 text-xs font-medium text-white"
+            className="flex flex-1 flex-col items-center justify-center gap-1 bg-primary text-xs font-medium text-primary-foreground"
           >
             <Edit2 className="h-4 w-4" />
             Edit
@@ -175,16 +175,16 @@ export function TransactionCard({
           <button
             type="button"
             onClick={() => runAction(onDelete)}
-            className="flex flex-1 flex-col items-center justify-center gap-1 bg-rose-500 text-xs font-medium text-white"
+            className="flex flex-1 flex-col items-center justify-center gap-1 bg-destructive text-xs font-medium text-destructive-foreground"
           >
             <Trash2 className="h-4 w-4" />
             Delete
           </button>
         </div>
       )}
-      <Card
+      <div
         onClickCapture={(e) => {
-          // While open, a tap on the card just closes the actions
+          // While open, a tap on the row just closes the actions
           if (offsetRef.current !== 0) {
             e.stopPropagation();
             e.preventDefault();
@@ -192,114 +192,119 @@ export function TransactionCard({
           }
         }}
         className={cn(
-          "group relative h-full rounded-2xl border border-gray-100 bg-white shadow-sm",
-          "hover:border-gray-200 hover:shadow-md dark:border-gray-700/60 dark:bg-gray-800 dark:hover:border-gray-600",
+          "group relative flex h-full items-center gap-3 rounded-xl bg-card px-2 sm:gap-4 sm:px-3",
+          "hover:bg-muted/60",
           dragging
             ? "transition-none"
-            : "transition-[transform,box-shadow,border-color] duration-200",
+            : "transition-[transform,background-color] duration-200",
         )}
         style={{ transform: `translateX(${offset}px)` }}
       >
-        <CardContent className="flex h-full items-center gap-3 p-3 sm:gap-4 sm:px-4">
-          {/* Category Icon */}
-          <div
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11",
-              isIncome
-                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                : "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",
-            )}
-          >
-            {createElement(categoryIcon, { className: "h-5 w-5" })}
-          </div>
+        {/* Category Icon */}
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11",
+            isIncome ? "bg-income/10 text-income" : "bg-expense/10 text-expense",
+          )}
+        >
+          {createElement(categoryIcon, { className: "h-5 w-5" })}
+        </div>
 
-          {/* Note + Categories */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              {transaction.note ? (
-                <p className="truncate text-sm font-medium leading-5 text-gray-900 dark:text-gray-100 sm:text-[15px]">
-                  {transaction.note}
-                </p>
-              ) : (
-                <p className="truncate text-sm italic leading-5 text-gray-400 dark:text-gray-500">
-                  No note
-                </p>
-              )}
-              {transaction.image_url && (
-                <Paperclip className="h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500" />
-              )}
-            </div>
+        {/* Note + Categories */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {transaction.note ? (
+              <p className="truncate text-sm font-medium leading-5 text-foreground">
+                {transaction.note}
+              </p>
+            ) : (
+              <p className="truncate text-sm leading-5 text-muted-foreground">
+                {parseCategories(transaction.category)[0] || "No note"}
+              </p>
+            )}
+            {transaction.image_url && (
+              <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
             <CategoryTags
               category={transaction.category}
               type={transaction.type}
-              max={3}
-              className="mt-1.5 h-5 flex-wrap overflow-hidden"
+              max={2}
+              className="h-5 min-w-0 overflow-hidden"
             />
-          </div>
-
-          {/* Amount + Date */}
-          <div className="shrink-0 text-right">
-            <p
-              className={cn(
-                "whitespace-nowrap text-base font-semibold leading-5 tabular-nums sm:text-lg",
-                isIncome
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-rose-600 dark:text-rose-400",
-              )}
-            >
-              {isIncome ? "+" : "-"}৳
-              {Math.abs(transaction.amount).toLocaleString("en-US", {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 2,
-              })}
-            </p>
-            <p
+            <span
               title={formatFullDate(date)}
-              className="mt-1.5 whitespace-nowrap text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs"
+              className="hidden shrink-0 text-xs text-muted-foreground sm:inline"
             >
-              {formatShortDate(date)}
-              <span className="hidden sm:inline"> · {formatTime(date)}</span>
-            </p>
+              {formatTime(date)}
+            </span>
           </div>
+        </div>
 
-          {/* Action Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Transaction actions"
-                className="-mr-1 h-8 w-8 shrink-0 rounded-full p-0 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem
-                onClick={() => generateTransactionReceipt(transaction)}
-                className="cursor-pointer"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download Receipt
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onEdit?.(transaction)}
-                className="cursor-pointer"
-              >
-                <Edit2 className="w-4 h-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDelete?.(transaction)}
-                className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardContent>
-      </Card>
+        {/* Amount + Date */}
+        <div className="shrink-0 text-right">
+          <p
+            className={cn(
+              "whitespace-nowrap text-sm font-semibold leading-5 tabular-nums sm:text-base",
+              isIncome ? "text-income" : "text-foreground",
+            )}
+          >
+            {isIncome ? "+" : "−"}৳
+            {Math.abs(transaction.amount).toLocaleString("en-US", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+          <p
+            title={formatFullDate(date)}
+            className="mt-1 whitespace-nowrap text-[11px] leading-4 text-muted-foreground sm:hidden"
+          >
+            {formatShortDate(date)} · {formatTime(date)}
+          </p>
+          <p className="mt-1 hidden text-[11px] capitalize leading-4 text-muted-foreground sm:block">
+            {transaction.type}
+          </p>
+        </div>
+
+        {/* Action Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Transaction actions"
+              className="-mr-1 h-8 w-8 shrink-0 rounded-full text-muted-foreground opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44 rounded-xl">
+            <DropdownMenuItem
+              onClick={() => onEdit?.(transaction)}
+              className="cursor-pointer gap-2"
+            >
+              <Edit2 className="h-4 w-4 text-muted-foreground" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => generateTransactionReceipt(transaction)}
+              className="cursor-pointer gap-2"
+            >
+              <Download className="h-4 w-4 text-muted-foreground" />
+              Download receipt
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDelete?.(transaction)}
+              className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }

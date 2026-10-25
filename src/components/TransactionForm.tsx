@@ -1,232 +1,278 @@
+"use client";
+
+import { CategoryPicker } from "@/components/CategoryPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CategoryMultiSelect } from "@/components/CategoryMultiSelect";
 import { evaluateExpression, isExpression } from "@/lib/calc";
 import {
   cn,
   EXPENSE_CATEGORIES,
   formatDateForDisplay,
+  formatTaka,
   getBangladeshTime,
   INCOME_CATEGORIES,
   joinCategories,
+  parseCategories,
 } from "@/lib/utils";
-
-import { Plus, Upload } from "lucide-react";
+import { Transaction, TransactionFormValues } from "@/types/transaction";
+import { ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 interface TransactionFormProps {
   bookId: string;
-  onSubmit: (transaction: any) => void;
+  /** Edit this transaction; omit to add a new one */
+  transaction?: Transaction | null;
+  /** Resolve to false when saving failed, so a new entry isn't cleared */
+  onSubmit: (
+    values: TransactionFormValues,
+  ) => void | boolean | Promise<void | boolean>;
   onCancel?: () => void;
   initialAmount?: number;
   initialNote?: string;
+  className?: string;
 }
+
+const TYPES = [
+  { value: "expense" as const, label: "Expense", icon: ArrowUpRight },
+  { value: "income" as const, label: "Income", icon: ArrowDownLeft },
+];
+
+const categoriesFor = (type: "income" | "expense") =>
+  type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
 export function TransactionForm({
   bookId,
+  transaction,
   onSubmit,
   onCancel,
   initialAmount,
   initialNote,
   className,
-}: TransactionFormProps & { className?: string }) {
-  const [type, setType] = useState<"income" | "expense">("expense");
-  const [amount, setAmount] = useState(
-    initialAmount ? String(initialAmount) : "",
+}: TransactionFormProps) {
+  const isEdit = !!transaction;
+  const [type, setType] = useState<"income" | "expense">(
+    transaction?.type ?? "expense",
   );
-  const [categories, setCategories] = useState<string[]>([]);
-  const [note, setNote] = useState(initialNote ?? "");
+  const [amount, setAmount] = useState(
+    transaction
+      ? String(transaction.amount)
+      : initialAmount
+        ? String(initialAmount)
+        : "",
+  );
+  const [categories, setCategories] = useState<string[]>(
+    parseCategories(transaction?.category),
+  );
+  const [note, setNote] = useState(transaction?.note ?? initialNote ?? "");
+  const [date, setDate] = useState(() => getBangladeshTime(transaction?.date));
+  const [submitting, setSubmitting] = useState(false);
+
   // Amount accepts math like "120+45"; null means it doesn't parse
   const amountValue = evaluateExpression(amount);
-  const [date, setDate] = useState(getBangladeshTime());
-
-  const categoryOptions =
-    type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const isValid =
+    amountValue !== null && amountValue > 0 && categories.length > 0 && !!date;
 
   const handleTypeChange = (newType: "income" | "expense") => {
     if (newType === type) return;
-    const newOptions =
-      newType === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
     // Drop selections that belong to the other transaction type
+    const newOptions = categoriesFor(newType);
     setCategories((prev) => prev.filter((c) => newOptions.includes(c)));
     setType(newType);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amountValue || amountValue <= 0 || categories.length === 0 || !date)
-      return;
+    if (!isValid || amountValue === null) return;
 
-    const localDate = new Date(date);
-    onSubmit({
-      book_id: bookId,
-      type,
-      amount: amountValue,
-      category: joinCategories(categories),
-      note: note || undefined,
-      date: localDate,
-    });
+    const trimmedNote = note.trim();
+    setSubmitting(true);
+    let saved: void | boolean = false;
+    try {
+      saved = await onSubmit({
+        book_id: bookId,
+        type,
+        amount: amountValue,
+        category: joinCategories(categories),
+        // Editing to an empty note must clear it, not leave the old one
+        note: trimmedNote || (isEdit ? null : undefined),
+        date: new Date(date),
+      });
+    } finally {
+      setSubmitting(false);
+    }
 
-    // Reset form
-    setAmount("");
-    setCategories([]);
-    setNote("");
-    setDate(getBangladeshTime());
+    if (!isEdit && saved !== false) {
+      setAmount("");
+      setCategories([]);
+      setNote("");
+      setDate(getBangladeshTime());
+    }
   };
 
   return (
-    <div className={cn("w-full max-w-lg mx-auto animate-scale-in", className)}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Type</Label>
-          <div className="flex space-x-2 mt-1">
-            <Button
+    <form
+      onSubmit={handleSubmit}
+      className={cn("w-full space-y-5", className)}
+    >
+      {/* Type */}
+      <div
+        role="radiogroup"
+        aria-label="Transaction type"
+        className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1"
+      >
+        {TYPES.map(({ value, label, icon: Icon }) => {
+          const selected = type === value;
+          return (
+            <button
+              key={value}
               type="button"
-              variant={type === "income" ? "default" : "outline"}
-              onClick={() => handleTypeChange("income")}
+              role="radio"
+              aria-checked={selected}
+              onClick={() => handleTypeChange(value)}
               className={cn(
-                "flex-1 transition-all duration-200 h-10 rounded-xl",
-                type === "income" &&
-                  "bg-income hover:bg-income text-income-foreground shadow-lg shadow-income/20",
+                "flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                selected
+                  ? value === "income"
+                    ? "bg-income text-income-foreground shadow-income"
+                    : "bg-expense text-expense-foreground shadow-expense"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              Income
-            </Button>
-            <Button
-              type="button"
-              variant={type === "expense" ? "default" : "outline"}
-              onClick={() => handleTypeChange("expense")}
-              className={cn(
-                "flex-1 transition-all duration-200 h-10 rounded-xl",
-                type === "expense" &&
-                  "bg-expense hover:bg-expense text-expense-foreground shadow-lg shadow-expense/20",
-              )}
-            >
-              Expense
-            </Button>
-          </div>
-        </div>
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Amount */}
-        <div className="space-y-2">
-          <Label htmlFor="amount" className="text-sm font-medium">
-            Amount
-          </Label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-              ৳
-            </span>
-            <Input
-              id="amount"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="0.00 or 120+45"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              onBlur={() => {
-                if (isExpression(amount) && amountValue !== null) {
-                  setAmount(String(amountValue));
-                }
-              }}
-              className="text-lg font-semibold pl-8 bg-slate-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 transition-all"
-              required
-            />
-          </div>
-          {isExpression(amount) && (
-            <p className="text-xs text-muted-foreground pl-1 tabular-nums">
-              {amountValue !== null
-                ? `= ৳${amountValue.toLocaleString("en-US")}`
-                : "Invalid calculation"}
-            </p>
-          )}
-        </div>
-
-        {/* Category */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Category</Label>
-          <CategoryMultiSelect
-            options={categoryOptions}
-            value={categories}
-            onChange={setCategories}
-          />
-        </div>
-
-        {/* Date */}
-        <div className="space-y-2">
-          <Label htmlFor="date" className="text-sm font-medium">
-            Date
-          </Label>
+      {/* Amount */}
+      <div className="space-y-1.5">
+        <Label htmlFor="amount" className="text-xs font-medium text-muted-foreground">
+          Amount
+        </Label>
+        <div className="relative">
+          <span
+            className={cn(
+              "pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold",
+              type === "income" ? "text-income" : "text-expense",
+            )}
+          >
+            ৳
+          </span>
           <Input
-            id="date"
-            type="datetime-local"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="bg-slate-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-xl h-11 transition-all"
+            id="amount"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            autoFocus={!isEdit}
+            placeholder="0 or 120+45"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onBlur={() => {
+              if (isExpression(amount) && amountValue !== null) {
+                setAmount(String(amountValue));
+              }
+            }}
+            className="h-16 rounded-2xl border-2 pl-11 text-3xl font-semibold md:text-3xl tracking-tight tabular-nums focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
             required
           />
-          {date && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 pl-1 italic">
-              Selected: {formatDateForDisplay(date)}
-            </p>
-          )}
         </div>
+        <p className="h-4 pl-1 text-xs text-muted-foreground tabular-nums">
+          {isExpression(amount)
+            ? amountValue !== null
+              ? `= ${formatTaka(amountValue)}`
+              : "That calculation doesn't add up"
+            : "Tip: type sums like 120+45+30"}
+        </p>
+      </div>
 
-        {/* Note */}
-        <div className="space-y-2">
-          <Label htmlFor="note" className="text-sm font-medium">
-            Note (Optional)
+      {/* Categories */}
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <Label className="text-xs font-medium text-muted-foreground">
+            Category
           </Label>
-          <Textarea
-            id="note"
-            placeholder="Add a reference note..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className="bg-slate-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 rounded-xl resize-none focus:ring-2 focus:ring-primary/20 transition-all"
-          />
+          <span className="text-[11px] text-muted-foreground">
+            {categories.length === 0
+              ? "Pick one or more"
+              : `${categories.length} selected`}
+          </span>
         </div>
+        <CategoryPicker
+          options={categoriesFor(type)}
+          value={categories}
+          onChange={setCategories}
+          type={type}
+        />
+      </div>
 
-        {/* Receipt Upload Placeholder */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Receipt (Optional)</Label>
-          <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-4 text-center group hover:border-primary/50 transition-colors cursor-pointer bg-slate-50/30 dark:bg-gray-900/30">
-            <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1 group-hover:text-primary transition-colors" />
-            <p className="text-xs text-muted-foreground group-hover:text-primary/80 transition-colors">
-              Click or drag to upload receipt
-            </p>
-          </div>
-        </div>
+      {/* Date */}
+      <div className="space-y-1.5">
+        <Label htmlFor="date" className="text-xs font-medium text-muted-foreground">
+          Date &amp; time
+        </Label>
+        <Input
+          id="date"
+          type="datetime-local"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="h-11 rounded-xl"
+          required
+        />
+        {date && (
+          <p className="pl-1 text-xs text-muted-foreground">
+            {formatDateForDisplay(date)}
+          </p>
+        )}
+      </div>
 
-        {/* Form Actions */}
-        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
-          {onCancel && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onCancel}
-              className="w-full sm:flex-1 rounded-xl h-11 hover:bg-slate-100 dark:hover:bg-gray-800 transition-all font-medium"
-            >
-              Cancel
-            </Button>
-          )}
+      {/* Note */}
+      <div className="space-y-1.5">
+        <Label htmlFor="note" className="text-xs font-medium text-muted-foreground">
+          Note <span className="font-normal">(optional)</span>
+        </Label>
+        <Textarea
+          id="note"
+          placeholder="What was it for?"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          className="resize-none rounded-xl"
+        />
+      </div>
+
+      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row">
+        {onCancel && (
           <Button
-            type="submit"
-            className={cn(
-              "w-full sm:flex-[2] rounded-xl h-11 font-semibold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg",
-              type === "income"
-                ? "bg-income hover:bg-income/90 shadow-income/20"
-                : "bg-expense hover:bg-expense/90 shadow-expense/20",
-            )}
-            disabled={!amountValue || amountValue <= 0 || categories.length === 0}
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="h-11 rounded-xl sm:flex-1"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Add {type === "income" ? "Income" : "Expense"}
+            Cancel
           </Button>
-        </div>
-      </form>
-    </div>
+        )}
+        <Button
+          type="submit"
+          disabled={!isValid || submitting}
+          className={cn(
+            "h-11 rounded-xl font-semibold sm:flex-[2]",
+            type === "income"
+              ? "bg-income text-income-foreground hover:bg-income/90"
+              : "bg-expense text-expense-foreground hover:bg-expense/90",
+          )}
+        >
+          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isEdit ? "Save" : "Add"} {type}
+          {amountValue !== null && amountValue > 0 && (
+            <span className="tabular-nums opacity-90">
+              · {formatTaka(amountValue)}
+            </span>
+          )}
+        </Button>
+      </div>
+    </form>
   );
 }

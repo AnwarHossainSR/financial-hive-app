@@ -112,13 +112,7 @@ export const useUserSettings = () => {
       });
       return;
     }
-    if (
-      !confirm(
-        "Are you sure you want to clear the entire database? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
+    // The settings page asks for typed confirmation before calling this
 
     setLoading(true);
     try {

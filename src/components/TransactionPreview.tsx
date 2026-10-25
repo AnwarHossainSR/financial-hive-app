@@ -1,5 +1,8 @@
 import { CategoryTags } from "@/components/CategoryTags";
+import { getCategoryIcon } from "@/lib/categoryIcons";
+import { cn, formatTaka, parseCategories } from "@/lib/utils";
 import { Transaction } from "@/types/transaction";
+import { createElement } from "react";
 
 export const TransactionPreview = ({
   transaction,
@@ -9,38 +12,45 @@ export const TransactionPreview = ({
   const isIncome = transaction.type === "income";
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex-1">
-        <div className="flex items-center space-x-2 mb-1">
-          <span
-            className={`text-lg font-bold ${
-              isIncome
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-red-600 dark:text-red-400"
-            }`}
-          >
-            {isIncome ? "+" : "-"}৳
-            {Math.abs(transaction.amount).toLocaleString()}
-          </span>
-          <CategoryTags
-            category={transaction.category}
-            type={transaction.type}
-            className="flex-wrap"
-          />
-        </div>
-        {transaction.note && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
-            {transaction.note}
-          </p>
+    <div className="flex items-center gap-3 text-left">
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+          isIncome ? "bg-income/10 text-income" : "bg-expense/10 text-expense",
         )}
-        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-          {new Date(transaction.date).toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
+      >
+        {createElement(
+          getCategoryIcon(
+            parseCategories(transaction.category)[0],
+            transaction.type,
+          ),
+          { className: "h-5 w-5" },
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">
+          {transaction.note || parseCategories(transaction.category)[0]}
         </p>
+        <div className="mt-1 flex items-center gap-2">
+          <CategoryTags category={transaction.category} max={2} />
+          <span className="text-xs text-muted-foreground">
+            {new Date(transaction.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        </div>
       </div>
+      <span
+        className={cn(
+          "shrink-0 text-base font-semibold tabular-nums",
+          isIncome ? "text-income" : "text-foreground",
+        )}
+      >
+        {isIncome ? "+" : "−"}
+        {formatTaka(Math.abs(transaction.amount))}
+      </span>
     </div>
   );
 };

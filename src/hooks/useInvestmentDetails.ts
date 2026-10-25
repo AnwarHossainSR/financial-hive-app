@@ -77,6 +77,9 @@ export const useInvestmentEntries = (projectId: string) => {
       queryClient.invalidateQueries({
         queryKey: ["investment-project", projectId],
       });
+      // Entry changes move the project's totals shown on platform pages
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platforms"] });
       toast({
         title: "Entry added",
         description: "Investment entry has been successfully added.",
@@ -109,6 +112,9 @@ export const useInvestmentEntries = (projectId: string) => {
       queryClient.invalidateQueries({
         queryKey: ["investment-project", projectId],
       });
+      // Entry changes move the project's totals shown on platform pages
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platforms"] });
       toast({
         title: "Entry updated",
         description: "Investment entry has been successfully updated.",
@@ -140,6 +146,9 @@ export const useInvestmentEntries = (projectId: string) => {
       queryClient.invalidateQueries({
         queryKey: ["investment-project", projectId],
       });
+      // Entry changes move the project's totals shown on platform pages
+      queryClient.invalidateQueries({ queryKey: ["investment-platform"] });
+      queryClient.invalidateQueries({ queryKey: ["investment-platforms"] });
       toast({
         title: "Entry deleted",
         description: "Investment entry has been removed.",
