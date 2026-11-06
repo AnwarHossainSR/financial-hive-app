@@ -2,7 +2,7 @@
 
 import { BookCard } from "@/components/BookCard";
 import { BookFormDialog } from "@/components/BookFormDialog";
-import { CashFlowChart } from "@/components/CashFlowChart";
+import { BudgetDialog } from "@/components/BudgetDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { StatTile, type StatTrend } from "@/components/StatTile";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
+import { useBudget } from "@/hooks/useBudget";
 import { useInvestmentPlatforms } from "@/hooks/useInvestmentPlatforms";
 import { usePeriodTotals, useTransactionTotals } from "@/hooks/useTransactions";
 import { formatPercent, summarizeProjects } from "@/lib/investments";
@@ -27,15 +28,27 @@ import {
   ArrowUpRight,
   BookOpen,
   Layers,
-  PiggyBank,
   Plus,
   Scale,
+  Target,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+
+// Recharts is the heaviest dependency on the page; load it after first paint
+const CashFlowChart = dynamic(
+  () => import("@/components/CashFlowChart").then((m) => m.CashFlowChart),
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton className="h-[436px] rounded-2xl lg:col-span-2" />
+    ),
+  },
+);
 
 const greetingFor = (hour: number) =>
   hour < 5
@@ -63,6 +76,8 @@ export default function DashboardClient() {
   const { books, loading: booksLoading } = useBooks();
   const { platforms, isLoading: platformsLoading } = useInvestmentPlatforms();
   const [showCreateBook, setShowCreateBook] = useState(false);
+  const [showBudget, setShowBudget] = useState(false);
+  const { budgetFor } = useBudget();
 
   const firstName =
     (user?.user_metadata?.display_name || user?.email?.split("@")[0] || "")
@@ -99,6 +114,8 @@ export default function DashboardClient() {
   const expense = monthTotals?.expense ?? 0;
   const net = income - expense;
   const savingsRate = income > 0 ? (net / income) * 100 : null;
+  const budget = budgetFor(month);
+  const budgetUsed = budget ? (expense / budget.amount) * 100 : undefined;
 
   const portfolio = summarizeProjects(platforms.flatMap((p) => p.projects ?? []));
   const sortedBooks = [...books].sort(
@@ -137,7 +154,11 @@ export default function DashboardClient() {
               label="Net this month"
               value={formatTaka(net, { signed: true })}
               icon={Scale}
-              hint={`${books.length} book${books.length === 1 ? "" : "s"}`}
+              hint={
+                savingsRate === null
+                  ? `Across ${books.length} book${books.length === 1 ? "" : "s"}`
+                  : `${Math.round(savingsRate)}% of income saved`
+              }
               className="col-span-2 lg:col-span-1"
             />
             <StatTile
@@ -154,18 +175,38 @@ export default function DashboardClient() {
               tone="expense"
               trend={trendFor(expense, previousTotals?.expense, false, previousRange.label)}
             />
-            <StatTile
-              label="Savings rate"
-              value={savingsRate === null ? "—" : `${Math.round(savingsRate)}%`}
-              icon={PiggyBank}
-              tone={savingsRate !== null && savingsRate < 0 ? "expense" : "primary"}
-              hint={
-                savingsRate === null
-                  ? "No income recorded yet"
-                  : "Of this month's income kept"
-              }
-              className="col-span-2 sm:col-span-1"
-            />
+            <button
+              type="button"
+              onClick={() => setShowBudget(true)}
+              aria-label={budget ? "Edit monthly budget" : "Set a monthly budget"}
+              className="col-span-2 rounded-2xl text-left transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1"
+            >
+              <StatTile
+                label="Monthly budget"
+                value={
+                  budgetUsed === undefined ? "Not set" : `${Math.round(budgetUsed)}%`
+                }
+                icon={Target}
+                tone={
+                  budgetUsed === undefined
+                    ? "neutral"
+                    : budgetUsed > 100
+                      ? "expense"
+                      : budgetUsed > 85
+                        ? "warning"
+                        : "primary"
+                }
+                progress={budgetUsed}
+                hint={
+                  !budget
+                    ? "One budget for all books · tap to set"
+                    : budget.amount - expense >= 0
+                      ? `${formatTaka(budget.amount - expense)} left of ${formatTaka(budget.amount)}`
+                      : `${formatTaka(expense - budget.amount)} over ${formatTaka(budget.amount)}`
+                }
+                className="h-full"
+              />
+            </button>
           </>
         )}
       </section>
@@ -348,6 +389,7 @@ export default function DashboardClient() {
       </section>
 
       <BookFormDialog open={showCreateBook} onOpenChange={setShowCreateBook} />
+      <BudgetDialog open={showBudget} onOpenChange={setShowBudget} month={month} />
     </div>
   );
 }

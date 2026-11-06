@@ -1,8 +1,6 @@
 "use server";
 
-import { assertOwnsBook, requireUser, requireUserId } from "@/lib/auth";
-import { setBudgetNotification } from "@/lib/notificationHelpers";
-import { invalidate } from "@/lib/cache";
+import { requireUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -87,55 +85,5 @@ export async function ensureProfileExistsAction(userData: {
   } catch (error: any) {
     console.error("Error in ensureProfileExistsAction:", error);
     return { success: false, error: error.message };
-  }
-}
-
-export async function setMonthlyBudgetAction(
-  bookId: string,
-  month: string,
-  amount: number
-) {
-  try {
-    const userId = await requireUserId();
-    await assertOwnsBook(userId, bookId);
-    const budget = await prisma.monthlyBudget.upsert({
-      where: {
-        book_id_month: {
-          book_id: bookId,
-          month: month,
-        },
-      },
-      update: {
-        amount: amount,
-        updated_at: new Date(),
-      },
-      create: {
-        book_id: bookId,
-        month: month,
-        amount: amount,
-      },
-    });
-
-    await invalidate("books", userId);
-
-    // Create notification
-    const book = await prisma.book.findUnique({
-      where: { id: bookId },
-      select: { name: true, owner_id: true },
-    });
-
-    if (book) {
-      await setBudgetNotification(book.owner_id, {
-        bookName: book.name,
-        month: month,
-        amount: amount,
-      });
-    }
-
-    revalidatePath("/profile");
-    revalidatePath(`/book/${bookId}`);
-    return { budget, error: null };
-  } catch (error: any) {
-    return { budget: null, error: error.message };
   }
 }

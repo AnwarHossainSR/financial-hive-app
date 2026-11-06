@@ -48,9 +48,8 @@ import { useMemo, useState } from "react";
 // Fixed row slots (row + gap, day header) so virtual-scroll offsets stay exact
 const ITEM_HEIGHT = 68;
 const HEADER_HEIGHT = 40;
-const CONTAINER_HEIGHT = 600;
-// Room below the rows for the "loading more" / "end of list" line
-const LIST_END_SPACE = 64;
+// Initial viewport guess until the window is measured
+const VIEWPORT_ESTIMATE = 800;
 const OVERSCAN = 10;
 
 const TYPE_TABS = [
@@ -138,6 +137,8 @@ export const TransactionsSection = ({
   onLoadMore,
   loadingMore,
   loading,
+  currentBookId,
+  bookNames,
 }: TransactionsSectionProps) => {
   const rows = useMemo(
     () => buildRows(transactions, pagination.hasNextPage),
@@ -147,31 +148,21 @@ export const TransactionsSection = ({
     () => rows.map((r) => (r.kind === "day" ? HEADER_HEIGHT : ITEM_HEIGHT)),
     [rows],
   );
-  // Short lists get a short box instead of a mostly-empty 600px one
-  const contentHeight = rowSizes.reduce((sum, h) => sum + h, 0);
-  const viewportHeight = Math.min(
-    CONTAINER_HEIGHT,
-    contentHeight + LIST_END_SPACE,
-  );
-
-  const {
-    containerRef,
-    startIndex,
-    endIndex,
-    offsetY,
-    totalHeight,
-    handleScroll,
-  } = useVirtualScroll({
-    itemHeight: ITEM_HEIGHT,
-    itemSizes: rowSizes,
-    containerHeight: viewportHeight,
-    overscan: OVERSCAN,
-    totalItems: rows.length,
-    onLoadMore,
-    hasNextPage: pagination.hasNextPage,
-    loadingMore,
-    threshold: 200,
-  });
+  // The list scrolls with the page (no box-in-a-box scrolling on phones);
+  // only the rows near the viewport are rendered
+  const { containerRef, startIndex, endIndex, offsetY, totalHeight } =
+    useVirtualScroll({
+      scrollParent: "window",
+      itemHeight: ITEM_HEIGHT,
+      itemSizes: rowSizes,
+      containerHeight: VIEWPORT_ESTIMATE,
+      overscan: OVERSCAN,
+      totalItems: rows.length,
+      onLoadMore,
+      hasNextPage: pagination.hasNextPage,
+      loadingMore,
+      threshold: 200,
+    });
 
   const visibleRows = useMemo(
     () => rows.slice(startIndex, endIndex),
@@ -227,9 +218,10 @@ export const TransactionsSection = ({
           ];
 
   return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card">
-      {/* Toolbar */}
-      <div className="space-y-3 border-b p-4 sm:p-5">
+    // No overflow-hidden here: it would stop the toolbar from sticking
+    <section className="flex min-w-0 flex-col rounded-2xl border bg-card shadow-card">
+      {/* Toolbar: stays under the top bar while the list scrolls */}
+      <div className="sticky top-16 z-20 space-y-3 rounded-t-2xl border-b bg-card/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Transactions</h2>
@@ -242,7 +234,7 @@ export const TransactionsSection = ({
           <div
             role="radiogroup"
             aria-label="Transaction type"
-            className="flex rounded-xl bg-muted p-1"
+            className="grid w-full grid-cols-3 rounded-xl bg-muted p-1 sm:flex sm:w-auto"
           >
             {TYPE_TABS.map(({ value, label }) => {
               const selected = filters.type === value;
@@ -344,13 +336,8 @@ export const TransactionsSection = ({
           Loading transactions…
         </div>
       ) : transactions.length > 0 ? (
-        <div className="relative">
-          <div
-            ref={containerRef}
-            className="relative overflow-auto overscroll-contain scrollbar-hide"
-            style={{ height: viewportHeight }}
-            onScroll={handleScroll}
-          >
+        <div className="relative pt-1">
+          <div ref={containerRef} className="relative">
             <div style={{ height: offsetY }} />
             <div className="px-2 sm:px-3">
               {visibleRows.map((row) =>
@@ -398,6 +385,17 @@ export const TransactionsSection = ({
                       transaction={row.transaction}
                       onDelete={() => onDeleteTransaction(row.transaction)}
                       onEdit={() => onEditTransaction(row.transaction)}
+                      originLabel={
+                        currentBookId &&
+                        row.transaction.book_id !== currentBookId
+                          ? bookNames?.[row.transaction.book_id]
+                          : undefined
+                      }
+                      sharedCount={
+                        row.transaction.book_id === currentBookId
+                          ? (row.transaction.shared_book_ids?.length ?? 0)
+                          : 0
+                      }
                     />
                   </div>
                 ),
@@ -421,13 +419,6 @@ export const TransactionsSection = ({
               )
             )}
           </div>
-          {/* Fade hints that the list scrolls */}
-          {contentHeight > viewportHeight && (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
-            />
-          )}
         </div>
       ) : isFiltered ? (
         <EmptyState
@@ -459,7 +450,7 @@ export const TransactionsSection = ({
       )}
 
       {transactions.length > 0 && (
-        <div className="flex items-center justify-between border-t bg-muted/30 px-5 py-2.5 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between rounded-b-2xl border-t bg-muted/30 px-5 py-2.5 text-xs text-muted-foreground">
           <span>
             Showing {transactions.length.toLocaleString()} of{" "}
             {pagination.totalCount.toLocaleString()}

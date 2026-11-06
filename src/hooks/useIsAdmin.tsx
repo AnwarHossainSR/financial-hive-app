@@ -1,4 +1,4 @@
-import { getProfileRole } from "@/app/actions/user-settings";
+import { read } from "@/lib/read";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 
@@ -8,7 +8,7 @@ export const useProfileRole = () => {
   const query = useQuery({
     queryKey: ["profile-role", user?.id],
     queryFn: async () => {
-      const { role, error } = await getProfileRole();
+      const { role, error } = await read("profileRole");
       if (error) throw new Error(error);
       return role;
     },

@@ -2,35 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Financial Hive design system
-   Indigo = primary/interactive · Emerald = income/profit · Rose = expense/loss
+/* Financial Hive design system — "Midnight + gold"
+   Light: midnight navy buttons and hero surfaces, gold accents.
+   Dark: gold buttons on a midnight background.
+   Emerald = income/profit · Rose = expense/loss (both themes).
    All colors are HSL channels so Tailwind can apply opacity (bg-primary/10). */
 
 @layer base {
   :root {
     color-scheme: light;
 
-    --background: 228 33% 97%;
-    --foreground: 230 35% 11%;
+    /* Warm ivory page, white cards */
+    --background: 40 20% 97%;
+    --foreground: 225 32% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 230 35% 11%;
+    --card-foreground: 225 32% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 230 35% 11%;
+    --popover-foreground: 225 32% 12%;
 
-    --primary: 243 75% 59%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 258 90% 66%;
+    --primary: 225 35% 15%;
+    --primary-foreground: 42 60% 97%;
+    --primary-glow: 226 30% 25%;
 
-    --secondary: 228 25% 95%;
-    --secondary-foreground: 230 30% 18%;
+    /* Gold accent; gold-foreground is gold dark enough to read as text */
+    --gold: 41 82% 53%;
+    --gold-foreground: 33 80% 29%;
 
-    --muted: 228 25% 95%;
-    --muted-foreground: 228 10% 45%;
+    --secondary: 40 14% 94%;
+    --secondary-foreground: 225 30% 18%;
 
-    --accent: 228 25% 94%;
-    --accent-foreground: 230 35% 11%;
+    --muted: 40 14% 94%;
+    --muted-foreground: 225 9% 44%;
+
+    --accent: 40 14% 93%;
+    --accent-foreground: 225 32% 12%;
 
     --income: 161 94% 30%;
     --income-foreground: 0 0% 100%;
@@ -43,14 +50,15 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 228 20% 90%;
-    --input: 228 20% 87%;
-    --ring: 243 75% 59%;
+    --border: 40 12% 88%;
+    --input: 40 10% 84%;
+    --ring: 225 35% 15%;
 
+    /* Hero surfaces (featured tile, brand mark, auth panel): midnight */
     --gradient-primary: linear-gradient(
       135deg,
-      hsl(var(--primary)),
-      hsl(var(--primary-glow))
+      hsl(225 38% 13%),
+      hsl(228 30% 24%)
     );
     --gradient-income: linear-gradient(
       135deg,
@@ -65,12 +73,12 @@
     --gradient-balance: var(--gradient-primary);
 
     --shadow-card:
-      0 1px 2px hsl(230 35% 11% / 0.04), 0 4px 16px -6px hsl(230 35% 11% / 0.08);
+      0 1px 2px hsl(225 32% 12% / 0.04), 0 4px 16px -6px hsl(225 32% 12% / 0.08);
     --shadow-elevated:
-      0 2px 4px hsl(230 35% 11% / 0.04), 0 16px 40px -12px hsl(230 35% 11% / 0.18);
+      0 2px 4px hsl(225 32% 12% / 0.04), 0 16px 40px -12px hsl(225 32% 12% / 0.18);
     --shadow-income: 0 8px 24px -8px hsl(var(--income) / 0.35);
     --shadow-expense: 0 8px 24px -8px hsl(var(--expense) / 0.35);
-    --shadow-primary: 0 8px 24px -8px hsl(var(--primary) / 0.45);
+    --shadow-primary: 0 10px 28px -10px hsl(225 38% 13% / 0.55);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
@@ -84,39 +92,42 @@
     --chart-expense: 350 89% 60%;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 230 20% 30%;
-    --sidebar-primary: 243 75% 59%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 243 100% 97%;
-    --sidebar-accent-foreground: 243 60% 40%;
-    --sidebar-border: 228 20% 91%;
-    --sidebar-ring: 243 75% 59%;
+    --sidebar-foreground: 225 15% 32%;
+    --sidebar-primary: 41 82% 53%;
+    --sidebar-primary-foreground: 225 35% 12%;
+    --sidebar-accent: 43 85% 94%;
+    --sidebar-accent-foreground: 33 80% 26%;
+    --sidebar-border: 40 12% 90%;
+    --sidebar-ring: 225 35% 15%;
   }
 
   .dark {
     color-scheme: dark;
 
-    --background: 230 28% 7%;
-    --foreground: 228 30% 96%;
+    --background: 225 30% 6%;
+    --foreground: 40 25% 95%;
 
-    --card: 230 24% 10%;
-    --card-foreground: 228 30% 96%;
+    --card: 225 26% 9%;
+    --card-foreground: 40 25% 95%;
 
-    --popover: 230 24% 11%;
-    --popover-foreground: 228 30% 96%;
+    --popover: 225 26% 10%;
+    --popover-foreground: 40 25% 95%;
 
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 258 90% 72%;
+    --primary: 42 88% 58%;
+    --primary-foreground: 225 38% 10%;
+    --primary-glow: 36 90% 52%;
 
-    --secondary: 230 20% 15%;
-    --secondary-foreground: 228 30% 96%;
+    --gold: 42 88% 58%;
+    --gold-foreground: 43 92% 68%;
 
-    --muted: 230 20% 14%;
-    --muted-foreground: 228 12% 64%;
+    --secondary: 225 20% 15%;
+    --secondary-foreground: 40 25% 95%;
 
-    --accent: 230 20% 16%;
-    --accent-foreground: 228 30% 96%;
+    --muted: 225 20% 14%;
+    --muted-foreground: 225 10% 64%;
+
+    --accent: 225 20% 16%;
+    --accent-foreground: 40 25% 95%;
 
     --income: 158 64% 52%;
     --income-foreground: 164 86% 10%;
@@ -129,22 +140,30 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 18% 17%;
-    --input: 230 18% 21%;
-    --ring: 239 84% 67%;
+    --border: 225 18% 17%;
+    --input: 225 18% 21%;
+    --ring: 42 88% 58%;
+
+    /* Hero surfaces sit one step above the page, gold does the accenting */
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(225 30% 17%),
+      hsl(225 32% 11%)
+    );
 
     --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.3), 0 4px 16px -6px hsl(0 0% 0% / 0.4);
     --shadow-elevated:
       0 2px 4px hsl(0 0% 0% / 0.3), 0 16px 40px -12px hsl(0 0% 0% / 0.6);
+    --shadow-primary: 0 10px 28px -12px hsl(42 88% 58% / 0.35);
 
-    --sidebar-background: 230 26% 9%;
-    --sidebar-foreground: 228 15% 70%;
-    --sidebar-primary: 239 84% 67%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 239 40% 18%;
-    --sidebar-accent-foreground: 239 100% 88%;
-    --sidebar-border: 230 18% 15%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-background: 225 28% 8%;
+    --sidebar-foreground: 225 12% 70%;
+    --sidebar-primary: 42 88% 58%;
+    --sidebar-primary-foreground: 225 38% 10%;
+    --sidebar-accent: 40 45% 13%;
+    --sidebar-accent-foreground: 43 92% 72%;
+    --sidebar-border: 225 18% 14%;
+    --sidebar-ring: 42 88% 58%;
   }
 }
 

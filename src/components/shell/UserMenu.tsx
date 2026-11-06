@@ -53,7 +53,7 @@ export function UserMenu({ variant = "avatar", className }: UserMenuProps) {
   const avatar = (
     <Avatar className="h-9 w-9 ring-2 ring-background">
       <AvatarImage src={avatarUrl} alt="" />
-      <AvatarFallback className="bg-gradient-primary text-xs font-semibold text-white">
+      <AvatarFallback className="bg-gradient-primary text-xs font-semibold text-gold">
         {getInitials(displayName)}
       </AvatarFallback>
     </Avatar>

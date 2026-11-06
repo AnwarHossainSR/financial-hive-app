@@ -1,7 +1,7 @@
 "use client";
 
-import { getIsolatedInvestmentPlatformsAction } from "@/app/actions/platform-actions";
 import { useAuth } from "@/hooks/useAuth";
+import { read } from "@/lib/read";
 import { PlatformWithProjects } from "@/types/investment";
 import { useQuery } from "@tanstack/react-query";
 
@@ -12,7 +12,7 @@ export const useInvestmentPlatforms = () => {
   const query = useQuery({
     queryKey: ["investment-platforms", user?.id],
     queryFn: async () => {
-      const { platforms, error } = await getIsolatedInvestmentPlatformsAction();
+      const { platforms, error } = await read("platforms");
       if (error) throw new Error(error);
       return platforms as PlatformWithProjects[];
     },

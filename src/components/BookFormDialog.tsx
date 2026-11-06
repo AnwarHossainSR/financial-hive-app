@@ -240,7 +240,7 @@ export function BookFormDialog({
                         Default book
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        Pinned first on your dashboard
+                        Shows transactions from all your books
                       </span>
                     </span>
                   </span>

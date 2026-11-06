@@ -6,10 +6,13 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  // Server action calls authenticate themselves (src/lib/auth.ts) and can
-  // refresh the session cookie there; checking here too would double the
-  // auth work on every action.
-  if (request.headers.has("next-action")) {
+  // Server actions and API routes authenticate themselves (src/lib/auth.ts)
+  // and can refresh the session cookie there; checking here too would double
+  // the auth work on every request.
+  if (
+    request.headers.has("next-action") ||
+    request.nextUrl.pathname.startsWith("/api/")
+  ) {
     return supabaseResponse;
   }
 

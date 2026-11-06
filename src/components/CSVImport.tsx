@@ -109,7 +109,8 @@ export const CSVImport = ({
   selectedBook,
 }: CSVImportProps) => {
   const { toast } = useToast();
-  const { importTransactions } = useTransactions();
+  // Only the import mutation is needed; don't load a transaction list too
+  const { importTransactions } = useTransactions({}, false);
 
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<ParsedRow[]>([]);

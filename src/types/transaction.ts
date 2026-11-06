@@ -8,6 +8,8 @@ export interface Transaction {
   note?: string;
   date: string;
   image_url?: string;
+  /** Other books this transaction also appears in (and counts toward) */
+  shared_book_ids?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +23,8 @@ export interface TransactionFormValues {
   /** null clears an existing note when editing */
   note?: string | null;
   date: Date;
+  /** Other books to also show this transaction in */
+  shared_book_ids: string[];
 }
 
 export interface PaginationInfo {
@@ -57,4 +61,8 @@ export interface TransactionsSectionProps {
   onLoadMore: () => void;
   loadingMore: boolean;
   loading: boolean;
+  /** The book being viewed; rows from other books get a badge */
+  currentBookId?: string;
+  /** Book id → name, for those badges */
+  bookNames?: Record<string, string>;
 }

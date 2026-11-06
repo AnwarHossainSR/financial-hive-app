@@ -1,6 +1,7 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useCategoryTotals } from "@/hooks/useTransactions";
 import { getCategoryIcon } from "@/lib/categoryIcons";
 import { cn, formatTaka } from "@/lib/utils";
@@ -9,6 +10,8 @@ import { PieChart } from "lucide-react";
 import { createElement, useState } from "react";
 
 const MAX_ROWS = 6;
+// Phones show fewer rows up front so the transaction list stays close
+const MAX_ROWS_MOBILE = 3;
 
 interface CategoryBreakdownProps {
   /** Same filters as the list (book, period, search), minus category/type */
@@ -29,12 +32,19 @@ export function CategoryBreakdown({
   className,
 }: CategoryBreakdownProps) {
   const [type, setType] = useState<"income" | "expense">("expense");
+  const [expanded, setExpanded] = useState(false);
+  const isMobile = useIsMobile();
   const { data, isLoading } = useCategoryTotals(filters);
 
   const rows = (data ?? []).filter((row) => row.type === type);
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
-  const visible = rows.slice(0, MAX_ROWS);
-  const rest = rows.slice(MAX_ROWS);
+  const limit = expanded
+    ? rows.length
+    : isMobile
+      ? MAX_ROWS_MOBILE
+      : MAX_ROWS;
+  const visible = rows.slice(0, limit);
+  const rest = rows.slice(limit);
   const restTotal = rest.reduce((sum, row) => sum + row.amount, 0);
   const barColor =
     type === "income" ? "hsl(var(--chart-income))" : "hsl(var(--chart-expense))";
@@ -152,11 +162,30 @@ export function CategoryBreakdown({
               );
             })}
             {rest.length > 0 && (
-              <li className="flex items-center justify-between px-1 pt-2 text-xs text-muted-foreground">
-                <span>
-                  {rest.length} more categor{rest.length === 1 ? "y" : "ies"}
-                </span>
-                <span className="tabular-nums">{formatTaka(restTotal)}</span>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="flex w-full items-center justify-between rounded-lg px-1 pt-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span className="font-medium text-primary">
+                    Show {rest.length} more categor
+                    {rest.length === 1 ? "y" : "ies"}
+                  </span>
+                  <span className="tabular-nums">{formatTaka(restTotal)}</span>
+                </button>
+              </li>
+            )}
+            {expanded &&
+              rows.length > (isMobile ? MAX_ROWS_MOBILE : MAX_ROWS) && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="px-1 pt-2 text-xs font-medium text-primary"
+                >
+                  Show fewer
+                </button>
               </li>
             )}
           </ul>

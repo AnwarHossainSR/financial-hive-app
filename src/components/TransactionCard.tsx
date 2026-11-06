@@ -10,7 +10,14 @@ import {
 import { getCategoryIcon } from "@/lib/categoryIcons";
 import { generateTransactionReceipt } from "@/lib/receiptGenerator";
 import { cn, parseCategories } from "@/lib/utils";
-import { Download, Edit2, MoreVertical, Paperclip, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  Download,
+  Edit2,
+  MoreVertical,
+  Paperclip,
+  Trash2,
+} from "lucide-react";
 import { createElement, useEffect, useRef, useState } from "react";
 
 interface Transaction {
@@ -27,6 +34,10 @@ interface TransactionCardProps {
   transaction: Transaction;
   onEdit?: (transaction: Transaction) => void;
   onDelete?: (transaction: Transaction) => void;
+  /** Name of the book it comes from, when that isn't the book being viewed */
+  originLabel?: string;
+  /** Other books it is also shown in */
+  sharedCount?: number;
 }
 
 const TIME_ZONE = "Asia/Dhaka";
@@ -74,6 +85,8 @@ export function TransactionCard({
   transaction,
   onEdit,
   onDelete,
+  originLabel,
+  sharedCount = 0,
 }: TransactionCardProps) {
   const isIncome = transaction.type === "income";
   const date = new Date(transaction.date);
@@ -183,6 +196,9 @@ export function TransactionCard({
         </div>
       )}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Edit ${transaction.note || transaction.category}`}
         onClickCapture={(e) => {
           // While open, a tap on the row just closes the actions
           if (offsetRef.current !== 0) {
@@ -191,8 +207,16 @@ export function TransactionCard({
             setOffset(0);
           }
         }}
+        // Tapping the row opens it for editing; the menu stops propagation
+        onClick={() => onEdit?.(transaction)}
+        onKeyDown={(e) => {
+          if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onEdit?.(transaction);
+          }
+        }}
         className={cn(
-          "group relative flex h-full items-center gap-3 rounded-xl bg-card px-2 sm:gap-4 sm:px-3",
+          "group relative flex h-full cursor-pointer items-center gap-3 rounded-xl bg-card px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-4 sm:px-3",
           "hover:bg-muted/60",
           dragging
             ? "transition-none"
@@ -227,10 +251,25 @@ export function TransactionCard({
             )}
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2">
+            {(originLabel || sharedCount > 0) && (
+              <span
+                title={
+                  originLabel
+                    ? `From ${originLabel}`
+                    : `Also in ${sharedCount} other book${sharedCount === 1 ? "" : "s"}`
+                }
+                className="inline-flex h-5 max-w-[45%] shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 text-[11px] font-medium leading-none text-primary"
+              >
+                <BookOpen className="h-3 w-3 shrink-0" />
+                <span className="truncate">
+                  {originLabel ?? `+${sharedCount}`}
+                </span>
+              </span>
+            )}
             <CategoryTags
               category={transaction.category}
               type={transaction.type}
-              max={2}
+              max={originLabel ? 1 : 2}
               className="h-5 min-w-0 overflow-hidden"
             />
             <span
@@ -274,12 +313,20 @@ export function TransactionCard({
               variant="ghost"
               size="icon"
               aria-label="Transaction actions"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
               className="-mr-1 h-8 w-8 shrink-0 rounded-full text-muted-foreground opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 rounded-xl">
+          <DropdownMenuContent
+            align="end"
+            className="w-44 rounded-xl"
+            // Menu items render in a portal but React events still bubble
+            // to the row; don't let them open the edit form too
+            onClick={(e) => e.stopPropagation()}
+          >
             <DropdownMenuItem
               onClick={() => onEdit?.(transaction)}
               className="cursor-pointer gap-2"

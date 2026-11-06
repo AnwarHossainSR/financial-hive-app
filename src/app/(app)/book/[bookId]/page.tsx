@@ -7,6 +7,7 @@ import { CSVImport } from "@/components/CSVImport";
 import { DeleteConfirmationModal } from "@/components/DeleteConfirmationModal";
 import { MonthPicker } from "@/components/MonthPicker";
 import { PageHeader } from "@/components/PageHeader";
+import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { QuickCalculator } from "@/components/QuickCalculator";
 import { StatTile, type StatTrend } from "@/components/StatTile";
 import { TransactionForm } from "@/components/TransactionForm";
@@ -29,9 +30,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
+import { useBudget } from "@/hooks/useBudget";
 import {
   useTransactionTotals,
   useTransactions,
@@ -88,6 +91,7 @@ export default function BookDetailsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { books, initialized: booksInitialized } = useBooks();
   const selectedBook: Book | null =
     books.find((b) => b.id === bookId) ?? null;
@@ -122,14 +126,18 @@ export default function BookDetailsPage() {
     return getMonthDateRange(selectedMonth);
   }, [showAllData, filters.startDate, filters.endDate, selectedMonth]);
 
+  // The server shows every book for the default book's id, so the list can
+  // load without waiting for the books list
+  const scope = useMemo(() => ({ bookId }), [bookId]);
+
   const combinedFilters = useMemo(
     () => ({
       ...filters,
       ...periodFilters,
-      bookId: bookId || "",
+      ...scope,
       search: searchQuery,
     }),
-    [filters, periodFilters, bookId, searchQuery],
+    [filters, periodFilters, scope, searchQuery],
   );
 
   // The breakdown shows every category, so it ignores category and type
@@ -175,7 +183,7 @@ export default function BookDetailsPage() {
   const { data: previousTotals } = useTransactionTotals(
     {
       ...filters,
-      bookId,
+      ...scope,
       search: searchQuery,
       startDate: previousPeriod?.startDate,
       endDate: previousPeriod?.endDate,
@@ -187,14 +195,28 @@ export default function BookDetailsPage() {
   const totalIncome = totals.income;
   const totalExpense = totals.expense;
   const net = totalIncome - totalExpense;
+  // One overall budget across all books, shown on the default book against
+  // all of the month's spending (unaffected by the list's filters)
+  const isDefaultBook = !!selectedBook?.is_default;
   const budgetMonth = showAllData ? getCurrentMonth() : selectedMonth;
-  const monthlyBudget = selectedBook?.monthly_budgets?.find(
-    (b) => b.month === budgetMonth,
-  )?.amount;
-  const budgetAmount = monthlyBudget ? Number(monthlyBudget) : undefined;
+  const { budgetFor } = useBudget();
+  const budgetAmount = budgetFor(budgetMonth)?.amount;
+  const budgetRange = useMemo(
+    () => getMonthDateRange(budgetMonth),
+    [budgetMonth],
+  );
+  const { data: monthSpending } = useTransactionTotals(
+    { ...budgetRange, type: "expense" },
+    isDefaultBook,
+  );
+  const monthExpense = monthSpending?.expense ?? 0;
   const budgetUsed = budgetAmount
-    ? (totalExpense / budgetAmount) * 100
+    ? (monthExpense / budgetAmount) * 100
     : undefined;
+  const bookNames = useMemo(
+    () => Object.fromEntries(books.map((b) => [b.id, b.name])),
+    [books],
+  );
   const periodLabel = showAllData
     ? "All time"
     : filters.startDate || filters.endDate
@@ -357,12 +379,12 @@ export default function BookDetailsPage() {
             )
           }
           eyebrow={
-            <span className="inline-flex items-center gap-2">
+            <span className="inline-flex flex-wrap items-center gap-2">
               <span className="capitalize">{selectedBook.type} book</span>
               {selectedBook.is_default && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold text-gold-foreground dark:text-gold">
                   <Star className="h-3 w-3 fill-current" />
-                  Default
+                  Default · shows all books
                 </span>
               )}
             </span>
@@ -374,6 +396,7 @@ export default function BookDetailsPage() {
               <MonthPicker
                 value={selectedMonth}
                 onChange={setSelectedMonth}
+                className="min-w-0 flex-1 sm:flex-none"
               />
               <Button
                 variant="outline"
@@ -425,7 +448,7 @@ export default function BookDetailsPage() {
                     onClick={() => setShowBudget(true)}
                   >
                     <Target className="h-4 w-4 text-muted-foreground" />
-                    Set monthly budget
+                    Monthly budget (all books)
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="cursor-pointer gap-2"
@@ -501,13 +524,17 @@ export default function BookDetailsPage() {
               )}
               hint={previousPeriod ? undefined : periodLabel}
             />
-            {showAllData ? (
+            {showAllData || !isDefaultBook ? (
               <StatTile
                 label="Transactions"
                 value={pagination.totalCount.toLocaleString()}
                 icon={Receipt}
                 tone="primary"
-                hint="All time"
+                hint={
+                  isDefaultBook
+                    ? "All time"
+                    : `${periodLabel} · own + shared`
+                }
                 className="col-span-2 sm:col-span-1"
               />
             ) : (
@@ -521,7 +548,7 @@ export default function BookDetailsPage() {
                 className="col-span-2 rounded-2xl text-left transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1 lg:col-span-1"
               >
                 <StatTile
-                  label="Budget used"
+                  label="Budget used · all books"
                   value={
                     budgetUsed !== undefined
                       ? `${Math.round(budgetUsed)}%`
@@ -541,9 +568,9 @@ export default function BookDetailsPage() {
                   hint={
                     budgetAmount === undefined
                       ? "Tap to set a monthly budget"
-                      : budgetAmount - totalExpense >= 0
-                        ? `${formatTaka(budgetAmount - totalExpense)} left of ${formatTaka(budgetAmount)}`
-                        : `${formatTaka(totalExpense - budgetAmount)} over ${formatTaka(budgetAmount)}`
+                      : budgetAmount - monthExpense >= 0
+                        ? `${formatTaka(budgetAmount - monthExpense)} left of ${formatTaka(budgetAmount)}`
+                        : `${formatTaka(monthExpense - budgetAmount)} over ${formatTaka(budgetAmount)}`
                   }
                   className="h-full"
                 />
@@ -553,8 +580,10 @@ export default function BookDetailsPage() {
         )}
       </section>
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      {/* grid-cols-1 (minmax(0,1fr)) keeps wide rows from stretching the
+          page past the screen on phones */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
           {isFirstLoad ? (
             <TransactionsSkeleton />
           ) : (
@@ -572,11 +601,14 @@ export default function BookDetailsPage() {
               onLoadMore={loadMore}
               loadingMore={loadingMore}
               loading={transactionsLoading}
+              currentBookId={selectedBook?.id}
+              bookNames={bookNames}
             />
           )}
         </div>
+        {/* Above the list on phones, where the list scrolls on and on */}
         <CategoryBreakdown
-          className="lg:sticky lg:top-24"
+          className="order-first min-w-0 lg:sticky lg:top-24 lg:order-none"
           filters={breakdownFilters}
           activeCategory={filters.category}
           onSelectCategory={(category) =>
@@ -590,67 +622,59 @@ export default function BookDetailsPage() {
         <Button
           onClick={() => setShowAddForm(true)}
           aria-label="Add transaction"
-          className="fixed bottom-24 right-4 z-30 h-14 w-14 rounded-full bg-gradient-primary p-0 shadow-primary md:hidden"
+          className="fixed bottom-24 right-4 z-30 h-14 w-14 rounded-full p-0 shadow-primary ring-4 ring-background md:hidden"
         >
           <Plus className="h-6 w-6" />
         </Button>
       )}
 
       {/* Add */}
-      <Dialog
+      <ResponsiveDialog
         open={showAddForm}
         onOpenChange={(open) => {
           setShowAddForm(open);
           if (!open) setAddPrefill(null);
         }}
+        title="New transaction"
+        description={selectedBook ? `Adding to ${selectedBook.name}` : undefined}
       >
-        <DialogContent className="max-w-lg gap-0 rounded-2xl bg-card p-0 sm:rounded-2xl">
-          <DialogHeader className="space-y-1 px-6 pb-4 pt-6 text-left">
-            <DialogTitle className="text-lg">New transaction</DialogTitle>
-            {selectedBook && (
-              <DialogDescription>Adding to {selectedBook.name}</DialogDescription>
-            )}
-          </DialogHeader>
-          <div className="px-6 pb-6">
-            <TransactionForm
-              bookId={bookId || ""}
-              onSubmit={handleAddTransaction}
-              onCancel={() => {
-                setShowAddForm(false);
-                setAddPrefill(null);
-              }}
-              initialAmount={addPrefill?.amount}
-              initialNote={addPrefill?.note}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+        <TransactionForm
+          bookId={bookId || ""}
+          books={books}
+          autoFocusAmount={!isMobile}
+          onSubmit={handleAddTransaction}
+          onCancel={() => {
+            setShowAddForm(false);
+            setAddPrefill(null);
+          }}
+          initialAmount={addPrefill?.amount}
+          initialNote={addPrefill?.note}
+        />
+      </ResponsiveDialog>
 
       {/* Edit */}
-      <Dialog
+      <ResponsiveDialog
         open={!!editingTransaction}
         onOpenChange={(open) => !open && setEditingTransaction(null)}
+        title="Edit transaction"
+        description={
+          editingTransaction && editingTransaction.book_id !== bookId
+            ? `In ${bookNames[editingTransaction.book_id] ?? "another book"}`
+            : "Changes update the totals right away."
+        }
       >
-        <DialogContent className="max-w-lg gap-0 rounded-2xl bg-card p-0 sm:rounded-2xl">
-          <DialogHeader className="space-y-1 px-6 pb-4 pt-6 text-left">
-            <DialogTitle className="text-lg">Edit transaction</DialogTitle>
-            <DialogDescription>
-              Changes update this book&apos;s totals right away.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="px-6 pb-6">
-            {editingTransaction && (
-              <TransactionForm
-                key={editingTransaction.id}
-                bookId={bookId || ""}
-                transaction={editingTransaction}
-                onSubmit={handleEditTransaction}
-                onCancel={() => setEditingTransaction(null)}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        {editingTransaction && (
+          <TransactionForm
+            key={editingTransaction.id}
+            // Edited in its own book, even when opened from another view
+            bookId={editingTransaction.book_id}
+            books={books}
+            transaction={editingTransaction}
+            onSubmit={handleEditTransaction}
+            onCancel={() => setEditingTransaction(null)}
+          />
+        )}
+      </ResponsiveDialog>
 
       <QuickCalculator
         open={showCalculator}
@@ -680,10 +704,7 @@ export default function BookDetailsPage() {
           <BudgetDialog
             open={showBudget}
             onOpenChange={setShowBudget}
-            bookId={selectedBook.id}
-            bookName={selectedBook.name}
             month={budgetMonth}
-            currentAmount={budgetAmount}
           />
         </>
       )}

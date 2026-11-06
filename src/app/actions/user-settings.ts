@@ -71,6 +71,7 @@ export async function clearDatabaseAction(_isAdmin?: boolean) {
       prisma.transaction.deleteMany({}),
       prisma.bookMember.deleteMany({}),
       prisma.monthlyBudget.deleteMany({}),
+      prisma.userBudget.deleteMany({}),
       prisma.book.deleteMany({}),
       prisma.userSettings.deleteMany({}),
       prisma.notification.deleteMany({}),

@@ -152,7 +152,7 @@ export function AppSidebar() {
                     href={`/book/${book.id}`}
                     label={book.name}
                     active={pathname === `/book/${book.id}`}
-                    onPointerEnter={() => prefetchBook(book.id)}
+                    onPointerEnter={() => prefetchBook(book)}
                     icon={
                       <span
                         className={cn(
