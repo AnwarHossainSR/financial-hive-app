@@ -16,7 +16,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       <aside className="relative hidden overflow-hidden bg-gradient-primary p-10 text-white lg:flex lg:flex-col xl:p-14">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl"
+          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold/20 blur-3xl"
         />
         <div
           aria-hidden
@@ -34,7 +34,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <h2 className="text-4xl font-semibold leading-tight tracking-tight xl:text-5xl">
             Every taka,
             <br />
-            accounted for.
+            <span className="text-gold">accounted for.</span>
           </h2>
           <p className="mt-4 text-base text-white/75">
             Jot down spends as they happen, watch the month add up against your
@@ -43,7 +43,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <ul className="mt-8 space-y-3">
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3 text-sm">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-gold">
                   <Icon className="h-4 w-4" />
                 </span>
                 {text}
@@ -70,7 +70,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
-            <div className="h-full w-[72%] rounded-full bg-white" />
+            <div className="h-full w-[72%] rounded-full bg-gold" />
           </div>
           <p className="mt-2 text-xs text-white/70">72% of monthly budget used</p>
         </div>

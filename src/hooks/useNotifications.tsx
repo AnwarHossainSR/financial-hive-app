@@ -1,11 +1,10 @@
 import {
   clearAllNotificationsAction,
   deleteNotificationAction,
-  getNotificationsAction,
-  getUnreadCountAction,
   markAllAsReadAction,
   markAsReadAction,
 } from "@/app/actions/notifications";
+import { read } from "@/lib/read";
 import {
   keepPreviousData,
   useMutation,
@@ -51,7 +50,7 @@ export const useNotifications = () => {
     queryKey: notificationKeys.list(user?.id || ""),
     queryFn: async () => {
       if (!user?.id) return [];
-      const { notifications, error } = await getNotificationsAction(user.id);
+      const { notifications, error } = await read("notifications", user.id);
       if (error) throw new Error(error);
       return notifications as any[];
     },
@@ -66,7 +65,7 @@ export const useNotifications = () => {
     queryKey: notificationKeys.unreadCount(user?.id || ""),
     queryFn: async () => {
       if (!user?.id) return 0;
-      const { count, error } = await getUnreadCountAction(user.id);
+      const { count, error } = await read("unreadCount", user.id);
       if (error) throw new Error(error);
       return count;
     },

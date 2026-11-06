@@ -139,7 +139,7 @@ export function HeroTape() {
               <div
                 className={cn(
                   "h-full rounded-full transition-[width] duration-500",
-                  used >= 100 ? "bg-[#F43F5E]" : "bg-[#3B5BFD]",
+                  used >= 100 ? "bg-[#F43F5E]" : "bg-[#141B34] dark:bg-[#F2C14E]",
                 )}
                 style={{ width: `${used}%` }}
               />
@@ -150,7 +150,7 @@ export function HeroTape() {
         {/* Ruled ledger page with a red margin line */}
         <div
           ref={tapeRef}
-          className="relative h-[200px] overflow-y-auto bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_39px,rgba(59,91,253,0.13)_39px,rgba(59,91,253,0.13)_40px)] [scrollbar-width:none]"
+          className="relative h-[200px] overflow-y-auto bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_39px,rgba(233,168,37,0.22)_39px,rgba(233,168,37,0.22)_40px)] [scrollbar-width:none]"
         >
           {/* Wrapper grows with the list so the margin line scrolls with it */}
           <div className="relative min-h-full">
@@ -202,7 +202,7 @@ export function HeroTape() {
           <label htmlFor="hero-tape-input" className="sr-only">
             Add a spend, for example 80 tea
           </label>
-          <div className="flex items-center gap-2 rounded-2xl bg-[#F5F6FA] px-3 ring-[#3B5BFD] focus-within:ring-2 dark:bg-white/5">
+          <div className="flex items-center gap-2 rounded-2xl bg-[#F5F6FA] px-3 ring-[#E9A825] focus-within:ring-2 dark:bg-white/5">
             <input
               id="hero-tape-input"
               value={input}
@@ -235,14 +235,14 @@ export function HeroTape() {
                 setInput("");
                 setDemoDone(true);
               }}
-              className="inline-flex items-center gap-1 rounded text-[#141B34]/50 hover:text-[#141B34] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3B5BFD] dark:text-white/45 dark:hover:text-white"
+              className="inline-flex items-center gap-1 rounded text-[#141B34]/50 hover:text-[#141B34] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E9A825] dark:text-white/45 dark:hover:text-white"
             >
               <RotateCcw className="h-3 w-3" />
               Clear
             </button>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-1 rounded font-medium text-[#3B5BFD] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3B5BFD] dark:text-[#8EA2FF]"
+              className="inline-flex items-center gap-1 rounded font-medium text-[#E9A825] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E9A825] dark:text-[#F2C14E]"
             >
               Save this to a cashbook
               <ArrowRight className="h-3 w-3" />

@@ -9,6 +9,13 @@ export interface VirtualScrollConfig {
   threshold?: number; // Distance from bottom to trigger load more
   /** Per-row heights for lists with mixed rows; overrides itemHeight */
   itemSizes?: number[];
+  /**
+   * "container" (default): the element at containerRef scrolls, with
+   * containerHeight as its height. "window": the page scrolls and
+   * containerRef only marks where the list starts; the viewport height is
+   * measured instead.
+   */
+  scrollParent?: "container" | "window";
 }
 
 export interface VirtualScrollResult {

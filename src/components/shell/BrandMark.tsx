@@ -14,12 +14,12 @@ export function BrandMark({
     <span className="flex items-center gap-2.5">
       <span
         className={cn(
-          "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-primary text-white shadow-primary",
+          "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-primary text-gold shadow-primary ring-1 ring-inset ring-white/10",
           className,
         )}
       >
         <Hexagon className="h-5 w-5" strokeWidth={2.5} />
-        <span className="absolute h-1.5 w-1.5 rounded-full bg-white" />
+        <span className="absolute h-1.5 w-1.5 rounded-full bg-gold" />
       </span>
       {withName && (
         <span

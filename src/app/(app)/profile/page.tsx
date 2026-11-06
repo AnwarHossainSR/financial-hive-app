@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks } from "@/hooks/useBooks";
+import { useBudget } from "@/hooks/useBudget";
 import {
   useCategoryTotals,
   useTransactionTotals,
@@ -62,7 +63,8 @@ const monthOptions = () => {
 export default function ProfilePage() {
   const supabase = createClient();
   const { user } = useAuth();
-  const { books, setMonthlyBudget } = useBooks();
+  const { books } = useBooks();
+  const { budgetFor, setBudget, saving: savingBudget } = useBudget();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +78,6 @@ export default function ProfilePage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [budgetMonth, setBudgetMonth] = useState(getCurrentMonth);
   const [newBudget, setNewBudget] = useState("");
-  const [savingBudget, setSavingBudget] = useState(false);
 
   const displayName =
     displayNameDraft ?? (user?.user_metadata?.display_name || "");
@@ -85,8 +86,9 @@ export default function ProfilePage() {
     displayName || user?.email?.split("@")[0] || "User";
 
   const transactionFilters: TransactionFilters = useMemo(() => {
-    const filters: TransactionFilters = {};
-    if (selectedBookId !== "all") filters.bookId = selectedBookId;
+    // Same scope as the book page (the server expands the default book)
+    const filters: TransactionFilters =
+      selectedBookId !== "all" ? { bookId: selectedBookId } : {};
 
     const now = new Date();
     if (selectedTimePeriod === "month") {
@@ -116,22 +118,18 @@ export default function ProfilePage() {
   ).size;
   const net = totals.income - totals.expense;
 
-  // Spending in the budget month, for the progress bar
+  // The overall budget is compared with all of the month's spending
   const budgetRange = useMemo(() => getMonthDateRange(budgetMonth), [budgetMonth]);
   const { data: budgetMonthTotals } = useTransactionTotals({
     ...budgetRange,
     type: "expense",
-    bookId: selectedBookId !== "all" ? selectedBookId : undefined,
   });
   const monthExpenses = budgetMonthTotals?.expense ?? 0;
 
-  const budgetFor = (book: Book) =>
-    Number(book.monthly_budgets?.find((b) => b.month === budgetMonth)?.amount ?? 0);
   const typedBooks = books as Book[];
   const selectedBook = typedBooks.find((b) => b.id === selectedBookId);
-  const monthlyBudget = selectedBook
-    ? budgetFor(selectedBook)
-    : typedBooks.reduce((sum, book) => sum + budgetFor(book), 0);
+  const currentBudget = budgetFor(budgetMonth);
+  const monthlyBudget = currentBudget?.amount ?? 0;
   const budgetProgress =
     monthlyBudget > 0 ? (monthExpenses / monthlyBudget) * 100 : 0;
 
@@ -218,15 +216,9 @@ export default function ProfilePage() {
   };
 
   const handleSetBudget = async () => {
-    if (!selectedBook || !newBudget) return;
-    setSavingBudget(true);
-    // The hook shows the toast and refreshes books so the bar updates
-    const { error } = await setMonthlyBudget(
-      selectedBook.id,
-      budgetMonth,
-      Number(newBudget),
-    );
-    setSavingBudget(false);
+    if (!newBudget) return;
+    // The hook shows the toast and refreshes the budget so the bar updates
+    const { error } = await setBudget(budgetMonth, Number(newBudget));
     if (!error) setNewBudget("");
   };
 
@@ -244,15 +236,17 @@ export default function ProfilePage() {
       <section className="relative overflow-hidden rounded-2xl border bg-card shadow-card">
         <div
           aria-hidden
-          className="h-24 bg-gradient-primary opacity-90 sm:h-28"
-        />
+          className="relative h-24 overflow-hidden bg-gradient-primary sm:h-28"
+        >
+          <div className="absolute -right-10 -top-20 h-56 w-56 rounded-full bg-gold/25 blur-3xl" />
+        </div>
         <div className="px-5 pb-5 sm:px-6">
           <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-5">
               <div className="relative w-fit">
                 <Avatar className="h-24 w-24 ring-4 ring-card sm:h-28 sm:w-28">
                   <AvatarImage src={avatarUrl} alt="" />
-                  <AvatarFallback className="bg-gradient-primary text-2xl font-semibold text-white">
+                  <AvatarFallback className="bg-gradient-primary text-2xl font-semibold text-gold">
                     {getInitials(shownName)}
                   </AvatarFallback>
                 </Avatar>
@@ -500,7 +494,7 @@ export default function ProfilePage() {
             <div>
               <h2 className="text-base font-semibold">Monthly budget</h2>
               <p className="text-sm text-muted-foreground">
-                {selectedBook?.name ?? "All books"} ·{" "}
+                All books ·{" "}
                 {format(parse(budgetMonth, "yyyy-MM", new Date()), "MMMM yyyy")}
               </p>
             </div>
@@ -559,51 +553,51 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="mt-5 border-t pt-4">
-            {selectedBook ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSetBudget();
-                }}
-                className="flex gap-2"
+          <div className="mt-5 space-y-2 border-t pt-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSetBudget();
+              }}
+              className="flex gap-2"
+            >
+              <div className="relative flex-1">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
+                  ৳
+                </span>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  value={newBudget}
+                  onChange={(e) => setNewBudget(e.target.value)}
+                  placeholder={
+                    monthlyBudget > 0 ? String(monthlyBudget) : "Set amount"
+                  }
+                  aria-label="Budget amount"
+                  className="h-10 rounded-xl pl-7"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={!newBudget || savingBudget}
+                className="gap-2 rounded-xl"
               >
-                <div className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
-                    ৳
-                  </span>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    value={newBudget}
-                    onChange={(e) => setNewBudget(e.target.value)}
-                    placeholder={
-                      monthlyBudget > 0 ? String(monthlyBudget) : "Set amount"
-                    }
-                    aria-label="Budget amount"
-                    className="h-10 rounded-xl pl-7"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={!newBudget || savingBudget}
-                  className="gap-2 rounded-xl"
-                >
-                  {savingBudget ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Target className="h-4 w-4" />
-                  )}
-                  {monthlyBudget > 0 ? "Update" : "Set budget"}
-                </Button>
-              </form>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Choose a single book above to set its budget. With all books
-                selected, budgets are added together.
-              </p>
-            )}
+                {savingBudget ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Target className="h-4 w-4" />
+                )}
+                {monthlyBudget > 0 ? "Update" : "Set budget"}
+              </Button>
+            </form>
+            <p className="text-xs text-muted-foreground">
+              {currentBudget && currentBudget.fromMonth !== budgetMonth
+                ? `Carried over from ${format(parse(currentBudget.fromMonth, "yyyy-MM", new Date()), "MMMM yyyy")}. `
+                : ""}
+              One budget covers all your books and applies to the following
+              months until you change it.
+            </p>
           </div>
         </section>
       </div>

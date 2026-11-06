@@ -191,7 +191,7 @@ export default function SettingsPage() {
                       aria-hidden
                       className={cn(
                         "flex h-16 gap-1.5 p-2 sm:h-20",
-                        value === "light" && "bg-slate-100",
+                        value === "light" && "bg-stone-100",
                         value === "dark" && "bg-slate-900",
                         value === "system" &&
                           "bg-gradient-to-r from-slate-100 from-50% to-slate-900 to-50%",
@@ -210,7 +210,7 @@ export default function SettingsPage() {
                             value === "dark" ? "bg-slate-700" : "bg-white",
                           )}
                         />
-                        <div className="h-3 w-2/3 rounded bg-indigo-500" />
+                        <div className="h-3 w-2/3 rounded bg-amber-400" />
                       </div>
                     </div>
                     <div className="flex items-center justify-between px-3 py-2">

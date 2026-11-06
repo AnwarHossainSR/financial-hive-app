@@ -97,6 +97,7 @@ export async function deleteUserAction(userId: string) {
         },
       }),
       prisma.book.deleteMany({ where: { owner_id: userId } }),
+      prisma.userBudget.deleteMany({ where: { user_id: userId } }),
       prisma.userSettings.deleteMany({ where: { user_id: userId } }),
       prisma.notification.deleteMany({ where: { user_id: userId } }),
       prisma.profile.delete({ where: { user_id: userId } }),

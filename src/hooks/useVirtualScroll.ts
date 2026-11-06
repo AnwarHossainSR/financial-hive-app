@@ -11,10 +11,14 @@ export const useVirtualScroll = ({
   loadingMore = false,
   threshold = 200,
   itemSizes,
+  scrollParent = "container",
 }: VirtualScrollConfig): VirtualScrollResult => {
   const [scrollTop, setScrollTop] = useState(0);
+  const [windowHeight, setWindowHeight] = useState(containerHeight);
   const containerRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(false);
+  const isWindow = scrollParent === "window";
+  const viewHeight = isWindow ? windowHeight : containerHeight;
 
   // Prefix sums of row heights: offsets[i] is the top of row i
   const offsets = useMemo(() => {
@@ -40,9 +44,9 @@ export const useVirtualScroll = ({
   // Calculate visible range
   const visibleStartIndex = indexAt(scrollTop);
   const visibleEndIndex = offsets
-    ? Math.min(indexAt(scrollTop + containerHeight) + 1, totalItems)
+    ? Math.min(indexAt(scrollTop + viewHeight) + 1, totalItems)
     : Math.min(
-        visibleStartIndex + Math.ceil(containerHeight / itemHeight),
+        visibleStartIndex + Math.ceil(viewHeight / itemHeight),
         totalItems
       );
 
@@ -78,6 +82,34 @@ export const useVirtualScroll = ({
     [onLoadMore, hasNextPage, loadingMore, threshold]
   );
 
+  // Window mode: follow the page's scroll position relative to the list
+  useEffect(() => {
+    if (!isWindow) return;
+    const update = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setScrollTop(Math.max(0, -rect.top));
+      setWindowHeight(window.innerHeight);
+
+      if (onLoadMore && hasNextPage && !loadingMore && !isLoadingRef.current) {
+        if (rect.bottom - window.innerHeight < threshold) {
+          isLoadingRef.current = true;
+          onLoadMore();
+        }
+      }
+    };
+    // Measure once rows have rendered (also re-checks after a page loads)
+    const frame = requestAnimationFrame(update);
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [isWindow, onLoadMore, hasNextPage, loadingMore, threshold, totalItems]);
+
   // Reset loading ref when loadingMore changes
   useEffect(() => {
     if (!loadingMore) {
@@ -89,16 +121,15 @@ export const useVirtualScroll = ({
   const prevTotalItemsRef = useRef(totalItems);
   useEffect(() => {
     if (
+      !isWindow &&
       totalItems !== prevTotalItemsRef.current &&
       totalItems < prevTotalItemsRef.current
     ) {
-      if (containerRef.current) {
-        containerRef.current.scrollTop = 0;
-        setScrollTop(0);
-      }
+      // The resulting scroll event updates scrollTop through handleScroll
+      if (containerRef.current) containerRef.current.scrollTop = 0;
     }
     prevTotalItemsRef.current = totalItems;
-  }, [totalItems]);
+  }, [totalItems, isWindow]);
 
   return {
     containerRef,

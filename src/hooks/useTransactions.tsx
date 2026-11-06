@@ -1,19 +1,17 @@
 import {
   createTransactionAction,
   deleteTransactionAction,
-  getCategoryTotalsAction,
-  getPeriodTotalsAction,
-  getTransactionTotalsAction,
-  getTransactionsAction,
   importTransactionsAction,
   updateTransactionAction,
 } from "@/app/actions/transactions";
 import { supabase } from "@/integrations/supabase/client";
+import { read } from "@/lib/read";
 import {
   getCurrentMonth,
   getMonthDateRange,
   getPreviousPeriodRange,
 } from "@/lib/utils";
+import { Book } from "@/types/book";
 import {
   PaginationInfo,
   Transaction,
@@ -102,9 +100,11 @@ export const transactionsQueryOptions = (
   infiniteQueryOptions({
     queryKey: transactionKeys.infinite(userId, filters),
     queryFn: async ({ pageParam }) => {
-      const { transactions, total, totals, error } = await getTransactionsAction(
-        { ...toActionFilters(filters), page: pageParam, limit: ITEMS_PER_PAGE },
-      );
+      const { transactions, total, totals, error } = await read("transactions", {
+        ...toActionFilters(filters),
+        page: pageParam,
+        limit: ITEMS_PER_PAGE,
+      });
       if (error) throw new Error(error);
 
       const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -135,7 +135,8 @@ export const transactionTotalsQueryOptions = (
   queryOptions({
     queryKey: transactionKeys.totals(userId, filters),
     queryFn: async () => {
-      const { totals, error } = await getTransactionTotalsAction(
+      const { totals, error } = await read(
+        "transactionTotals",
         toActionFilters(filters),
       );
       if (error) throw new Error(error);
@@ -166,7 +167,7 @@ const withoutTransaction = (data: TransactionsData, id: string) => {
   };
 };
 
-const useTransactions = (filters: TransactionFilters = {}) => {
+const useTransactions = (filters: TransactionFilters = {}, enabled = true) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -183,7 +184,7 @@ const useTransactions = (filters: TransactionFilters = {}) => {
     refetch: refresh,
   } = useInfiniteQuery({
     ...transactionsQueryOptions(user?.id ?? "", filters),
-    enabled: !!user,
+    enabled: enabled && !!user,
     placeholderData: keepPreviousData,
   });
 
@@ -528,7 +529,8 @@ const usePeriodTotals = (
   return useQuery({
     queryKey: transactionKeys.periods(user?.id ?? "", filters, ranges),
     queryFn: async () => {
-      const { totals, error } = await getPeriodTotalsAction(
+      const { totals, error } = await read(
+        "periodTotals",
         toActionFilters(filters),
         ranges,
       );
@@ -546,7 +548,8 @@ const useCategoryTotals = (filters: TransactionFilters, enabled = true) => {
   return useQuery({
     queryKey: transactionKeys.categories(user?.id ?? "", filters),
     queryFn: async () => {
-      const { categories, error } = await getCategoryTotalsAction(
+      const { categories, error } = await read(
+        "categoryTotals",
         toActionFilters(filters),
       );
       if (error || !categories)
@@ -571,21 +574,23 @@ const usePrefetchBook = () => {
   const userId = user?.id;
 
   return useCallback(
-    (bookId: string) => {
+    (book: Pick<Book, "id">) => {
       if (!userId) return;
-      router.prefetch(`/book/${bookId}`);
+      router.prefetch(`/book/${book.id}`);
 
+      // Must match the book page's filters to land in the same cache entry
+      const scope = { bookId: book.id };
       const month = getCurrentMonth();
       queryClient.prefetchInfiniteQuery(
         transactionsQueryOptions(userId, {
-          bookId,
+          ...scope,
           ...getMonthDateRange(month),
         }),
       );
       const previous = getPreviousPeriodRange(month);
       queryClient.prefetchQuery(
         transactionTotalsQueryOptions(userId, {
-          bookId,
+          ...scope,
           startDate: previous.startDate,
           endDate: previous.endDate,
         }),

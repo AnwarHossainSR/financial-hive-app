@@ -31,11 +31,12 @@ export const metadata: Metadata = {
 };
 
 // Shared visual tokens (also used in HeroTape):
-// ink #141B34 · paper #F5F6FA · hive blue #3B5BFD · mint #12B981 · rose #F43F5E
+// ink #141B34 · paper #F5F6FA · gold #E9A825 (as text: #8A5A0F, dark #F2C14E)
+// · mint #12B981 · rose #F43F5E
 const card =
   "rounded-3xl border border-[#141B34]/10 bg-white p-6 dark:border-white/10 dark:bg-[#121933]";
 const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B5BFD]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E9A825]";
 const primaryCta = cn(
   "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#141B34] px-6 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 dark:bg-white dark:text-[#141B34]",
   focusRing,
@@ -98,7 +99,7 @@ export default function LandingPage() {
           <Link
             href="/signup"
             className={cn(
-              "rounded-full bg-[#3B5BFD] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2F4BE0]",
+              "rounded-full bg-[#E9A825] px-4 py-2 text-sm font-semibold text-[#141B34] hover:bg-[#F2C14E]",
               focusRing,
             )}
           >
@@ -111,7 +112,7 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="mx-auto grid max-w-6xl items-center gap-14 px-4 pb-20 pt-10 sm:px-6 md:grid-cols-[1.1fr_1fr] md:pt-16 lg:gap-20">
           <div>
-            <p className="text-sm font-medium text-[#3B5BFD] dark:text-[#8EA2FF]">
+            <p className="text-sm font-medium text-[#8A5A0F] dark:text-[#F2C14E]">
               Cashbooks, budgets and investments in ৳
             </p>
             <h1 className="mt-4 text-[clamp(2.75rem,7vw,5rem)] font-bold leading-[0.95] tracking-[-0.035em] [font-family:var(--font-display)]">
@@ -184,7 +185,7 @@ export default function LandingPage() {
                       <div
                         className={cn(
                           "h-full rounded-full",
-                          book.used > 90 ? "bg-[#F43F5E]" : "bg-[#3B5BFD]",
+                          book.used > 90 ? "bg-[#F43F5E]" : "bg-[#141B34] dark:bg-[#F2C14E]",
                         )}
                         style={{ width: `${book.used}%` }}
                       />
@@ -209,7 +210,7 @@ export default function LandingPage() {
                   Amount
                 </p>
                 <p className="mt-1 text-lg">৳ 120+45+30</p>
-                <p className="mt-1 text-sm text-[#3B5BFD] dark:text-[#8EA2FF]">
+                <p className="mt-1 text-sm text-[#8A5A0F] dark:text-[#F2C14E]">
                   = ৳195
                 </p>
               </div>
@@ -283,7 +284,7 @@ export default function LandingPage() {
                   CSV in
                 </div>
                 <div className="flex items-center gap-2 rounded-xl bg-[#F5F6FA] px-3 py-3 dark:bg-white/5">
-                  <FileDown className="h-4 w-4 text-[#3B5BFD]" />
+                  <FileDown className="h-4 w-4 text-[#8A5A0F] dark:text-[#F2C14E]" />
                   PDF out
                 </div>
               </div>
@@ -298,7 +299,7 @@ export default function LandingPage() {
         >
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 md:grid-cols-2">
             <div>
-              <p className="text-sm font-medium text-[#8EA2FF]">Investments</p>
+              <p className="text-sm font-medium text-[#F2C14E]">Investments</p>
               <h2 className="mt-3 text-3xl font-bold leading-tight tracking-tight [font-family:var(--font-display)] sm:text-4xl">
                 Your returns, next to your spending.
               </h2>

@@ -61,7 +61,7 @@ export function StatTile({
       className={cn(
         "relative flex flex-col overflow-hidden rounded-2xl border p-4 sm:p-5",
         featured
-          ? "border-transparent bg-gradient-primary text-primary-foreground shadow-primary"
+          ? "border-transparent bg-gradient-primary text-white shadow-primary dark:border-gold/20"
           : "bg-card shadow-card",
         className,
       )}
@@ -70,14 +70,14 @@ export function StatTile({
         // Soft highlight so the gradient doesn't look flat
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/15 blur-2xl"
+          className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-gold/25 blur-3xl"
         />
       )}
       <div className="relative flex items-start justify-between gap-3">
         <p
           className={cn(
             "text-xs font-medium sm:text-sm",
-            featured ? "text-primary-foreground/80" : "text-muted-foreground",
+            featured ? "text-white/75" : "text-muted-foreground",
           )}
         >
           {label}
@@ -85,7 +85,7 @@ export function StatTile({
         <span
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9",
-            featured ? "bg-white/15 text-primary-foreground" : TONE_ICON[tone],
+            featured ? "bg-white/10 text-gold" : TONE_ICON[tone],
           )}
         >
           <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
@@ -108,7 +108,7 @@ export function StatTile({
             className={cn(
               "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
               featured
-                ? "bg-white/15 text-primary-foreground"
+                ? "bg-white/15 text-white"
                 : trend.isGood
                   ? "bg-income/10 text-income"
                   : "bg-expense/10 text-expense",
@@ -140,7 +140,7 @@ export function StatTile({
             className={cn(
               "h-full rounded-full transition-[width] duration-700 ease-out",
               featured
-                ? "bg-white"
+                ? "bg-gold"
                 : progress > 100
                   ? "bg-expense"
                   : progress > 85
@@ -156,7 +156,7 @@ export function StatTile({
         <p
           className={cn(
             "relative mt-auto truncate pt-2 text-xs",
-            featured ? "text-primary-foreground/75" : "text-muted-foreground",
+            featured ? "text-white/70" : "text-muted-foreground",
           )}
         >
           {hint}

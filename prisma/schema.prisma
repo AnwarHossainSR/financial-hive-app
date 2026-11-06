@@ -20,18 +20,19 @@ model Profile {
 }
 
 model Book {
-  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String
-  type               BookType            @default(personal)
-  owner_id           String              @db.Uuid
-  description        String?
-  is_default         Boolean             @default(false)
-  created_at         DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime            @default(now()) @db.Timestamptz(6)
-  members            BookMember[]
-  transactions       Transaction[]
-  monthly_budgets    MonthlyBudget[]
-  investmentProjects InvestmentProject[]
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  type                BookType            @default(personal)
+  owner_id            String              @db.Uuid
+  description         String?
+  is_default          Boolean             @default(false)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  members             BookMember[]
+  transactions        Transaction[]
+  shared_transactions TransactionBook[]
+  monthly_budgets     MonthlyBudget[]
+  investmentProjects  InvestmentProject[]
 
   @@map("books")
 }
@@ -65,20 +66,38 @@ enum AppRole {
 }
 
 model Transaction {
-  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  book_id    String          @db.Uuid
-  user_id    String          @db.Uuid
-  type       TransactionType
-  amount     Decimal         @db.Decimal(15, 2)
-  category   String
-  note       String?
-  date       DateTime        @default(now()) @db.Timestamptz(6)
-  image_url  String?
-  created_at DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at DateTime        @default(now()) @db.Timestamptz(6)
-  book       Book            @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  book_id      String            @db.Uuid
+  user_id      String            @db.Uuid
+  type         TransactionType
+  amount       Decimal           @db.Decimal(15, 2)
+  category     String
+  note         String?
+  date         DateTime          @default(now()) @db.Timestamptz(6)
+  image_url    String?
+  created_at   DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime          @default(now()) @db.Timestamptz(6)
+  book         Book              @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  // Other books this transaction is also shown in (and counted toward)
+  shared_books TransactionBook[]
 
+  // Every list and total filters by user (or book) and orders by date
+  @@index([user_id, date(sort: Desc)])
+  @@index([book_id, date(sort: Desc)])
   @@map("transactions")
+}
+
+/// Links a transaction to an extra book it should also appear in
+model TransactionBook {
+  transaction_id String      @db.Uuid
+  book_id        String      @db.Uuid
+  created_at     DateTime    @default(now()) @db.Timestamptz(6)
+  transaction    Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  book           Book        @relation(fields: [book_id], references: [id], onDelete: Cascade)
+
+  @@id([transaction_id, book_id])
+  @@index([book_id])
+  @@map("transaction_books")
 }
 
 enum TransactionType {
@@ -99,6 +118,20 @@ model MonthlyBudget {
 
   @@unique([book_id, month])
   @@map("monthly_budgets")
+}
+
+/// One overall monthly budget per user, across all books. A month without a
+/// row uses the most recent earlier month's amount.
+model UserBudget {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  month      String   @db.VarChar(7)
+  amount     Decimal  @db.Decimal(15, 2)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([user_id, month])
+  @@map("user_budgets")
 }
 
 model UserSettings {
@@ -183,30 +216,30 @@ enum ProjectStatus {
 }
 
 model InvestmentEntry {
-  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id        String      @db.Uuid
-  user_id           String      @db.Uuid
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id        String            @db.Uuid
+  user_id           String            @db.Uuid
   order_no          Int?
-  order_date        DateTime    @db.Timestamptz(6)
+  order_date        DateTime          @db.Timestamptz(6)
   order_id          String?
-  investment_type   String      @default("Investment")
-  status            EntryStatus @default(active)
-  investment_amount Decimal     @db.Decimal(15, 2)
+  investment_type   String            @default("Investment")
+  status            EntryStatus       @default(active)
+  investment_amount Decimal           @db.Decimal(15, 2)
   duration_months   Int?
-  roi_min           Decimal?    @db.Decimal(5, 2)
-  roi_max           Decimal?    @db.Decimal(5, 2)
-  maturity_date     DateTime?   @db.Timestamptz(6)
-  expected_return   Decimal?    @db.Decimal(15, 2)
-  expected_profit   Decimal?    @db.Decimal(15, 2)
-  return_amount     Decimal?    @db.Decimal(15, 2)
-  actual_profit     Decimal?    @db.Decimal(15, 2)
-  capital_added     Decimal?    @db.Decimal(15, 2)
-  withdrawal_amount Decimal?    @db.Decimal(15, 2)
-  is_completed      Boolean?    @default(false)
+  roi_min           Decimal?          @db.Decimal(5, 2)
+  roi_max           Decimal?          @db.Decimal(5, 2)
+  maturity_date     DateTime?         @db.Timestamptz(6)
+  expected_return   Decimal?          @db.Decimal(15, 2)
+  expected_profit   Decimal?          @db.Decimal(15, 2)
+  return_amount     Decimal?          @db.Decimal(15, 2)
+  actual_profit     Decimal?          @db.Decimal(15, 2)
+  capital_added     Decimal?          @db.Decimal(15, 2)
+  withdrawal_amount Decimal?          @db.Decimal(15, 2)
+  is_completed      Boolean?          @default(false)
   notes             String?
   image_url         String?
-  created_at        DateTime    @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime    @default(now()) @db.Timestamptz(6)
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
   project           InvestmentProject @relation(fields: [project_id], references: [id], onDelete: Cascade)
 
   @@map("investment_entries")

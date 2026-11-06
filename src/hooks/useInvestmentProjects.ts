@@ -3,32 +3,16 @@
 import {
   createNewInvestmentProjectAction,
   deleteInvestmentProjectAction,
-  getInvestmentProjectsAction,
   updateInvestmentProjectAction,
 } from "@/app/actions/investments";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useInvestmentProjects = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const {
-    data: projects = [],
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["investment-projects", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { projects, error } = await getInvestmentProjectsAction(user.id);
-      if (error) throw new Error(error);
-      return projects;
-    },
-    enabled: !!user?.id,
-  });
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -117,10 +101,8 @@ export const useInvestmentProjects = () => {
     },
   });
 
+  // Mutations only: nothing reads a full project list, so none is fetched
   return {
-    projects,
-    isLoading,
-    error,
     createProject: createProjectMutation.mutateAsync,
     updateProject: updateProjectMutation.mutateAsync,
     deleteProject: deleteProjectMutation.mutateAsync,

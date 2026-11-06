@@ -16,12 +16,25 @@ import {
   joinCategories,
   parseCategories,
 } from "@/lib/utils";
+import { Book } from "@/types/book";
 import { Transaction, TransactionFormValues } from "@/types/transaction";
-import { ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Building2,
+  Check,
+  Loader2,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 
 interface TransactionFormProps {
+  /** The transaction's own book: the one it's added to, or edited in */
   bookId: string;
+  /** The user's books, for "Also show in" */
+  books?: Book[];
+  /** Focus the amount on open; off on phones, where it pops the keyboard */
+  autoFocusAmount?: boolean;
   /** Edit this transaction; omit to add a new one */
   transaction?: Transaction | null;
   /** Resolve to false when saving failed, so a new entry isn't cleared */
@@ -44,6 +57,8 @@ const categoriesFor = (type: "income" | "expense") =>
 
 export function TransactionForm({
   bookId,
+  books = [],
+  autoFocusAmount = true,
   transaction,
   onSubmit,
   onCancel,
@@ -67,7 +82,18 @@ export function TransactionForm({
   );
   const [note, setNote] = useState(transaction?.note ?? initialNote ?? "");
   const [date, setDate] = useState(() => getBangladeshTime(transaction?.date));
+  const [sharedBookIds, setSharedBookIds] = useState<string[]>(
+    transaction?.shared_book_ids ?? [],
+  );
   const [submitting, setSubmitting] = useState(false);
+
+  // The default book already shows every book, so sharing into it adds nothing
+  const shareOptions = books.filter((b) => b.id !== bookId && !b.is_default);
+  const defaultBook = books.find((b) => b.is_default && b.id !== bookId);
+  const toggleShared = (id: string) =>
+    setSharedBookIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
 
   // Amount accepts math like "120+45"; null means it doesn't parse
   const amountValue = evaluateExpression(amount);
@@ -98,6 +124,10 @@ export function TransactionForm({
         // Editing to an empty note must clear it, not leave the old one
         note: trimmedNote || (isEdit ? null : undefined),
         date: new Date(date),
+        // Only books still offered: one that became the default drops out
+        shared_book_ids: sharedBookIds.filter((id) =>
+          shareOptions.some((b) => b.id === id),
+        ),
       });
     } finally {
       setSubmitting(false);
@@ -108,13 +138,14 @@ export function TransactionForm({
       setCategories([]);
       setNote("");
       setDate(getBangladeshTime());
+      setSharedBookIds([]);
     }
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className={cn("w-full space-y-5", className)}
+      className={cn("w-full space-y-5 pb-1", className)}
     >
       {/* Type */}
       <div
@@ -166,7 +197,7 @@ export function TransactionForm({
             type="text"
             inputMode="decimal"
             autoComplete="off"
-            autoFocus={!isEdit}
+            autoFocus={!isEdit && autoFocusAmount}
             placeholder="0 or 120+45"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -175,7 +206,7 @@ export function TransactionForm({
                 setAmount(String(amountValue));
               }
             }}
-            className="h-16 rounded-2xl border-2 pl-11 text-3xl font-semibold md:text-3xl tracking-tight tabular-nums focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-14 rounded-2xl border-2 pl-11 text-2xl font-semibold tracking-tight tabular-nums focus-visible:border-primary focus-visible:ring-0 focus-visible:ring-offset-0 sm:h-16 sm:text-3xl md:text-3xl"
             required
           />
         </div>
@@ -243,13 +274,65 @@ export function TransactionForm({
         />
       </div>
 
-      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row">
+      {/* Also show in other books */}
+      {shareOptions.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Also show in <span className="font-normal">(optional)</span>
+            </Label>
+            {sharedBookIds.length > 0 && (
+              <span className="text-[11px] text-muted-foreground">
+                {sharedBookIds.length} selected
+              </span>
+            )}
+          </div>
+          <div
+            role="group"
+            aria-label="Also show in books"
+            className="flex flex-wrap gap-2"
+          >
+            {shareOptions.map((book) => {
+              const selected = sharedBookIds.includes(book.id);
+              const Icon = book.type === "business" ? Building2 : UserRound;
+              return (
+                <button
+                  key={book.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => toggleShared(book.id)}
+                  className={cn(
+                    "inline-flex h-9 max-w-full items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]",
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                  )}
+                >
+                  {selected ? (
+                    <Check className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span className="truncate">{book.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            It will appear in, and count toward, each book you pick.
+            {defaultBook && ` ${defaultBook.name} already shows everything.`}
+          </p>
+        </div>
+      )}
+
+      {/* Stays in view while the form scrolls inside its dialog or sheet */}
+      <div className="sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-card/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
         {onCancel && (
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
-            className="h-11 rounded-xl sm:flex-1"
+            className="h-11 flex-1 rounded-xl"
           >
             Cancel
           </Button>
@@ -258,7 +341,7 @@ export function TransactionForm({
           type="submit"
           disabled={!isValid || submitting}
           className={cn(
-            "h-11 rounded-xl font-semibold sm:flex-[2]",
+            "h-11 flex-[2] rounded-xl font-semibold",
             type === "income"
               ? "bg-income text-income-foreground hover:bg-income/90"
               : "bg-expense text-expense-foreground hover:bg-expense/90",

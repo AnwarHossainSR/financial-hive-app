@@ -1,10 +1,9 @@
 import {
   createBookAction,
   deleteBookAction,
-  getBooksAction,
   updateBookAction,
 } from "@/app/actions/books";
-import { setMonthlyBudgetAction } from "@/app/actions/profile";
+import { read } from "@/lib/read";
 import { Book } from "@/types/book";
 import {
   keepPreviousData,
@@ -42,7 +41,7 @@ const useBooks = () => {
     queryKey: bookKeys.list(user?.id || ""),
     queryFn: async () => {
       if (!user?.id) return [];
-      const { books, error } = await getBooksAction(user.id);
+      const { books, error } = await read("books", user.id);
       if (error) throw new Error(error);
       return books as any[];
     },
@@ -123,43 +122,6 @@ const useBooks = () => {
     },
   });
 
-  // Set monthly budget mutation
-  const setMonthlyBudgetMutation = useMutation({
-    mutationFn: async ({
-      bookId,
-      month,
-      amount,
-    }: {
-      bookId: string;
-      month: string;
-      amount: number;
-    }) => {
-      if (!user) throw new Error("User not authenticated");
-      const { budget, error } = await setMonthlyBudgetAction(
-        bookId,
-        month,
-        amount
-      );
-      if (error) throw new Error(error);
-      return budget;
-    },
-    onSuccess: async (data: any) => {
-      queryClient.invalidateQueries({ queryKey: bookKeys.all });
-
-      toast({
-        title: "Budget updated",
-        description: "Monthly budget has been set successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error setting monthly budget",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Delete book mutation
   const deleteBookMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -223,22 +185,6 @@ const useBooks = () => {
     [updateBookMutation]
   );
 
-  const setMonthlyBudget = useCallback(
-    async (bookId: string, month: string, amount: number) => {
-      try {
-        const data = await setMonthlyBudgetMutation.mutateAsync({
-          bookId,
-          month,
-          amount,
-        });
-        return { data, error: null };
-      } catch (error: any) {
-        return { error: error.message };
-      }
-    },
-    [setMonthlyBudgetMutation]
-  );
-
   const deleteBook = useCallback(
     async (id: string) => {
       try {
@@ -258,7 +204,6 @@ const useBooks = () => {
     initialized: !loading,
     createBook,
     updateBook,
-    setMonthlyBudget,
     deleteBook,
     refetch,
   };

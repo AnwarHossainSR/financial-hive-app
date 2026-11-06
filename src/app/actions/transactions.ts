@@ -30,24 +30,36 @@ function buildTransactionWhere(
   userId: string,
 ) {
   const where: any = { user_id: userId };
+  const and: any[] = [];
 
-  if (filters.bookId) where.book_id = filters.bookId;
+  // A book shows its own transactions plus those shared into it. Without a
+  // bookId (all books, or the default book) every transaction counts once.
+  if (filters.bookId) {
+    and.push({
+      OR: [
+        { book_id: filters.bookId },
+        { shared_books: { some: { book_id: filters.bookId } } },
+      ],
+    });
+  }
   if (filters.type) where.type = filters.type as any;
   if (filters.category) {
     // Categories are stored comma-separated ("Food & Dining, Wife"), so match
     // the category as a whole token anywhere in the list. Legacy rows with a
     // single category still match via the exact-equality branch.
     const cat = filters.category;
-    where.OR = [
-      { category: cat },
-      { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
-      { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
-      {
-        category: {
-          contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
+    and.push({
+      OR: [
+        { category: cat },
+        { category: { startsWith: `${cat}${CATEGORY_SEPARATOR}` } },
+        { category: { endsWith: `${CATEGORY_SEPARATOR}${cat}` } },
+        {
+          category: {
+            contains: `${CATEGORY_SEPARATOR}${cat}${CATEGORY_SEPARATOR}`,
+          },
         },
-      },
-    ];
+      ],
+    });
   }
   if (filters.startDate) {
     const start = new Date(filters.startDate);
@@ -59,13 +71,54 @@ function buildTransactionWhere(
     if (filters.endDate.length <= 10) end.setHours(23, 59, 59, 999);
     where.date = { ...where.date, lte: end };
   }
-  const noteTerms = [filters.search, filters.note].filter(Boolean);
-  if (noteTerms.length > 0) {
-    where.AND = noteTerms.map((term) => ({
-      note: { contains: term, mode: "insensitive" },
-    }));
+  for (const term of [filters.search, filters.note]) {
+    if (term) and.push({ note: { contains: term, mode: "insensitive" } });
   }
+  if (and.length > 0) where.AND = and;
   return where;
+}
+
+/**
+ * What a book page shows. The default book is the overview of every book, so
+ * its id means "no book filter"; any other book shows its own transactions
+ * plus those shared into it. Deciding here means the page doesn't have to
+ * load the books list before it can ask for transactions.
+ */
+async function resolveBookScope(
+  filters: TransactionQueryFilters,
+  userId: string,
+): Promise<TransactionQueryFilters> {
+  if (!filters.bookId) return filters;
+  const book = await prisma.book.findFirst({
+    where: { id: filters.bookId, owner_id: userId },
+    select: { is_default: true },
+  });
+  return book?.is_default ? { ...filters, bookId: undefined } : filters;
+}
+
+/**
+ * The other books a transaction should also appear in: distinct, without its
+ * own book, and all owned by the user.
+ */
+async function resolveSharedBookIds(
+  userId: string,
+  homeBookId: string,
+  ids: unknown,
+): Promise<string[]> {
+  if (!Array.isArray(ids)) return [];
+  const unique = [
+    ...new Set(
+      ids.filter(
+        (id): id is string => typeof id === "string" && id !== homeBookId,
+      ),
+    ),
+  ];
+  if (unique.length === 0) return [];
+  const owned = await prisma.book.count({
+    where: { id: { in: unique }, owner_id: userId },
+  });
+  if (owned !== unique.length) throw new Error("Book not found");
+  return unique;
 }
 
 async function sumByType(where: any) {
@@ -85,8 +138,9 @@ export async function getTransactionTotalsAction(
 ) {
   try {
     const userId = await requireUserId();
+    const scoped = await resolveBookScope(filters, userId);
     return {
-      totals: await sumByType(buildTransactionWhere(filters, userId)),
+      totals: await sumByType(buildTransactionWhere(scoped, userId)),
       error: null,
     };
   } catch (error: any) {
@@ -105,11 +159,12 @@ export async function getPeriodTotalsAction(
 ) {
   try {
     const userId = await requireUserId();
+    const scoped = await resolveBookScope(filters, userId);
     const totals = await Promise.all(
       ranges
         .slice(0, 24)
         .map((range) =>
-          sumByType(buildTransactionWhere({ ...filters, ...range }, userId)),
+          sumByType(buildTransactionWhere({ ...scoped, ...range }, userId)),
         ),
     );
     return { totals, error: null };
@@ -128,9 +183,10 @@ export async function getCategoryTotalsAction(
 ) {
   try {
     const userId = await requireUserId();
+    const scoped = await resolveBookScope(filters, userId);
     const groups = await prisma.transaction.groupBy({
       by: ["category", "type"],
-      where: buildTransactionWhere(filters, userId),
+      where: buildTransactionWhere(scoped, userId),
       _sum: { amount: true },
       _count: { _all: true },
     });
@@ -170,7 +226,10 @@ export async function getTransactionsAction(
 
   try {
     const userId = await requireUserId();
-    const where = buildTransactionWhere(filters, userId);
+    const where = buildTransactionWhere(
+      await resolveBookScope(filters, userId),
+      userId,
+    );
 
     const [transactions, total, totals] = await Promise.all([
       prisma.transaction.findMany({
@@ -178,6 +237,7 @@ export async function getTransactionsAction(
         orderBy: [{ date: "desc" }, { created_at: "desc" }],
         skip: page * limit,
         take: limit,
+        include: { shared_books: { select: { book_id: true } } },
       }),
       prisma.transaction.count({ where }),
       // Totals across every matching row, not just the loaded page; only
@@ -186,8 +246,9 @@ export async function getTransactionsAction(
     ]);
 
     return {
-      transactions: transactions.map((t) => ({
+      transactions: transactions.map(({ shared_books, ...t }) => ({
         ...t,
+        shared_book_ids: shared_books.map((share) => share.book_id),
         amount: Number(t.amount),
         note: t.note || undefined,
         image_url: t.image_url || undefined,
@@ -208,12 +269,21 @@ export async function createTransactionAction(_userId: string, data: any) {
   try {
     const userId = await requireUserId();
     await assertOwnsBook(userId, data.book_id);
+    const { shared_book_ids, ...fields } = stripOwnership(data);
+    const sharedBookIds = await resolveSharedBookIds(
+      userId,
+      data.book_id,
+      shared_book_ids,
+    );
     const transaction = await prisma.transaction.create({
       data: {
-        ...stripOwnership(data),
+        ...fields,
         user_id: userId,
         amount: Number(data.amount),
         date: new Date(data.date),
+        shared_books: {
+          create: sharedBookIds.map((book_id) => ({ book_id })),
+        },
       },
     });
 
@@ -249,15 +319,40 @@ export async function updateTransactionAction(
       await assertOwnsBook(userId, updates.book_id);
     }
 
-    const transaction = await prisma.transaction.update({
-      where: { id: transactionId },
-      data: {
-        ...stripOwnership(updates),
-        amount:
-          updates.amount !== undefined ? Number(updates.amount) : undefined,
-        date: updates.date !== undefined ? new Date(updates.date) : undefined,
-        updated_at: new Date(),
-      },
+    const { shared_book_ids, ...fields } = stripOwnership(updates);
+    // Only replace the shared books when the caller sent a list
+    const sharedBookIds =
+      shared_book_ids === undefined
+        ? undefined
+        : await resolveSharedBookIds(
+            userId,
+            updates.book_id ?? existing.book_id,
+            shared_book_ids,
+          );
+
+    const transaction = await prisma.$transaction(async (tx) => {
+      if (sharedBookIds) {
+        await tx.transactionBook.deleteMany({
+          where: { transaction_id: transactionId },
+        });
+        await tx.transactionBook.createMany({
+          data: sharedBookIds.map((book_id) => ({
+            transaction_id: transactionId,
+            book_id,
+          })),
+        });
+      }
+      return tx.transaction.update({
+        where: { id: transactionId },
+        data: {
+          ...fields,
+          amount:
+            updates.amount !== undefined ? Number(updates.amount) : undefined,
+          date:
+            updates.date !== undefined ? new Date(updates.date) : undefined,
+          updated_at: new Date(),
+        },
+      });
     });
 
     await updateTransactionNotification(userId, {
@@ -316,7 +411,8 @@ export async function importTransactionsAction(
     });
     if (owned !== bookIds.length) throw new Error("Book not found");
 
-    const data = transactions.map((t) => ({
+    // Imports don't share into other books
+    const data = transactions.map(({ shared_book_ids: _shared, ...t }) => ({
       ...stripOwnership(t),
       user_id: userId,
       amount: Number(t.amount),
